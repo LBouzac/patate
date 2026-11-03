@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,5 +188,15 @@ func TestGolfRooms(t *testing.T) {
 	coursesMu.Unlock()
 	if still {
 		t.Fatal("un salon vide doit être supprimé")
+	}
+}
+
+// Un trou sans sable ni eau doit envoyer [] et non null : sinon le navigateur n'affiche ni murs, ni trou, ni balle.
+func TestGolfHoleNoNull(t *testing.T) {
+	r := rand.New(rand.NewPCG(1, 2))
+	for range 100 {
+		if b, _ := json.Marshal(genHole(r, 1)); strings.Contains(string(b), "null") {
+			t.Fatalf("null dans le trou envoyé au navigateur : %s", b)
+		}
 	}
 }

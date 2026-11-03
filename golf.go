@@ -98,7 +98,9 @@ func hitsWall(ws []Wall, x, y, r float64) bool {
 func genHole(r *rand.Rand, num int) Hole {
 	between := func(a, b float64) float64 { return a + r.Float64()*(b-a) }
 	for {
-		h := Hole{Num: num, TeeX: between(50, 110), TeeY: between(50, GH-50), CupX: between(GW-150, GW-50), CupY: between(50, GH-50)}
+		// listes jamais nil : en JSON, null au lieu de [] fait planter le dessin du terrain dans le navigateur
+		h := Hole{Num: num, TeeX: between(50, 110), TeeY: between(50, GH-50), CupX: between(GW-150, GW-50), CupY: between(50, GH-50),
+			Walls: []Wall{}, Sand: []Circle{}, Water: []Circle{}}
 		if r.IntN(2) == 0 { // départ à droite une fois sur deux
 			h.TeeX, h.CupX = GW-h.TeeX, GW-h.CupX
 		}
