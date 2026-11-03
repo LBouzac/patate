@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -172,4 +174,26 @@ func TestPetanqueBot(t *testing.T) {
 	if len(g.Players) != 0 {
 		t.Fatal("les bots partent avec le dernier humain")
 	}
+}
+
+// Au début d'une mène il n'y a aucune boule : le serveur doit envoyer [] et pas null, sinon le navigateur
+// n'affiche plus le cochonnet (on lançait à l'aveugle).
+func TestPetanqueNoNullBoules(t *testing.T) {
+	g := newPitch("0000")
+	a := g.join("A", false)
+	check := func(when string) {
+		b, _ := json.Marshal(g)
+		if strings.Contains(string(b), `"boules":null`) {
+			t.Fatalf("%s : boules à null dans l'état envoyé", when)
+		}
+	}
+	check("en attente")
+	b := g.join("B", false)
+	for g.Phase != "aim" {
+		g.step(0.1)
+	}
+	check("début de mène")
+	g.leave(b.ID)
+	check("retour en attente")
+	_ = a
 }

@@ -207,8 +207,11 @@ function draw(now) {
       const mine = boules.filter(b => b.owner === st.point).sort((a, b) => Math.hypot(a.x - jack.x, a.y - jack.y) - Math.hypot(b.x - jack.x, b.y - jack.y))[0];
       if (mine) { ctx.setLineDash([4, 6]); ctx.strokeStyle = '#fde04790'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(jack.x, jack.y); ctx.lineTo(mine.x, mine.y); ctx.stroke(); ctx.setLineDash([]); }
     }
+    // halo + contour blanc : le cochonnet se repère même en petit sur téléphone
+    ctx.strokeStyle = '#ffffff70'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(jack.x, jack.y, JACK_R + 9 + Math.sin(now / 300) * 2, 0, 7); ctx.stroke();
     ctx.fillStyle = '#0005'; ctx.beginPath(); ctx.arc(jack.x + 1, jack.y + 2, JACK_R, 0, 7); ctx.fill();
-    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(jack.x, jack.y, JACK_R, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(jack.x, jack.y, JACK_R, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
   }
   for (const b of boules) boule(b.x, b.y, pl(b.owner)?.color || '#64748b');
   if (myTurn() && !drag) { ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(CX, CY, 28 + Math.sin(now / 200) * 3, 0, 7); ctx.stroke(); }

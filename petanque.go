@@ -67,7 +67,8 @@ type Pitch struct {
 	nextID  int
 }
 
-func newPitch(pin string) *Pitch { return &Pitch{Pin: pin, Phase: "wait"} }
+// Boules n'est jamais nil : en JSON, null au lieu de [] fait planter le dessin du terrain (plus de cochonnet visible).
+func newPitch(pin string) *Pitch { return &Pitch{Pin: pin, Phase: "wait", Boules: []*Boule{}} }
 
 func (g *Pitch) event(e Event) { g.Events = append(g.Events, e) }
 
@@ -114,7 +115,7 @@ func (g *Pitch) leave(id int) {
 		g.Players = nil // plus aucun humain : les bots partent aussi
 	}
 	if len(g.Players) < 2 {
-		g.Phase, g.Wait, g.Boules, g.Jack = "wait", 0, nil, nil
+		g.Phase, g.Wait, g.Boules, g.Jack = "wait", 0, []*Boule{}, nil
 		for _, p := range g.Players {
 			p.Score, p.Left = 0, 0
 		}
@@ -140,7 +141,7 @@ func (g *Pitch) newMene() {
 		g.starter = g.Players[rand.IntN(len(g.Players))].ID
 	}
 	g.Mene++
-	g.Boules, g.Point = nil, 0
+	g.Boules, g.Point = []*Boule{}, 0
 	g.Jack = &Boule{Body: Body{X: 450 + rand.Float64()*270, Y: 80 + rand.Float64()*(PH-160), r: JackR, m: 0.3, drag: BouleDrag}}
 	for _, p := range g.Players {
 		p.Left = BoulesEach
