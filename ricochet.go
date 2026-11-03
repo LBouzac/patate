@@ -326,7 +326,7 @@ func (d *Duel) closeIfEmpty() bool {
 }
 
 func serveDuel(w http.ResponseWriter, r *http.Request) {
-	session(w, r, func(name string, q url.Values) (*Seat, string) {
+	session(w, r, 256, func(name string, q url.Values) (*Seat, string) {
 		d, p, why := enterDuel(q.Get("pin"), name)
 		if p == nil {
 			return nil, why

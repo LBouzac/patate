@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-//go:embed index.html ricochet.html common.js style.css
+//go:embed index.html ricochet.html dessin.html golf.html admin.html common.js style.css
 var files embed.FS
 
 const (
@@ -654,7 +654,7 @@ func (g *Game) closeIfEmpty() bool {
 }
 
 func serveWS(w http.ResponseWriter, r *http.Request) {
-	session(w, r, func(name string, q url.Values) (*Seat, string) {
+	session(w, r, 256, func(name string, q url.Values) (*Seat, string) {
 		g, p, why := enter(q.Get("pin"), name, q.Get("mode"))
 		if p == nil {
 			return nil, why
@@ -694,8 +694,19 @@ func serveWS(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/ws", serveWS)
 	http.HandleFunc("/ws/ricochet", serveDuel)
+	http.HandleFunc("/ws/golf", serveGolf)
+	http.HandleFunc("/ws/dessin", serveSketch)
+	http.HandleFunc("/admin/update", serveUpdate)
+	http.HandleFunc("/admin/version", serveVersion)
 	http.Handle("/", http.FileServerFS(files))
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
-	log.Println("Patate sur", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           secure(http.DefaultServeMux),
+		ReadHeaderTimeout: 10 * time.Second, // une connexion qui traîne ne bloque pas le serveur
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    16 << 10,
+	}
+	log.Println("Patate", version(), "sur", addr)
+	log.Fatal(srv.ListenAndServe())
 }

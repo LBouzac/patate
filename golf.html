@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Golf</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<!-- Accueil -->
+<main id="home" class="grid min-h-full place-items-center p-4">
+  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900 p-8 shadow-2xl ring-1 ring-white/10">
+    <div class="text-center">
+      <div class="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30">
+        <i data-icon="map" class="size-8"></i>
+      </div>
+      <h1 class="text-3xl font-black tracking-tight">Golf</h1>
+      <p class="mt-1 text-sm text-slate-400">Mini-golf à plusieurs. 9 trous, tous différents à chaque partie.</p>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Pseudo</span>
+      <span class="relative block">
+        <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-400 focus:outline-none">
+      </span>
+    </label>
+
+    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2.5 font-semibold text-slate-950 shadow-lg shadow-cyan-400/20 transition hover:bg-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300">
+      <i data-icon="plus-circle" class="size-5"></i> Créer un parcours
+    </button>
+
+    <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
+      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre <span class="h-px flex-1 bg-white/10"></span>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Code du parcours</span>
+      <span class="relative block">
+        <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-orange-400 focus:outline-none">
+      </span>
+    </label>
+
+    <button id="join" class="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-orange-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+      <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
+    </button>
+
+    <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+
+    <a href="/" class="flex items-center justify-center gap-1.5 text-sm text-slate-400 transition hover:text-orange-300">
+      <i data-icon="fire" class="size-4"></i> Plutôt une partie de Patate à plusieurs ?
+    </a>
+  </form>
+</main>
+
+<!-- Parcours -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10">
+      <i data-icon="map" class="size-4 text-emerald-300"></i> <b id="holeTxt" class="font-semibold text-slate-100"></b>
+    </span>
+    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-sm text-slate-300 ring-1 ring-white/10">
+      <i data-icon="clock" class="size-4"></i> <span id="timeTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-lg bg-slate-800 text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="500" aria-label="Trou de golf : clique, tire en arrière puis relâche pour frapper"
+      style="touch-action:none" class="block w-full rounded-xl ring-1 ring-white/10"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center"></div>
+  </div>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <footer class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
+    Clique n'importe où, tire en arrière puis relâche pour frapper (plus tu tires, plus c'est fort).
+    Le sable freine, l'eau coûte un coup.
+    <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const W = 800, H = 500, BALL_R = 6, CUP_R = 11, HOLES = 9, MAX_DRAG = 160, TICK_MS = 1000 / 60;
+
+let st = null, prev = null, tRecv = 0;
+
+function start(pin) {
+  connect('/ws/golf', pin, '', m => {
+    if (!m) { st = prev = null; return; }
+    prev = st; st = m; tRecv = performance.now();
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+
+const mine = () => st?.golfers.find(g => g.id === me);
+const canShoot = () => { const g = mine(); return st.phase === 'play' && g && !g.done && !g.moving; };
+
+// ---------- Visée : on tire en arrière comme un lance-pierre ----------
+let drag = null; // {x, y} position du pointeur, en coordonnées du terrain
+function toField(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+function aim() {
+  const g = mine(), dx = g.x - drag.x, dy = g.y - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => { if (st && canShoot()) { drag = toField(e); cv.setPointerCapture(e.pointerId); } };
+cv.onpointermove = e => { if (drag) drag = toField(e); };
+cv.onpointerup = () => {
+  if (!drag) return;
+  if (canShoot()) { const s = aim(); if (s.p > 0.04) send(s); }
+  drag = null;
+};
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const toPar = n => n === 0 ? 'E' : (n > 0 ? '+' : '') + n;
+function label(strokes, par) {
+  if (strokes === 1) return 'Trou en un !';
+  return { '-3': 'Albatros !', '-2': 'Eagle !', '-1': 'Birdie', 0: 'Par', 1: 'Bogey', 2: 'Double bogey' }[strokes - par] ?? toPar(strokes - par);
+}
+const el = (tag, cls, ...children) => { const e = document.createElement(tag); e.className = cls; e.append(...children); return e; };
+let overlayKey = '';
+function overlay(key, build) {
+  if (key === overlayKey) return;
+  overlayKey = key;
+  $('overlay').replaceChildren(...(build ? [build()] : []));
+}
+const bubble = (...c) => el('div', 'flex flex-col items-center gap-2 rounded-2xl bg-slate-950/70 px-8 py-5 text-center ring-1 ring-white/10 backdrop-blur', ...c);
+const ranked = () => [...st.golfers].sort((a, b) => a.toPar - b.toPar);
+
+function card() {
+  const head = el('tr', 'text-slate-500', el('td', '', ''));
+  for (let i = 1; i <= HOLES; i++) head.append(el('td', 'px-1.5', i));
+  head.append(el('td', 'px-3', 'Total'));
+  const rows = ranked().map(g => {
+    const tr = el('tr', g.id === me ? 'font-bold' : '', el('td', 'pr-3', el('span', '', '● ', g.name)));
+    tr.firstChild.style.textAlign = 'left';
+    tr.firstChild.firstChild.style.color = g.color;
+    for (let i = 0; i < HOLES; i++) tr.append(el('td', 'px-1.5 tabular-nums', g.card[i] ? g.card[i] : i < g.card.length ? '–' : ''));
+    tr.append(el('td', 'px-3 font-mono text-amber-300', toPar(g.toPar)));
+    return tr;
+  });
+  return el('table', 'font-mono text-sm', head, ...rows);
+}
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  set($('holeTxt'), `Trou ${st.hole.num}/${HOLES} · Par ${st.hole.par}`);
+  set($('timeTxt'), st.phase === 'play' ? Math.max(0, Math.ceil(st.wait)) + ' s' : '–');
+
+  const key = ranked().map(g => `${g.id}:${g.toPar}:${g.strokes}:${g.done}`).join() + me;
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...ranked().map(g => {
+      const chip = el('span', 'inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 ring-1 ring-white/10',
+        el('span', 'size-3 rounded-full', ''), el('span', g.id === me ? 'font-bold' : '', g.name),
+        el('span', 'font-mono text-amber-300', toPar(g.toPar)),
+        el('span', 'text-xs text-slate-400', g.done && st.phase === 'play' ? 'fini · ' + g.strokes : g.strokes + ' coup' + (g.strokes > 1 ? 's' : '')));
+      chip.children[0].style.background = g.color;
+      return chip;
+    }));
+  }
+
+  if (st.phase === 'hole') overlay('hole' + st.hole.num, () => bubble(
+    el('div', 'text-lg font-bold', `Fin du trou ${st.hole.num}`), card(),
+    el('div', 'flex items-center gap-2 text-sm text-slate-400', icon('arrow-path', 'size-4'), 'Trou suivant, tout neuf, dans quelques secondes…')));
+  else if (st.phase === 'end') overlay('end', () => bubble(
+    el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'), card(),
+    el('div', 'flex items-center gap-2 text-sm text-slate-400', icon('arrow-path', 'size-4'), 'Nouveau parcours dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+let particles = [], rings = [], popups = [];
+
+function burst(x, y, n, color, speed, life) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random());
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life, size: 1.5 + Math.random() * 2.5, color });
+  }
+}
+function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 1.6 }); }
+
+function onEvent(e) {
+  const g = st.golfers.find(g => g.id === e.a), isMe = e.a === me;
+  switch (e.kind) {
+    case 'shot':
+      if (isMe) { tone(180, 0.08, 'triangle', 0.15, 90); noise(0.06, 0.1); }
+      break;
+    case 'wall':
+      tone(420, 0.04, 'square', 0.04);
+      break;
+    case 'cup':
+      if (!g) break;
+      burst(e.x, e.y, 40, g.color, 200, 0.9);
+      rings.push({ x: e.x, y: e.y, r: CUP_R, life: 0.5, color: g.color });
+      popup(e.x, e.y - 24, g.name + ' : ' + label(g.strokes, st.hole.par), g.color);
+      if (isMe) [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', 0.12, 0, i * 0.09));
+      else tone(660, 0.12, 'sine', 0.06);
+      break;
+    case 'splash':
+      burst(e.x, e.y, 30, '#93c5fd', 160, 0.6);
+      rings.push({ x: e.x, y: e.y, r: 4, life: 0.6, color: '#bfdbfe' });
+      if (g) popup(e.x, e.y - 20, 'Plouf ! +1', '#bfdbfe');
+      if (isMe) noise(0.4, 0.25);
+      break;
+    case 'pickup':
+      if (g) popup(e.x, e.y - 20, 'Balle ramassée', '#e2e8f0');
+      break;
+    case 'hole':
+      tone(440, 0.1, 'sine', 0.08); tone(660, 0.12, 'sine', 0.08, 0, 0.1);
+      break;
+    case 'win':
+      [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12));
+      break;
+  }
+}
+
+// ---------- Terrain (canvas) ----------
+// Mouvements fluides : interpolation entre les deux derniers états (≈ 1 image de retard)
+function balls(now) {
+  const a = Math.min((now - tRecv) / TICK_MS, 1);
+  return st.golfers.map(g => {
+    const p = prev?.golfers.find(o => o.id === g.id);
+    return p && Math.hypot(g.x - p.x, g.y - p.y) < 60 ? { ...g, x: p.x + (g.x - p.x) * a, y: p.y + (g.y - p.y) * a } : g;
+  });
+}
+
+function blobs(cs, color, grow = 0) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (const c of cs) { ctx.moveTo(c.x + c.r + grow, c.y); ctx.arc(c.x, c.y, c.r + grow, 0, 7); }
+  ctx.fill();
+}
+
+function course(h, t) {
+  // herbe tondue en bandes
+  for (let x = 0; x < W; x += 50) { ctx.fillStyle = (x / 50) % 2 ? '#3f9b52' : '#45a659'; ctx.fillRect(x, 0, 50, H); }
+  // sable, eau (avec un bord plus clair qui ondule)
+  blobs(h.sand, '#c8b27a', 3); blobs(h.sand, '#e8d6a0');
+  blobs(h.water, '#9fd3f0', 3 + Math.sin(t / 400) * 1.5); blobs(h.water, '#2f7fc1'); blobs(h.water.map(c => ({ ...c, r: c.r * 0.55 })), '#3b8fd1');
+  // murs en bois
+  for (const w of h.walls) {
+    ctx.fillStyle = '#00000030'; ctx.fillRect(w.x + 3, w.y + 3, w.w, w.h);
+    ctx.fillStyle = '#7a5530'; ctx.beginPath(); ctx.roundRect(w.x, w.y, w.w, w.h, 3); ctx.fill();
+    ctx.fillStyle = '#9b7040'; ctx.fillRect(w.x + 2, w.y + 2, w.w - 4, Math.min(5, w.h - 4));
+  }
+  // départ
+  ctx.fillStyle = '#2e7d3f'; ctx.beginPath(); ctx.roundRect(h.teeX - 18, h.teeY - 18, 36, 36, 6); ctx.fill();
+  // trou et drapeau qui flotte
+  ctx.fillStyle = '#5cbf6e'; ctx.beginPath(); ctx.arc(h.cupX, h.cupY, CUP_R + 9, 0, 7); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(h.cupX, h.cupY, CUP_R, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#eee'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(h.cupX, h.cupY); ctx.lineTo(h.cupX, h.cupY - 46); ctx.stroke();
+  const wave = Math.sin(t / 250) * 3;
+  ctx.fillStyle = '#ef4444'; ctx.beginPath();
+  ctx.moveTo(h.cupX, h.cupY - 46); ctx.quadraticCurveTo(h.cupX + 12, h.cupY - 42 + wave, h.cupX + 24, h.cupY - 38 + wave);
+  ctx.lineTo(h.cupX, h.cupY - 30); ctx.fill();
+}
+
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
+  if (!st) return;
+  ctx.clearRect(0, 0, W, H);
+  course(st.hole, now);
+
+  // visée : direction, puissance (vert → rouge) et trajectoire en pointillés
+  const meBall = mine();
+  if (drag && meBall && canShoot()) {
+    const { a, p } = aim(), len = 30 + p * 170, hue = 120 - p * 120;
+    ctx.setLineDash([6, 8]); ctx.lineWidth = 3; ctx.strokeStyle = `hsl(${hue} 90% 60%)`;
+    ctx.beginPath(); ctx.moveTo(meBall.x, meBall.y); ctx.lineTo(meBall.x + Math.cos(a) * len, meBall.y + Math.sin(a) * len); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(meBall.x, meBall.y, 18, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+  }
+
+  // balles : la mienne par-dessus, les autres un peu transparentes
+  for (const g of balls(now).sort((a, b) => (a.id === me) - (b.id === me))) {
+    if (g.done && Math.hypot(g.x - st.hole.cupX, g.y - st.hole.cupY) < 1) continue; // dans le trou
+    ctx.globalAlpha = g.id === me ? 1 : 0.6;
+    ctx.fillStyle = '#00000040'; ctx.beginPath(); ctx.arc(g.x + 2, g.y + 2, BALL_R, 0, 7); ctx.fill();
+    ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(g.x, g.y, BALL_R, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = g.id === me ? 2 : 1; ctx.stroke();
+    ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.fillText(g.name, g.x, g.y - 11);
+  }
+  ctx.globalAlpha = 1;
+  if (meBall && canShoot() && !drag) { // halo pour retrouver sa balle
+    ctx.strokeStyle = '#ffffff80'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(meBall.x, meBall.y, 12 + Math.sin(now / 200) * 3, 0, 7); ctx.stroke();
+  }
+
+  // effets
+  rings = rings.filter(r => (r.life -= dt) > 0);
+  for (const r of rings) {
+    r.r += 60 * dt; ctx.globalAlpha = Math.min(r.life * 2, 1);
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.strokeStyle = r.color; ctx.lineWidth = 2; ctx.stroke();
+  }
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.93; p.vy *= 0.93;
+    ctx.globalAlpha = p.life / p.max;
+    ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+  }
+  popups = popups.filter(p => (p.life -= dt) > 0);
+  ctx.font = '800 16px system-ui'; ctx.textAlign = 'center';
+  for (const p of popups) {
+    ctx.globalAlpha = Math.min(p.life, 1); p.y -= 20 * dt;
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000a'; ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

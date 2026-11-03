@@ -3,7 +3,8 @@
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"
 #
-# Mise à jour d'un conteneur existant (garde ses réglages) :
+# Ensuite, les mises à jour se font depuis le site : http://IP:PORT/admin.html (mot de passe affiché à la fin).
+# Ce script sert aussi à migrer un ancien conteneur, en gardant ses réglages :
 #
 #   CTID=200 bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"
 #
@@ -38,14 +39,37 @@ curl -fsSL -o "$TMP/SHA256SUMS" "$URL/SHA256SUMS"
 (cd "$TMP" && sed 's/patate-linux-amd64$/patate/' SHA256SUMS | sha256sum -c --quiet -) || die "Somme de contrôle invalide : téléchargement corrompu"
 ok "Binaire téléchargé et vérifié"
 
-# --- mise à jour d'un conteneur existant ---
+# Service OpenRC. Le binaire est dans /opt/patate et appartient à l'utilisateur du service,
+# pour qu'il puisse se mettre à jour lui-même depuis /admin.html.
+service_file() { # $1 port, $2 mot de passe admin
+  printf '%s\n' '#!/sbin/openrc-run' 'description="Patate, jeu multijoueur"' 'command=/opt/patate/patate' \
+    'command_background=true' 'command_user=nobody' 'pidfile=/run/patate.pid' \
+    'output_log=/var/log/patate.log' 'error_log=/var/log/patate.log' "export PORT=$1" "export ADMIN_PASSWORD=$2"
+}
+new_password() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20 || true; }
+
+# install_in CTID PORT MOT_DE_PASSE : binaire + service dans le conteneur, puis (re)démarrage
+install_in() {
+  service_file "$2" "$3" > "$TMP/service"
+  pct exec "$1" -- sh -c 'mkdir -p /opt/patate && chown nobody /opt/patate && chmod 755 /opt/patate'
+  pct push "$1" "$TMP/patate" /opt/patate/patate.new --perms 755
+  pct push "$1" "$TMP/service" /etc/init.d/patate --perms 700 # contient le mot de passe : root seulement
+  # renommage : écrire directement sur un binaire en cours d'exécution échoue (« Text file busy »)
+  pct exec "$1" -- sh -c 'mv /opt/patate/patate.new /opt/patate/patate && chown nobody /opt/patate/patate && rm -f /usr/local/bin/patate &&
+    touch /var/log/patate.log && chown nobody /var/log/patate.log && rc-update add patate default >/dev/null && rc-service patate restart >/dev/null'
+}
+
+# --- migration d'un conteneur existant ---
 if [ -n "${CTID:-}" ] && pct status "$CTID" >/dev/null 2>&1; then
   step "Mise à jour du conteneur $CTID"
   pct exec "$CTID" -- test -f /etc/init.d/patate || die "Le conteneur $CTID n'a pas été installé par ce script"
-  # envoi à côté puis renommage : écrire directement sur un binaire en cours d'exécution échoue (« Text file busy »)
-  pct push "$CTID" "$TMP/patate" /usr/local/bin/patate.new --perms 755
-  pct exec "$CTID" -- sh -c 'mv /usr/local/bin/patate.new /usr/local/bin/patate && rc-service patate restart >/dev/null'
+  CUR_PORT="$(pct exec "$CTID" -- sed -n 's/^export PORT=//p' /etc/init.d/patate)"
+  PASS="$(pct exec "$CTID" -- sed -n 's/^export ADMIN_PASSWORD=//p' /etc/init.d/patate)"
+  [[ "$CUR_PORT" =~ ^[0-9]+$ ]] || CUR_PORT="$PORT"
+  [[ "$PASS" =~ ^[A-Za-z0-9]{12,}$ ]] || PASS="$(new_password)"
+  install_in "$CTID" "$CUR_PORT" "$PASS"
   ok "Patate mis à jour dans le conteneur $CTID"
+  printf '  Prochaines mises à jour : page /admin.html du jeu, mot de passe : %s\n' "$PASS"
   exit 0
 fi
 
@@ -85,20 +109,8 @@ done
 [ -n "$IP" ] || die "Le conteneur $CTID n'a pas obtenu d'adresse IP (DHCP sur $BRIDGE ?)"
 
 step "Installation du service"
-pct push "$CTID" "$TMP/patate" /usr/local/bin/patate --perms 755
-cat > "$TMP/service" <<EOF
-#!/sbin/openrc-run
-description="Patate, jeu multijoueur"
-command=/usr/local/bin/patate
-command_background=true
-command_user=nobody
-pidfile=/run/patate.pid
-output_log=/var/log/patate.log
-error_log=/var/log/patate.log
-export PORT=$PORT
-EOF
-pct push "$CTID" "$TMP/service" /etc/init.d/patate --perms 755
-pct exec "$CTID" -- sh -c 'touch /var/log/patate.log && chown nobody /var/log/patate.log && rc-update add patate default >/dev/null && rc-service patate start >/dev/null'
+PASS="$(new_password)"
+install_in "$CTID" "$PORT" "$PASS"
 
 up=0
 for _ in $(seq 1 10); do
@@ -110,4 +122,4 @@ done
 printf '\n'
 ok "En ligne : http://$IP:$PORT  (Patate)  ·  http://$IP:$PORT/ricochet.html  (Ricochet)"
 printf '  Conteneur : %s (%s)\n' "$CTID" "$CT_HOSTNAME"
-printf '  Mise à jour : CTID=%s bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"\n' "$CTID"
+printf '  Mises à jour : http://%s:%s/admin.html  (mot de passe : %s, garde-le)\n' "$IP" "$PORT" "$PASS"

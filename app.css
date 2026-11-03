@@ -3,4 +3,6 @@
 @import "tailwindcss" source(none);
 @source "./index.html";
 @source "./ricochet.html";
+@source "./dessin.html";
+@source "./golf.html";
 @source "./common.js";

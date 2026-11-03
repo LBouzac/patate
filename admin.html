@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Patate · Mise à jour</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+<main class="grid min-h-full place-items-center p-4">
+  <form id="f" class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900 p-8 shadow-2xl ring-1 ring-white/10">
+    <div class="text-center">
+      <h1 class="text-3xl font-black tracking-tight">Mise à jour</h1>
+      <p class="mt-1 text-sm text-slate-400">Version installée : <span id="ver" class="font-mono text-amber-300">…</span></p>
+    </div>
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Mot de passe admin</span>
+      <input id="pw" type="password" required autocomplete="current-password"
+        class="w-full rounded-lg bg-slate-800 px-3 py-2.5 ring-1 ring-white/10 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+    </label>
+    <button id="go" class="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-orange-400">
+      Installer la dernière version
+    </button>
+    <p id="msg" role="status" class="min-h-5 text-center text-sm text-slate-400"></p>
+    <p class="text-center text-xs text-slate-500">Les parties en cours seront coupées quelques secondes.</p>
+  </form>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const ver = () => fetch('/admin/version', { cache: 'no-store' }).then(r => r.text());
+ver().then(v => $('ver').textContent = v);
+
+$('f').onsubmit = async e => {
+  e.preventDefault();
+  $('go').disabled = true;
+  $('msg').textContent = 'Téléchargement et vérification…';
+  try {
+    const before = $('ver').textContent;
+    const r = await fetch('/admin/update', { method: 'POST', body: new URLSearchParams({ password: $('pw').value }) });
+    $('msg').textContent = await r.text();
+    if (r.ok && $('msg').textContent.startsWith('Mise à jour installée')) {
+      // attend que le serveur redémarre avec la nouvelle version
+      for (let i = 0; i < 30; i++) {
+        await new Promise(ok => setTimeout(ok, 1000));
+        const v = await ver().catch(() => '');
+        if (v && v !== before) { $('ver').textContent = v; $('msg').textContent = 'C\'est fait, nouvelle version en ligne.'; break; }
+      }
+    }
+  } catch { $('msg').textContent = 'Serveur injoignable'; }
+  $('pw').value = '';
+  $('go').disabled = false;
+};
+</script>
+</body>
+</html>

@@ -55,7 +55,7 @@ function connect(path, pin, extra, onState) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.you) { me = m.you; screen(true); setErr(''); return; }
-    if (location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
+    if (m.pin && location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
     onState(m);
   };
   ws.onclose = e => { onState(null); screen(false); setErr(e.reason || 'Déconnecté'); };

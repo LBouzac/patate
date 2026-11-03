@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	"github.com/coder/websocket"
 )
@@ -20,10 +21,35 @@ type Seat struct {
 	Leave func()           // à la déconnexion
 }
 
+// MaxSessions : connexions simultanées, tous jeux confondus. Au-delà, le petit conteneur manquerait de mémoire.
+const MaxSessions = 300
+
+var sessions atomic.Int32
+
+// secure ajoute les en-têtes de sécurité à toutes les réponses.
+// unsafe-inline : les pages ont leur script dans le HTML ; tout le reste (scripts externes, cadres, autres sites) est bloqué.
+func secure(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hd := w.Header()
+		hd.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
+			"img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		hd.Set("X-Content-Type-Options", "nosniff")
+		hd.Set("Referrer-Policy", "no-referrer")
+		hd.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		h.ServeHTTP(w, r)
+	})
+}
+
 // session gère une connexion WebSocket commune à tous les jeux : pseudo nettoyé, join,
 // envoi de {"you": id}, puis relais serveur → client et client → OnMsg.
 // join renvoie la place, ou nil et la raison du refus (affichée au joueur).
-func session(w http.ResponseWriter, r *http.Request, join func(name string, q url.Values) (*Seat, string)) {
+func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(name string, q url.Values) (*Seat, string)) {
+	if sessions.Add(1) > MaxSessions {
+		sessions.Add(-1)
+		http.Error(w, "Serveur plein, réessaie plus tard", http.StatusServiceUnavailable)
+		return
+	}
+	defer sessions.Add(-1)
 	q := r.URL.Query()
 	name := strings.TrimSpace(q.Get("name"))
 	if n := []rune(name); len(n) > 12 {
@@ -37,7 +63,7 @@ func session(w http.ResponseWriter, r *http.Request, join func(name string, q ur
 		return
 	}
 	defer c.CloseNow()
-	c.SetReadLimit(256)
+	c.SetReadLimit(readLimit)
 
 	s, why := join(name, q)
 	if s == nil {
