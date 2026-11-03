@@ -3,7 +3,6 @@ package main
 
 import (
 	"cmp"
-	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -11,17 +10,15 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/coder/websocket"
 )
 
-//go:embed index.html style.css
+//go:embed index.html ricochet.html common.js style.css
 var files embed.FS
 
 const (
@@ -603,10 +600,7 @@ func enter(pin, name, mode string) (*Game, *Player, string) {
 		if len(rooms) >= 1000 {
 			return nil, nil, "Trop de parties en cours, réessaie plus tard"
 		}
-		for pin == "" || rooms[pin] != nil {
-			// shortcut: 4 chiffres sans limite d'essais, devinable en force brute ; passer à 6 chiffres + limite si le jeu devient public
-			pin = fmt.Sprintf("%04d", rand.IntN(10000))
-		}
+		pin = newPin(func(p string) bool { return rooms[p] != nil })
 		g := newGame(pin, mode)
 		rooms[pin] = g
 		p := g.join(name) // avant run() : le salon n'est jamais vide quand la boucle démarre
@@ -660,79 +654,46 @@ func (g *Game) closeIfEmpty() bool {
 }
 
 func serveWS(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimSpace(r.URL.Query().Get("name"))
-	if n := []rune(name); len(n) > 12 {
-		name = string(n[:12])
-	}
-	if name == "" {
-		name = "Patate"
-	}
-	c, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		return
-	}
-	defer c.CloseNow()
-	c.SetReadLimit(256)
-
-	pin := r.URL.Query().Get("pin")
-	g, p, why := enter(pin, name, r.URL.Query().Get("mode"))
-	if p == nil {
-		c.Close(websocket.StatusPolicyViolation, why)
-		return
-	}
-	defer func() { g.mu.Lock(); g.leave(p.ID); g.mu.Unlock() }()
-
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-	hello, _ := json.Marshal(map[string]int{"you": p.ID})
-	if c.Write(ctx, websocket.MessageText, hello) != nil {
-		return
-	}
-	go func() {
-		defer cancel()
-		for {
-			select {
-			case b := <-p.send:
-				if c.Write(ctx, websocket.MessageText, b) != nil {
+	session(w, r, func(name string, q url.Values) (*Seat, string) {
+		g, p, why := enter(q.Get("pin"), name, q.Get("mode"))
+		if p == nil {
+			return nil, why
+		}
+		return &Seat{
+			ID:    p.ID,
+			Send:  p.send,
+			Leave: func() { g.mu.Lock(); g.leave(p.ID); g.mu.Unlock() },
+			OnMsg: func(b []byte) {
+				var m struct {
+					Input
+					Bot   int `json:"bot"`   // +1 ajoute un bot, -1 en retire un
+					Emote int `json:"emote"` // 1 à 4
+				}
+				if json.Unmarshal(b, &m) != nil {
 					return
 				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	for {
-		_, b, err := c.Read(ctx)
-		if err != nil {
-			return
-		}
-		var m struct {
-			Input
-			Bot   int `json:"bot"`   // +1 ajoute un bot, -1 en retire un
-			Emote int `json:"emote"` // 1 à 4
-		}
-		if json.Unmarshal(b, &m) != nil {
-			continue
-		}
-		g.mu.Lock()
-		switch m.Bot {
-		case 1:
-			g.addBot()
-		case -1:
-			g.removeBot()
-		}
-		switch {
-		case m.Emote != 0:
-			g.emote(p, m.Emote)
-		case m.Bot == 0:
-			p.in = m.Input
-		}
-		g.mu.Unlock()
-	}
+				g.mu.Lock()
+				defer g.mu.Unlock()
+				switch m.Bot {
+				case 1:
+					g.addBot()
+				case -1:
+					g.removeBot()
+				}
+				switch {
+				case m.Emote != 0:
+					g.emote(p, m.Emote)
+				case m.Bot == 0:
+					p.in = m.Input
+				}
+			},
+		}, ""
+	})
 }
 
 func main() {
 	http.HandleFunc("/ws", serveWS)
+	http.HandleFunc("/ws/ricochet", serveDuel)
 	http.Handle("/", http.FileServerFS(files))
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	log.Println("Patate sur", addr)

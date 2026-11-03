@@ -108,6 +108,6 @@ done
 [ "$up" = 1 ] || die "Le jeu ne répond pas (logs : pct exec $CTID -- cat /var/log/patate.log)"
 
 printf '\n'
-ok "Patate est en ligne : http://$IP:$PORT"
+ok "En ligne : http://$IP:$PORT  (Patate)  ·  http://$IP:$PORT/ricochet.html  (Ricochet)"
 printf '  Conteneur : %s (%s)\n' "$CTID" "$CT_HOSTNAME"
 printf '  Mise à jour : CTID=%s bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"\n' "$CTID"

@@ -1,4 +1,10 @@
-# Patate 💣
+# Patate 💣 & Ricochet ⚡
+
+Deux jeux multijoueurs dans le navigateur, servis par un seul petit serveur Go (environ 15 Mo de RAM) :
+
+- **Patate** (`/`) : de 2 à 10 joueurs, une bombe à se passer avant qu'elle n'explose.
+- **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
+
 
 Jeu multijoueur dans le navigateur (2 à 10 joueurs, bots compris). Une bombe passe d'un joueur à l'autre quand ils se touchent. Celui qui la tient au moment où elle explose est éliminé. Le dernier survivant gagne. Le temps restant avant l'explosion est affiché.
 
@@ -17,7 +23,17 @@ Le script télécharge le jeu (et vérifie sa somme de contrôle), prend le dern
 
 Le binaire est compilé par GitHub Actions à chaque push sur `main`, puis publié dans la release [`latest`](https://github.com/LBouzac/patate/releases/tag/latest).
 
-## Le jeu
+## Ricochet
+
+Duel de raquettes à 2 joueurs, premier à **7 points**. On crée un duel et on partage le code, comme pour Patate, ou on joue contre un **bot** (touche **B**). Si un ami rejoint ensuite, il prend la place du bot.
+
+- **Commandes** : ↑ ↓ ou Z / S, **B** / **N** pour ajouter ou retirer le bot, **M** pour couper le son.
+- La balle **accélère à chaque renvoi**, jusqu'à 950 px/s. Elle reste toujours renvoyée correctement, même à pleine vitesse, sans traverser la raquette.
+- L'**angle** de renvoi dépend de l'endroit où la balle touche la raquette : tout droit au centre, jusqu'à 60° aux extrémités.
+- Après chaque point, le service part vers celui qui vient de le perdre. Une revanche démarre automatiquement en fin de partie.
+- Le serveur calcule 60 images par seconde et le navigateur lisse l'affichage. Ambiance néon : traînée de balle, étincelles, tremblement de l'écran à chaque point, sons synthétisés.
+
+## Patate
 
 **Modes de jeu** (choisis à la création de la partie) :
 - 🔥 **Classique** : mèche de 8 à 20 s.

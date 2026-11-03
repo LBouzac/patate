@@ -2,3 +2,5 @@
    tailwindcss -i app.css -o style.css --minify  (binaire autonome : github.com/tailwindlabs/tailwindcss/releases) */
 @import "tailwindcss" source(none);
 @source "./index.html";
+@source "./ricochet.html";
+@source "./common.js";
