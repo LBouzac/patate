@@ -1,4 +1,4 @@
-// Pétanque : de 2 à 6 joueurs, chacun pour soi. Chacun a 3 boules par mène ; on les lance comme au golf
+// Pétanque : de 2 à 6 joueurs (bots possibles), chacun pour soi. Chacun a 3 boules par mène ; on les lance comme au golf
 // depuis le cercle. Celui qui n'a pas le point rejoue. À la fin de la mène, celui qui a le point marque une
 // boule par boule plus proche du cochonnet que la meilleure des autres. Premier à 7 points.
 package main
@@ -29,7 +29,9 @@ const (
 	PetTick     = time.Second / 60
 	PetSub      = 4
 	PetRooms    = 1000
-	PetRestitue = 0.6 // choc entre boules
+	PetRestitue = 0.6  // choc entre boules
+	PetBotWait  = 1.2  // secondes avant que le bot lance
+	PetBotNoise = 0.03 // imprécision de visée (radians)
 )
 
 type Boule struct {
@@ -43,6 +45,7 @@ type Bouliste struct {
 	Color string `json:"color"`
 	Score int    `json:"score"`
 	Left  int    `json:"left"` // boules qu'il lui reste à jouer dans la mène
+	Bot   bool   `json:"bot"`
 	send  chan []byte
 }
 
@@ -76,7 +79,7 @@ func (g *Pitch) get(id int) *Bouliste {
 	return nil
 }
 
-func (g *Pitch) join(name string) *Bouliste {
+func (g *Pitch) join(name string, bot bool) *Bouliste {
 	if len(g.Players) >= PetMax {
 		return nil
 	}
@@ -92,7 +95,10 @@ func (g *Pitch) join(name string) *Bouliste {
 		}
 	}
 	g.nextID++
-	p := &Bouliste{ID: g.nextID, Name: name, Color: color, send: make(chan []byte, 8)}
+	p := &Bouliste{ID: g.nextID, Name: name, Color: color, Bot: bot}
+	if !bot {
+		p.send = make(chan []byte, 8)
+	}
 	g.Players = append(g.Players, p) // il joue à partir de la prochaine mène
 	if g.Phase == "wait" && len(g.Players) >= 2 {
 		g.Phase, g.Wait = "mene", 3 // petite attente puis première mène
@@ -103,6 +109,9 @@ func (g *Pitch) join(name string) *Bouliste {
 func (g *Pitch) leave(id int) {
 	g.Players = slices.DeleteFunc(g.Players, func(p *Bouliste) bool { return p.ID == id })
 	g.Boules = slices.DeleteFunc(g.Boules, func(b *Boule) bool { return b.Owner == id })
+	if !slices.ContainsFunc(g.Players, func(p *Bouliste) bool { return !p.Bot }) {
+		g.Players = nil // plus aucun humain : les bots partent aussi
+	}
 	if len(g.Players) < 2 {
 		g.Phase, g.Wait, g.Boules, g.Jack = "wait", 0, nil, nil
 		for _, p := range g.Players {
@@ -113,6 +122,15 @@ func (g *Pitch) leave(id int) {
 	g.Point = g.closest()
 	if g.Phase == "aim" && g.Turn == id {
 		g.next()
+	}
+}
+
+func (g *Pitch) removeBot() {
+	for i := len(g.Players) - 1; i >= 0; i-- {
+		if g.Players[i].Bot {
+			g.leave(g.Players[i].ID)
+			return
+		}
 	}
 }
 
@@ -223,6 +241,10 @@ func (g *Pitch) score() {
 func (g *Pitch) step(dt float64) {
 	switch g.Phase {
 	case "aim":
+		if p := g.get(g.Turn); p != nil && p.Bot && g.Wait <= ThrowTime-PetBotWait {
+			g.think(p)
+			return
+		}
 		if g.Wait -= dt; g.Wait <= 0 { // trop long : la boule est perdue
 			if p := g.get(g.Turn); p != nil && p.Left > 0 {
 				p.Left--
@@ -287,6 +309,29 @@ func (g *Pitch) physics(dt float64) bool {
 	return moving
 }
 
+// think : le bot pointe (sa boule s'arrête juste devant le cochonnet) ; s'il n'a pas le point et qu'une boule
+// adverse colle au cochonnet, il tire dessus pour la chasser.
+func (g *Pitch) think(p *Bouliste) {
+	tx, ty, shoot := g.Jack.X, g.Jack.Y, false
+	if g.Point != 0 && g.Point != p.ID {
+		for _, b := range g.Boules {
+			if b.Owner == g.Point && math.Hypot(b.X-g.Jack.X, b.Y-g.Jack.Y) < 3*BouleR {
+				tx, ty, shoot = b.X, b.Y, true
+				break
+			}
+		}
+	}
+	d := math.Hypot(tx-CircleX, ty-CircleY)
+	angle := math.Atan2(ty-CircleY, tx-CircleX) + (rand.Float64()*2-1)*PetBotNoise
+	power := 1.0
+	if !shoot {
+		stop := max(d-BouleR-JackR-4, 0)               // s'arrêter juste avant de toucher le cochonnet
+		power = math.Sqrt(2*BouleDrag*stop) / ThrowMax // v² = 2·a·distance
+		power *= 1 + (rand.Float64()*2-1)*0.02         // un peu court ou un peu long (la distance varie deux fois plus)
+	}
+	g.throw(p, angle, min(max(power, 0.05), 1))
+}
+
 // --- salons Pétanque (même principe que les autres jeux, codes séparés) ---
 
 var (
@@ -303,7 +348,7 @@ func enterPitch(pin, name string) (*Pitch, *Bouliste, string) {
 		}
 		g := newPitch(newPin(func(p string) bool { return pitches[p] != nil }))
 		pitches[g.Pin] = g
-		p := g.join(name) // avant run() : le salon n'est jamais vide quand la boucle démarre
+		p := g.join(name, false) // avant run() : le salon n'est jamais vide quand la boucle démarre
 		go g.run()
 		return g, p, ""
 	}
@@ -313,7 +358,7 @@ func enterPitch(pin, name string) (*Pitch, *Bouliste, string) {
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if p := g.join(name); p != nil {
+	if p := g.join(name, false); p != nil {
 		return g, p, ""
 	}
 	return nil, nil, "Partie pleine (6 joueurs)"
@@ -364,15 +409,23 @@ func servePetanque(w http.ResponseWriter, r *http.Request) {
 			Leave: func() { g.mu.Lock(); g.leave(p.ID); g.mu.Unlock() },
 			OnMsg: func(b []byte) {
 				var m struct {
-					A float64 `json:"a"`
-					P float64 `json:"p"`
+					Bot int     `json:"bot"` // +1 ajoute un bot, -1 en retire un
+					A   float64 `json:"a"`
+					P   float64 `json:"p"`
 				}
 				if json.Unmarshal(b, &m) != nil {
 					return
 				}
 				g.mu.Lock()
-				g.throw(p, m.A, m.P)
-				g.mu.Unlock()
+				defer g.mu.Unlock()
+				switch m.Bot {
+				case 1:
+					g.join("Bot", true)
+				case -1:
+					g.removeBot()
+				default:
+					g.throw(p, m.A, m.P)
+				}
 			},
 		}, ""
 	})

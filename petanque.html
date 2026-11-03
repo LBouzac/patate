@@ -72,9 +72,16 @@
     <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
   </div>
 
-  <footer class="text-xs text-slate-400">
-    À ton tour : tire en arrière n'importe où sur le terrain puis relâche, la boule part du cercle. Celui qui n'a pas le point rejoue.
-    Le plus près du cochonnet marque une boule par boule mieux placée que la meilleure des autres. Premier à 7.
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Ajouter un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer un bot
+      </button>
+    </div>
+    <span class="text-xs">Tire en arrière puis relâche, la boule part du cercle. Celui qui n'a pas le point rejoue. Premier à 7.</span>
   </footer>
 </main>
 
@@ -95,6 +102,7 @@ function start(pin) {
 $('create').onclick = e => { e.preventDefault(); start(''); };
 $('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
 addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
 
 const pl = id => st?.players.find(p => p.id === id);
 const myTurn = () => st && st.phase === 'aim' && st.turn === me && pl(me)?.left > 0;
@@ -116,7 +124,7 @@ const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = 
 const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
 let overlayKey = '';
 function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
-const bubble = (...c) => el('div', 'flex flex-col items-center gap-2 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-2 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
 let lastPoint = null;
 
 function hud() {
@@ -136,13 +144,15 @@ function hud() {
       const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = p.color;
       const balls = el('span', 'tracking-tight text-slate-400', '●'.repeat(p.left) + '○'.repeat(Math.max(0, 3 - p.left)));
       return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (p.id === st.turn && st.phase === 'aim' ? ' ring-2 ring-yellow-400/60' : ''),
-        dot, el('span', p.id === me ? 'font-bold' : '', p.name), el('span', 'font-mono text-amber-300', p.score), balls,
+        dot, el('span', p.id === me ? 'font-bold' : '', p.name + (p.bot ? ' (bot)' : '')), el('span', 'font-mono text-amber-300', p.score), balls,
         ...(p.id === st.point ? [el('span', 'text-xs text-yellow-300', 'le point')] : []));
     }));
   }
 
   if (st.phase === 'wait') overlay('wait', () => bubble(el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-yellow-300'), 'En attente d\'un 2e joueur'),
-    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' à tes amis')));
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' à tes amis ou ajoute un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-yellow-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Ajouter un bot'),
+      { onclick: () => send({ bot: 1 }) })));
   else if (st.phase === 'mene' && lastPoint) overlay('mene' + st.mene, () => bubble(el('div', 'text-xl font-black text-yellow-300', lastPoint)));
   else if (st.phase === 'end') overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
     el('div', 'text-sm text-slate-300', 'Nouvelle partie dans quelques secondes…')));

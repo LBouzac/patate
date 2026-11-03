@@ -37,7 +37,7 @@ const GAMES = [
     text: 'text-pink-400', tile: 'bg-pink-500' },
   { href: '/foot.html', name: 'Foot', icon: 'star', players: '2', tag: 'Foot de pions chacun son tour, premier à 3 buts.',
     text: 'text-lime-400', tile: 'bg-lime-500' },
-  { href: '/petanque.html', name: 'Pétanque', icon: 'petanque', players: '2 à 6', tag: 'Chacun ses 3 boules, au plus près du cochonnet.',
+  { href: '/petanque.html', name: 'Pétanque', icon: 'petanque', players: '2 à 6', tag: 'Chacun ses 3 boules, au plus près du cochonnet. Bots possibles.',
     text: 'text-yellow-400', tile: 'bg-yellow-500' },
   { href: '/billard.html', name: 'Billard', icon: 'billard', players: '2', tag: 'Jaunes contre rouges, la noire pour finir. Ou contre un bot.',
     text: 'text-sky-400', tile: 'bg-sky-500' },

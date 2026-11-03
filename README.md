@@ -8,7 +8,7 @@ L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'
 - **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
 - **Dessine** (`/dessin.html`) : de 3 à 10 joueurs. Chacun son tour envoie une photo, un joueur tiré au sort la dessine en 30 s et les autres devinent.
 - **Foot** (`/foot.html`) : foot de pions à 2 joueurs (ou contre un bot), chacun son tour, premier à 3 buts.
-- **Pétanque** (`/petanque.html`) : de 2 à 6 joueurs, chacun ses 3 boules, premier à 7.
+- **Pétanque** (`/petanque.html`) : de 2 à 6 joueurs (bots possibles), chacun ses 3 boules, premier à 7.
 - **Billard** (`/billard.html`) : jaunes contre rouges à 2 (ou contre un bot), la noire pour finir.
 - **Artillerie** (`/artillerie.html`) : de 2 à 4 chars (bots possibles), vent et cratères, le dernier debout gagne.
 - **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
@@ -66,7 +66,7 @@ De 3 à 10 joueurs. On crée une partie et on partage le code, puis n'importe qu
 
 ## Pétanque
 
-De 2 à 6 joueurs, chacun pour soi. Le cochonnet est posé au hasard au début de chaque mène.
+De 2 à 6 joueurs, chacun pour soi, ou avec des **bots** (« Ajouter un bot »). Le cochonnet est posé au hasard au début de chaque mène. Le bot pointe au plus près du cochonnet et tire sur une boule adverse qui le colle quand il n'a pas le point.
 
 - Chacun a **3 boules par mène**. À ton tour, tire en arrière n'importe où sur le terrain puis relâche : la boule part du cercle. On peut **tirer** pour dégommer une boule adverse.
 - **Celui qui n'a pas le point rejoue** (le plus mal placé d'abord). Quand les autres n'ont plus de boules, celui qui a le point finit les siennes.

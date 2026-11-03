@@ -8,7 +8,7 @@ import (
 // pitch2 : deux joueurs, première mène lancée, cochonnet posé à un endroit connu.
 func pitch2(t *testing.T) (*Pitch, *Bouliste, *Bouliste) {
 	g := newPitch("0000")
-	a, b := g.join("A"), g.join("B")
+	a, b := g.join("A", false), g.join("B", false)
 	for g.Phase != "aim" {
 		g.step(0.1)
 	}
@@ -128,5 +128,42 @@ func TestPetanqueTimeoutAndLeave(t *testing.T) {
 	g.leave(b.ID)
 	if g.Phase != "wait" || a.Score != 0 {
 		t.Fatal("moins de 2 joueurs : attente")
+	}
+}
+
+// Le bot pointe près du cochonnet, tire sur une boule adverse collée au cochonnet, et part avec le dernier humain.
+func TestPetanqueBot(t *testing.T) {
+	g := newPitch("0000")
+	h := g.join("Humain", false)
+	bot := g.join("Bot", true)
+	for g.Phase != "aim" {
+		g.step(0.1)
+	}
+	g.Jack.X, g.Jack.Y = 550, 200
+	g.Turn = bot.ID
+	for range int(PetBotWait/PetTick.Seconds()) + 2 {
+		g.step(PetTick.Seconds())
+	}
+	if g.Phase != "roll" {
+		t.Fatalf("le bot aurait dû lancer, phase %s", g.Phase)
+	}
+	settlePet(g)
+	if d := g.dist(bot.ID); d > 60 {
+		t.Fatalf("le bot doit pointer près du cochonnet, sa boule est à %.0f px", d)
+	}
+	// une boule de l'humain collée au cochonnet : le bot tire dessus
+	g.Boules = []*Boule{{Body: Body{X: 530, Y: 200, r: BouleR, m: 1, drag: BouleDrag}, Owner: h.ID}}
+	g.Jack.X, g.Jack.Y = 550, 200
+	g.Point, g.Turn, g.Phase, g.Wait = h.ID, bot.ID, "aim", ThrowTime
+	for range int(PetBotWait/PetTick.Seconds()) + 2 {
+		g.step(PetTick.Seconds())
+	}
+	settlePet(g)
+	if len(g.Boules) > 0 && g.Boules[0].Owner == h.ID && g.Boules[0].X == 530 {
+		t.Fatal("le bot aurait dû tirer sur la boule collée au cochonnet")
+	}
+	g.leave(h.ID)
+	if len(g.Players) != 0 {
+		t.Fatal("les bots partent avec le dernier humain")
 	}
 }
