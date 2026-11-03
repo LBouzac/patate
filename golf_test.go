@@ -200,3 +200,44 @@ func TestGolfHoleNoNull(t *testing.T) {
 		}
 	}
 }
+
+// Une balle qui en percute une autre à l'arrêt lui transmet sa vitesse ; tombée dans l'eau, celle-ci n'a pas de pénalité.
+func TestGolfBallCollision(t *testing.T) {
+	c := newCourse("0000")
+	a, b := c.join("A"), c.join("B")
+	c.Hole.Walls, c.Hole.Sand, c.Hole.Water = []Wall{}, []Circle{}, []Circle{}
+	c.Hole.CupX, c.Hole.CupY = 780, 20
+	a.X, a.Y, b.X, b.Y = 200, 250, 260, 250
+	c.shoot(a, 0, 0.5)
+	for range 30 {
+		c.step(GolfTick.Seconds())
+	}
+	if !(b.X > 270) || b.Strokes != 0 || a.X > b.X {
+		t.Fatalf("B doit avoir été poussée vers la droite par A : A=%.0f B=%.0f (coups B %d)", a.X, b.X, b.Strokes)
+	}
+	if math.Hypot(a.vx, a.vy) > math.Hypot(b.vx, b.vy) {
+		t.Fatal("choc de face : A doit presque s'arrêter et B repartir")
+	}
+	// B poussée dans l'eau : retour à sa place, sans pénalité
+	c.Hole.Water = []Circle{{X: b.X + 40, Y: 250, R: 20}}
+	for b.Moving {
+		c.step(GolfTick.Seconds())
+	}
+	if b.Strokes != 0 {
+		t.Fatalf("pas de pénalité pour une balle poussée dans l'eau, coups %d", b.Strokes)
+	}
+}
+
+// Les balles empilées au départ ne s'éjectent pas toutes seules.
+func TestGolfStackedTee(t *testing.T) {
+	c := newCourse("0000")
+	a, b := c.join("A"), c.join("B")
+	x, y := b.X, b.Y
+	c.shoot(a, 1, 0.3)
+	for range 60 {
+		c.step(GolfTick.Seconds())
+	}
+	if b.X != x || b.Y != y || b.Moving {
+		t.Fatal("la balle restée au départ ne doit pas bouger quand l'autre part")
+	}
+}

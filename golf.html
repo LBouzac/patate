@@ -10,13 +10,13 @@
 
 <!-- Accueil -->
 <main id="home" class="grid min-h-full place-items-center p-4">
-  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900 p-8 shadow-2xl ring-1 ring-white/10">
-    <div class="text-center">
-      <div class="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30">
-        <i data-icon="map" class="size-8"></i>
-      </div>
+  <div aria-hidden="true" class="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-linear-to-b from-emerald-500/20 to-transparent"></div>
+  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900/90 p-6 shadow-2xl ring-1 ring-white/10 sm:p-7">
+    <nav id="games" aria-label="Jeux"></nav>
+
+    <div>
       <h1 class="text-3xl font-black tracking-tight">Golf</h1>
-      <p class="mt-1 text-sm text-slate-400">Mini-golf à plusieurs. 9 trous, tous différents à chaque partie.</p>
+      <p class="mt-1 text-sm text-slate-400">Mini-golf à plusieurs : 9 trous, tous différents à chaque partie.</p>
     </div>
 
     <label class="block">
@@ -24,38 +24,33 @@
       <span class="relative block">
         <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
         <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-400 focus:outline-none">
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
       </span>
     </label>
 
-    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2.5 font-semibold text-slate-950 shadow-lg shadow-cyan-400/20 transition hover:bg-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300">
+    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/25 px-4 py-3 font-bold text-slate-950 shadow-lg transition active:scale-[0.97]">
       <i data-icon="plus-circle" class="size-5"></i> Créer un parcours
     </button>
 
     <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
-      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre <span class="h-px flex-1 bg-white/10"></span>
+      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre avec un code <span class="h-px flex-1 bg-white/10"></span>
     </div>
 
-    <label class="block">
-      <span class="mb-1.5 block text-sm font-medium text-slate-300">Code du parcours</span>
-      <span class="relative block">
+    <div class="flex gap-2">
+      <label class="relative block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
         <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
         <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-orange-400 focus:outline-none">
-      </span>
-    </label>
-
-    <button id="join" class="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-orange-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-      <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
-    </button>
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
+      </label>
+      <button id="join" class="flex items-center gap-2 rounded-lg bg-white/10 px-4 font-semibold text-slate-100 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.97]">
+        <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
+      </button>
+    </div>
 
     <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
       <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
     </p>
-
-    <a href="/" class="flex items-center justify-center gap-1.5 text-sm text-slate-400 transition hover:text-orange-300">
-      <i data-icon="fire" class="size-4"></i> Plutôt une partie de Patate à plusieurs ?
-    </a>
   </form>
 </main>
 
@@ -214,6 +209,10 @@ function onEvent(e) {
       break;
     case 'wall':
       tone(420, 0.04, 'square', 0.04);
+      break;
+    case 'clack': // deux balles se touchent
+      tone(1300, 0.05, 'square', 0.08, 700);
+      burst(e.x, e.y, 8, '#f8fafc', 120, 0.25);
       break;
     case 'cup':
       if (!g) break;

@@ -23,6 +23,40 @@ document.querySelectorAll('i[data-icon]').forEach(i => {
 });
 
 const $ = id => document.getElementById(id);
+
+// ---------- Barre des jeux (accueil) et bouton Quitter (en partie), identiques sur toutes les pages ----------
+// classes écrites en entier : Tailwind ne génère que les noms complets qu'il trouve dans ce fichier
+const GAMES = [
+  { href: '/', name: 'Patate', icon: 'fire', on: 'bg-orange-500/15 text-orange-300 ring-orange-400/40' },
+  { href: '/ricochet.html', name: 'Ricochet', icon: 'bolt', on: 'bg-cyan-500/15 text-cyan-300 ring-cyan-400/40' },
+  { href: '/golf.html', name: 'Golf', icon: 'map', on: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/40' },
+  { href: '/dessin.html', name: 'Dessine', icon: 'sparkles', on: 'bg-pink-500/15 text-pink-300 ring-pink-400/40' },
+];
+if ($('games')) {
+  const here = location.pathname === '/index.html' ? '/' : location.pathname;
+  $('games').className = 'grid grid-cols-4 gap-1 rounded-xl bg-slate-950/60 p-1 ring-1 ring-white/10';
+  for (const g of GAMES) {
+    const a = document.createElement('a'), cur = g.href === here;
+    a.href = g.href;
+    a.className = 'flex flex-col items-center gap-1 rounded-lg py-2 text-xs font-semibold ring-1 transition active:scale-95 ' +
+      (cur ? g.on : 'text-slate-400 ring-transparent hover:bg-white/5 hover:text-slate-200');
+    if (cur) a.setAttribute('aria-current', 'page');
+    a.append(icon(g.icon, 'size-5'), g.name);
+    $('games').append(a);
+  }
+}
+if ($('copy')) {
+  const q = document.createElement('a');
+  q.href = location.pathname; // sans ?pin : on quitte la partie et on revient à l'accueil du jeu
+  q.title = 'Quitter la partie';
+  q.className = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700 active:scale-95';
+  q.append(icon('arrow-right-end-on-rectangle', 'size-4 rotate-180'), 'Quitter');
+  const wrap = document.createElement('span');
+  wrap.className = 'flex items-center gap-2';
+  const copy = $('copy');
+  copy.replaceWith(wrap);
+  wrap.append(q, copy);
+}
 const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
 $('name').value = localStorage.name || '';
 $('pin').value = new URLSearchParams(location.search).get('pin') || '';

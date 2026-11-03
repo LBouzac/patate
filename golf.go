@@ -26,6 +26,7 @@ const (
 	HoleTime   = 90.0
 	MaxGolfers = 8
 	GolfTick   = time.Second / 60
+	RollSub    = 4 // sous-pas par image : moins de GBallR par sous-pas, une balle ne traverse ni mur ni autre balle
 )
 
 type Circle struct {
@@ -58,6 +59,7 @@ type Golfer struct {
 	ToPar   int     `json:"toPar"` // total de la partie par rapport au par
 	Card    []int   `json:"card"`  // coups par trou, 0 = trou pas joué (arrivé en cours de partie)
 	vx, vy  float64
+	knocked bool    // mise en mouvement par une autre balle : pas de pénalité si elle finit dans l'eau
 	fromX   float64 // position avant le coup : on y revient après un plongeon dans l'eau
 	fromY   float64
 	send    chan []byte
@@ -242,7 +244,7 @@ func (c *Course) shoot(g *Golfer, angle, power float64) {
 	}
 	v := min(power, 1) * ShotMax
 	g.fromX, g.fromY = g.X, g.Y
-	g.vx, g.vy, g.Moving = v*math.Cos(angle), v*math.Sin(angle), true
+	g.vx, g.vy, g.Moving, g.knocked = v*math.Cos(angle), v*math.Sin(angle), true, false
 	g.Strokes++
 	c.event(Event{Kind: "shot", A: g.ID, X: g.X, Y: g.Y})
 }
@@ -251,11 +253,16 @@ func (c *Course) step(dt float64) {
 	switch c.Phase {
 	case "play":
 		c.Wait -= dt
+		for range RollSub {
+			for _, g := range c.Golfers {
+				if g.Moving {
+					c.roll(g, dt/RollSub)
+				}
+			}
+			c.collide()
+		}
 		finished := true
 		for _, g := range c.Golfers {
-			if g.Moving {
-				c.roll(g, dt)
-			}
 			if !g.Moving && !g.Done && g.Strokes >= MaxStrokes {
 				g.Done = true
 				c.event(Event{Kind: "pickup", A: g.ID, X: g.X, Y: g.Y})
@@ -299,63 +306,89 @@ func (c *Course) endHole() {
 	c.event(Event{Kind: "win", A: best.ID, Text: best.Name})
 }
 
-// roll fait avancer une balle d'une image, en 4 sous-pas : moins de GBallR par sous-pas, elle ne traverse aucun mur.
+// roll fait avancer une balle d'un sous-pas.
 func (c *Course) roll(g *Golfer, dt float64) {
-	const sub = 4
-	dt /= sub
 	h := &c.Hole
-	for range sub {
-		sp := math.Hypot(g.vx, g.vy)
-		dec := Roll
-		if inAny(h.Sand, g.X, g.Y, 0) {
-			dec = SandRoll
-		}
-		if ns := sp - dec*dt; ns > 0 {
-			g.vx, g.vy = g.vx*ns/sp, g.vy*ns/sp
-		} else {
-			g.vx, g.vy, g.Moving = 0, 0, false
-		}
-		g.X, g.Y = g.X+g.vx*dt, g.Y+g.vy*dt
+	sp := math.Hypot(g.vx, g.vy)
+	dec := Roll
+	if inAny(h.Sand, g.X, g.Y, 0) {
+		dec = SandRoll
+	}
+	if ns := sp - dec*dt; ns > 0 {
+		g.vx, g.vy = g.vx*ns/sp, g.vy*ns/sp
+	} else {
+		g.vx, g.vy, g.Moving = 0, 0, false
+	}
+	g.X, g.Y = g.X+g.vx*dt, g.Y+g.vy*dt
 
-		// bords du terrain
-		if g.X < GBallR || g.X > GW-GBallR {
-			lim := min(max(g.X, GBallR), GW-GBallR)
-			g.X, g.vx = 2*lim-g.X, -g.vx*Bounce
-			c.event(Event{Kind: "wall", X: g.X, Y: g.Y})
+	// bords du terrain
+	if g.X < GBallR || g.X > GW-GBallR {
+		lim := min(max(g.X, GBallR), GW-GBallR)
+		g.X, g.vx = 2*lim-g.X, -g.vx*Bounce
+		c.event(Event{Kind: "wall", X: g.X, Y: g.Y})
+	}
+	if g.Y < GBallR || g.Y > GH-GBallR {
+		lim := min(max(g.Y, GBallR), GH-GBallR)
+		g.Y, g.vy = 2*lim-g.Y, -g.vy*Bounce
+		c.event(Event{Kind: "wall", X: g.X, Y: g.Y})
+	}
+	for _, w := range h.Walls {
+		cx, cy := min(max(g.X, w.X), w.X+w.W), min(max(g.Y, w.Y), w.Y+w.H)
+		dx, dy := g.X-cx, g.Y-cy
+		d := math.Hypot(dx, dy)
+		if d >= GBallR || d == 0 {
+			continue
 		}
-		if g.Y < GBallR || g.Y > GH-GBallR {
-			lim := min(max(g.Y, GBallR), GH-GBallR)
-			g.Y, g.vy = 2*lim-g.Y, -g.vy*Bounce
-			c.event(Event{Kind: "wall", X: g.X, Y: g.Y})
+		nx, ny := dx/d, dy/d
+		g.X, g.Y = cx+nx*GBallR, cy+ny*GBallR
+		if vn := g.vx*nx + g.vy*ny; vn < 0 {
+			g.vx, g.vy = g.vx-(1+Bounce)*vn*nx, g.vy-(1+Bounce)*vn*ny
+			c.event(Event{Kind: "wall", X: cx, Y: cy})
 		}
-		for _, w := range h.Walls {
-			cx, cy := min(max(g.X, w.X), w.X+w.W), min(max(g.Y, w.Y), w.Y+w.H)
-			dx, dy := g.X-cx, g.Y-cy
+	}
+
+	if math.Hypot(g.X-h.CupX, g.Y-h.CupY) < CupR && sp < CupSpeed {
+		g.X, g.Y, g.vx, g.vy, g.Moving, g.Done = h.CupX, h.CupY, 0, 0, false, true
+		c.event(Event{Kind: "cup", A: g.ID, X: h.CupX, Y: h.CupY})
+		return
+	}
+	if inAny(h.Water, g.X, g.Y, 0) {
+		c.event(Event{Kind: "splash", A: g.ID, X: g.X, Y: g.Y})
+		g.X, g.Y, g.vx, g.vy, g.Moving = g.fromX, g.fromY, 0, 0, false
+		if !g.knocked {
+			g.Strokes++ // pénalité
+		}
+		return
+	}
+}
+
+// collide : choc entre deux balles de même masse, elles échangent leur vitesse le long de l'axe des centres.
+// Une balle à l'arrêt qui est touchée se met à rouler.
+func (c *Course) collide() {
+	for i, a := range c.Golfers {
+		for _, b := range c.Golfers[i+1:] {
+			if a.Done || b.Done || (!a.Moving && !b.Moving) {
+				continue
+			}
+			dx, dy := b.X-a.X, b.Y-a.Y
 			d := math.Hypot(dx, dy)
-			if d >= GBallR || d == 0 {
+			if d >= 2*GBallR || d == 0 {
 				continue
 			}
 			nx, ny := dx/d, dy/d
-			g.X, g.Y = cx+nx*GBallR, cy+ny*GBallR
-			if vn := g.vx*nx + g.vy*ny; vn < 0 {
-				g.vx, g.vy = g.vx-(1+Bounce)*vn*nx, g.vy-(1+Bounce)*vn*ny
-				c.event(Event{Kind: "wall", X: cx, Y: cy})
+			vn := (a.vx-b.vx)*nx + (a.vy-b.vy)*ny
+			if vn <= 0 {
+				continue // elles s'écartent déjà (balles serrées au départ)
 			}
-		}
-
-		if math.Hypot(g.X-h.CupX, g.Y-h.CupY) < CupR && sp < CupSpeed {
-			g.X, g.Y, g.vx, g.vy, g.Moving, g.Done = h.CupX, h.CupY, 0, 0, false, true
-			c.event(Event{Kind: "cup", A: g.ID, X: h.CupX, Y: h.CupY})
-			return
-		}
-		if inAny(h.Water, g.X, g.Y, 0) {
-			c.event(Event{Kind: "splash", A: g.ID, X: g.X, Y: g.Y})
-			g.X, g.Y, g.vx, g.vy, g.Moving = g.fromX, g.fromY, 0, 0, false
-			g.Strokes++ // pénalité
-			return
-		}
-		if !g.Moving {
-			return
+			for _, g := range []*Golfer{a, b} {
+				if !g.Moving {
+					g.Moving, g.knocked, g.fromX, g.fromY = true, true, g.X, g.Y
+				}
+			}
+			a.vx, a.vy, b.vx, b.vy = a.vx-vn*nx, a.vy-vn*ny, b.vx+vn*nx, b.vy+vn*ny
+			push := (2*GBallR - d) / 2 // on les décolle
+			a.X, a.Y, b.X, b.Y = a.X-nx*push, a.Y-ny*push, b.X+nx*push, b.Y+ny*push
+			c.event(Event{Kind: "clack", X: a.X + nx*GBallR, Y: a.Y + ny*GBallR})
 		}
 	}
 }

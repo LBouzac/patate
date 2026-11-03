@@ -50,7 +50,7 @@ De 3 à 10 joueurs. On crée une partie et on partage le code, puis n'importe qu
 
 ## Golf
 
-Mini-golf de 1 à 8 joueurs. On crée un parcours et on partage le code. Tout le monde joue le même trou **en même temps**, chacun avec sa balle (les balles ne se gênent pas).
+Mini-golf de 1 à 8 joueurs. On crée un parcours et on partage le code. Tout le monde joue le même trou **en même temps**, chacun avec sa balle. Les balles **se cognent** : tu peux pousser celle d'un adversaire (si elle finit dans l'eau, elle revient à sa place sans pénalité).
 
 - **Chaque trou est généré au hasard** : départ et drapeau aux deux bouts, murs en bois, bunkers de sable, étangs. Le serveur vérifie qu'un chemin existe avant de le proposer et calcule le **par** (2 à 5) d'après la longueur du chemin.
 - **Frapper** : clique n'importe où sur le terrain, tire en arrière comme un lance-pierre, puis relâche. Plus tu tires, plus c'est fort. Ça marche aussi au doigt.
@@ -98,7 +98,9 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 ## Interface
 
-L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `index.html`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
+Les quatre jeux ont le même accueil : une **barre en haut pour passer d'un jeu à l'autre**, le pseudo (gardé d'un jeu à l'autre), un bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose) et une ligne « code + Rejoindre ». En partie, un bouton **Quitter** ramène à l'accueil. Ces deux éléments viennent de `common.js`.
+
+L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 
 Si tu modifies des classes dans `index.html`, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
 
