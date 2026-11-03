@@ -254,7 +254,7 @@ func TestGolfHardHoles(t *testing.T) {
 		}
 		pars[h.Par]++
 	}
-	if d := time.Since(start); d > 2*time.Second {
+	if d := time.Since(start); d > 15*time.Second { // large : -race ralentit tout ; on cherche une boucle sans fin, pas un chrono
 		t.Fatalf("génération trop lente : %v pour 200 trous", d)
 	}
 	t.Logf("pars : %v, %v pour 200 trous", pars, time.Since(start))
