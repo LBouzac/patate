@@ -2,8 +2,8 @@ package main
 
 // quizQ : une question et 4 réponses, la bonne en premier (elles sont mélangées à l'affichage).
 type quizQ struct {
-	Q string
-	A [4]string
+	Q string    `json:"q"`
+	A [4]string `json:"a"`
 }
 
 var quizBank = []quizQ{

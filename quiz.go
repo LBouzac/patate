@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"strings"
 )
 
 const (
@@ -42,16 +43,52 @@ type Quiz struct {
 	good   int
 }
 
-func newQuiz(pads []*Pad) *Quiz {
-	g := &Quiz{Phase: "intro", Left: QuizIntro, Total: QuizCount, Time: QuizTime, Good: -1}
-	order := rand.Perm(len(quizBank))[:QuizCount]
-	for _, i := range order {
-		g.qs = append(g.qs, quizBank[i])
+func newQuiz(pads []*Pad) *Quiz { return newQuizFrom(pads, quizBank, QuizCount) }
+
+// newQuizFrom : n questions tirées de qs (les questions du chef : toutes, dans le désordre).
+func newQuizFrom(pads []*Pad, qs []quizQ, n int) *Quiz {
+	n = min(n, len(qs))
+	g := &Quiz{Phase: "intro", Left: QuizIntro, Total: n, Time: QuizTime, Good: -1}
+	for _, i := range rand.Perm(len(qs))[:n] {
+		g.qs = append(g.qs, qs[i])
 	}
 	for _, p := range pads {
 		g.Add(p)
 	}
 	return g
+}
+
+const (
+	MyQuizMax  = 50 // questions du chef, gardées en mémoire tant que le salon est ouvert
+	MyQuizQ    = 160
+	MyQuizA    = 60
+	MyQuizPlay = 30 // au plus, par partie
+)
+
+// cleanQuiz garde les questions valables : un énoncé, 4 réponses différentes et non vides (la bonne en premier).
+func cleanQuiz(in []quizQ) []quizQ {
+	tidy := func(s string, n int) string {
+		s = strings.Join(strings.Fields(s), " ")
+		if r := []rune(s); len(r) > n {
+			s = string(r[:n])
+		}
+		return s
+	}
+	out := []quizQ{}
+	for _, q := range in {
+		q.Q = tidy(q.Q, MyQuizQ)
+		seen, ok := map[string]bool{}, q.Q != ""
+		for i := range q.A {
+			q.A[i] = tidy(q.A[i], MyQuizA)
+			k := strings.ToLower(q.A[i])
+			ok = ok && q.A[i] != "" && !seen[k]
+			seen[k] = true
+		}
+		if ok && len(out) < MyQuizMax {
+			out = append(out, q)
+		}
+	}
+	return out
 }
 
 func (g *Quiz) get(id int) *Quizzer {

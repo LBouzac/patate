@@ -74,6 +74,59 @@ func TestPartyForwardsGameInput(t *testing.T) {
 	}
 }
 
+// Le chef écrit ses questions (gardées en mémoire du salon seulement) et lance le quiz avec.
+func TestPartyOwnQuestions(t *testing.T) {
+	pt := newParty("1234")
+	a, b := pt.join("Ana"), pt.join("Bob")
+	qs := `{"questions":[
+		{"q":"  Capitale   du Gers ?","a":["Auch","Agen","Pau","Tarbes"]},
+		{"q":"Doublon ?","a":["Oui","oui","Non","Peut-être"]},
+		{"q":"","a":["a","b","c","d"]},
+		{"q":"Couleur du ciel ?","a":["Bleu","Vert","Rouge","Jaune"]}]}`
+	pt.input(b, []byte(qs))
+	if len(pt.quiz) != 0 {
+		t.Fatal("seul le chef écrit les questions")
+	}
+	pt.input(a, []byte(qs))
+	if len(pt.quiz) != 2 || pt.quiz[0].Q != "Capitale du Gers ?" {
+		t.Fatalf("questions valables gardées (et nettoyées) : %+v", pt.quiz)
+	}
+	pt.flush(time.Now())
+	var host, other map[string]any
+	for len(a.send) > 0 {
+		json.Unmarshal(<-a.send, &host)
+	}
+	for len(b.send) > 0 {
+		json.Unmarshal(<-b.send, &other)
+	}
+	if qq, _ := host["quiz"].([]any); len(qq) != 2 || other["quiz"] != nil {
+		t.Fatal("le chef reçoit ses questions pour les modifier, pas les autres")
+	}
+	pt.input(a, []byte(`{"play":"quiz","mine":true}`))
+	q := pt.game.(*Quiz)
+	if q.Total != 2 || !pt.mine {
+		t.Fatalf("quiz avec les 2 questions du chef, obtenu %d", q.Total)
+	}
+	for _, x := range q.qs {
+		if x.Q != "Capitale du Gers ?" && x.Q != "Couleur du ciel ?" {
+			t.Fatalf("question inattendue : %s", x.Q)
+		}
+	}
+	pt.input(a, []byte(`{"again":true}`))
+	if pt.game.(*Quiz).Total != 2 {
+		t.Fatal("rejouer garde les questions du chef")
+	}
+	pt.input(a, []byte(`{"play":"quiz"}`))
+	if pt.game.(*Quiz).Total != QuizCount || pt.mine {
+		t.Fatal("sans « mine » : questions au hasard")
+	}
+	pt.input(a, []byte(`{"questions":[]}`))
+	pt.input(a, []byte(`{"play":"quiz","mine":true}`))
+	if pt.game.(*Quiz).Total != QuizCount {
+		t.Fatal("plus de questions du chef : on revient au hasard")
+	}
+}
+
 // Rien ne change : rien n'est renvoyé, sauf un signe de vie de temps en temps. Client saturé : on réessaie.
 func TestDeliverOnlyChanges(t *testing.T) {
 	o := &out{send: make(chan []byte, 1)}

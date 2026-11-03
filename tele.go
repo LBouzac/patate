@@ -42,6 +42,7 @@ type tvKind struct {
 
 var tvGames = []tvKind{
 	{"sumo", 1, true, func(p []*Pad) TVGame { return newSumo(p) }},
+	{"course", 1, true, func(p []*Pad) TVGame { return newKart(p) }},
 	{"quiz", 1, false, func(p []*Pad) TVGame { return newQuiz(p) }},
 	{"imposteur", 3, false, func(p []*Pad) TVGame { return newImpostor(p) }},
 	{"chaine", 3, false, func(p []*Pad) TVGame { return newChain(p) }},
@@ -58,9 +59,10 @@ func tvKindOf(id string) *tvKind {
 
 // out : un destinataire (télé ou téléphone). On n'envoie que ce qui a changé, plus un signe de vie de temps en temps.
 type out struct {
-	send chan []byte
-	last []byte
-	sent time.Time
+	send    chan []byte
+	last    []byte
+	lastBig []byte
+	sent    time.Time
 }
 
 var beat = []byte(`{"hb":1}`)
@@ -89,14 +91,33 @@ type Pad struct {
 	Color string `json:"color"`
 	Host  bool   `json:"host"` // le chef choisit le jeu
 	out
-	lastBig []byte
 }
 
-// tvBig : une vue de téléphone avec une grosse partie (un dessin), envoyée à part et seulement quand elle change :
-// le reste de la vue (le chrono) change chaque seconde, on ne renvoie pas le dessin à chaque fois.
+// tvBig : une vue avec une grosse partie (un dessin, le tracé d'un circuit), envoyée à part et seulement quand
+// elle change : le reste (chrono, positions) change sans arrêt, on ne renvoie pas le gros morceau à chaque fois.
 type tvBig struct {
 	V   any
 	Big json.RawMessage
+}
+
+// big envoie la grosse partie si elle a changé. false : client saturé, la vue attendra (jamais avant son dessin).
+func (o *out) big(v any) (any, bool) {
+	sp, ok := v.(tvBig)
+	if !ok {
+		return v, true
+	}
+	bb, _ := json.Marshal(struct {
+		Big json.RawMessage `json:"big"`
+	}{sp.Big})
+	if !bytes.Equal(bb, o.lastBig) {
+		select {
+		case o.send <- bb:
+			o.lastBig = bb
+		default:
+			return nil, false
+		}
+	}
+	return sp.V, true
 }
 
 type Party struct {
@@ -108,7 +129,9 @@ type Party struct {
 	nextScr int
 	kind    *tvKind // nil : on est au menu
 	game    TVGame
-	runs    int // numéro de partie : change à chaque lancement (même jeu relancé)
+	runs    int     // numéro de partie : change à chaque lancement (même jeu relancé)
+	quiz    []quizQ // questions écrites par le chef : en mémoire seulement, perdues à la fermeture du salon
+	mine    bool    // le quiz en cours utilise ces questions
 	ticks   int
 }
 
@@ -162,35 +185,45 @@ func (pt *Party) pad(id int) *Pad {
 	return nil
 }
 
-// start lance un jeu avec les joueurs présents (le chef seulement).
-func (pt *Party) start(id string) {
+// start lance un jeu avec les joueurs présents (le chef seulement). mine : le quiz avec les questions du chef.
+func (pt *Party) start(id string, mine bool) {
 	k := tvKindOf(id)
 	if k == nil || len(pt.pads) < k.Min {
 		return
 	}
-	pt.kind, pt.game = k, k.New(slices.Clone(pt.pads))
+	pads := slices.Clone(pt.pads)
+	pt.mine = mine && k.ID == "quiz" && len(pt.quiz) > 0
+	if pt.mine {
+		pt.kind, pt.game = k, newQuizFrom(pads, pt.quiz, MyQuizPlay)
+	} else {
+		pt.kind, pt.game = k, k.New(pads)
+	}
 	pt.runs++
 }
 
-// input : messages du salon (choix du jeu, menu, rejouer), sinon transmis au jeu en cours.
-// Les noms play, menu et again sont réservés au salon : aucun jeu ne doit les utiliser.
+// input : messages du salon (choix du jeu, menu, rejouer, questions du chef), sinon transmis au jeu en cours.
+// Les noms play, mine, menu, again et questions sont réservés au salon : aucun jeu ne doit les utiliser.
 func (pt *Party) input(p *Pad, b []byte) {
 	var m struct {
-		Play  string `json:"play"`
-		Menu  bool   `json:"menu"`
-		Again bool   `json:"again"`
+		Play      string   `json:"play"`
+		Mine      bool     `json:"mine"`
+		Menu      bool     `json:"menu"`
+		Again     bool     `json:"again"`
+		Questions *[]quizQ `json:"questions"`
 	}
-	if json.Unmarshal(b, &m) == nil && (m.Play != "" || m.Menu || m.Again) {
+	if json.Unmarshal(b, &m) == nil && (m.Play != "" || m.Menu || m.Again || m.Questions != nil) {
 		if !p.Host {
 			return
 		}
 		switch {
+		case m.Questions != nil:
+			pt.quiz = cleanQuiz(*m.Questions)
 		case m.Play != "":
-			pt.start(m.Play)
+			pt.start(m.Play, m.Mine)
 		case m.Menu:
 			pt.kind, pt.game = nil, nil
 		case pt.kind != nil:
-			pt.start(pt.kind.ID)
+			pt.start(pt.kind.ID, pt.mine)
 		}
 		return
 	}
@@ -208,12 +241,13 @@ type screenMsg struct {
 }
 
 type padMsg struct {
-	Pin     string `json:"pin"`
-	Me      *Pad   `json:"me"`
-	Players []*Pad `json:"players"`
-	Game    string `json:"game"`
-	Run     int    `json:"run"`
-	V       any    `json:"v"`
+	Pin     string  `json:"pin"`
+	Me      *Pad    `json:"me"`
+	Players []*Pad  `json:"players"`
+	Game    string  `json:"game"`
+	Run     int     `json:"run"`
+	V       any     `json:"v"`
+	Quiz    []quizQ `json:"quiz,omitempty"` // pour le chef, au menu : ses questions, à modifier
 }
 
 // flush envoie à chaque écran et à chaque téléphone ce qu'il doit voir, s'il a changé.
@@ -230,9 +264,10 @@ func (pt *Party) flush(now time.Time) {
 	if players == nil {
 		players = []*Pad{} // [] et pas null pour le navigateur
 	}
-	if len(pt.screens) > 0 {
-		b, _ := json.Marshal(screenMsg{pt.Pin, players, game, pt.runs, s})
-		for _, o := range pt.screens {
+	for _, o := range pt.screens {
+		v, ok := o.big(s)
+		if ok {
+			b, _ := json.Marshal(screenMsg{pt.Pin, players, game, pt.runs, v})
 			o.deliver(b, now)
 		}
 	}
@@ -241,21 +276,15 @@ func (pt *Party) flush(now time.Time) {
 		if pt.game != nil {
 			v = pt.game.View(p)
 		}
-		if sp, ok := v.(tvBig); ok {
-			v = sp.V
-			bb, _ := json.Marshal(struct {
-				Big json.RawMessage `json:"big"`
-			}{sp.Big})
-			if !bytes.Equal(bb, p.lastBig) {
-				select {
-				case p.send <- bb:
-					p.lastBig = bb
-				default:
-					continue // la vue partira avec le dessin à la prochaine image, jamais avant lui
-				}
-			}
+		v, ok := p.big(v)
+		if !ok {
+			continue
 		}
-		b, _ := json.Marshal(padMsg{pt.Pin, p, players, game, pt.runs, v})
+		var qs []quizQ
+		if p.Host && game == "" {
+			qs = pt.quiz
+		}
+		b, _ := json.Marshal(padMsg{pt.Pin, p, players, game, pt.runs, v, qs})
 		p.deliver(b, now)
 	}
 }
@@ -348,7 +377,7 @@ func serveScreen(w http.ResponseWriter, r *http.Request) {
 			Send:   o.send,
 			OnMsg:  func([]byte) {}, // la télé ne joue pas
 			Leave:  func() { pt.mu.Lock(); delete(pt.screens, id); pt.mu.Unlock() },
-			Resume: func() { pt.mu.Lock(); o.last = nil; pt.mu.Unlock() },
+			Resume: func() { pt.mu.Lock(); o.last, o.lastBig = nil, nil; pt.mu.Unlock() },
 		}, ""
 	})
 }

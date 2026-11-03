@@ -108,13 +108,13 @@ function render() {
   show($('meCrown'), me.host);
   show($('menuBtn'), me.host && st.game !== '');
   const v = st.v || {};
-  if (st.game === 'sumo') {
-    const k = JSON.stringify(['sumo', me.host]);
-    if (k !== key) { key = k; sumoPad = sumoBuild(); pad.replaceChildren(sumoPad.root); }
-    sumoPad.update(v);
+  if (st.game === 'sumo' || st.game === 'course') { // manettes construites une seule fois : rien ne lâche sous le doigt
+    const k = JSON.stringify([st.game, me.host]);
+    if (k !== key) { key = k; livePad = st.game === 'sumo' ? sumoBuild() : raceBuild(); pad.replaceChildren(livePad.root); }
+    livePad.update(v);
   } else {
-    stopStick();
-    const k = JSON.stringify([st.game, me.host, st.game ? { ...v, left: 0 } : st.players]);
+    stopStick(); tiltOff();
+    const k = JSON.stringify([st.game, me.host, st.game ? { ...v, left: 0 } : quizScreen === 'edit' ? ['edit', st.quiz] : [quizScreen, st.players, (st.quiz || []).length]]);
     if (k !== key) {
       key = k;
       const view = st.game === '' ? lobby() : st.game === 'quiz' ? quiz(v) : st.game === 'imposteur' ? impostor(v) : chain(v);
@@ -134,6 +134,8 @@ function hostEnd() {
 
 // ---------- Salon : le chef choisit le jeu ----------
 function lobby() {
+  if (st.me.host && quizScreen === 'menu') return quizMenu();
+  if (st.me.host && quizScreen === 'edit') return quizEditor();
   const host = st.players.find(p => p.host);
   const list = el('div', 'flex flex-wrap justify-center gap-3', ...st.players.map(p => el('span', 'flex items-center gap-1.5 rounded-full bg-white/5 py-1 pr-3 pl-1 text-[15px]', dot(p, 'size-7 text-[13px]'), p.name)));
   if (!st.me.host) return center(el('div', 'text-[22px] font-bold', `${host?.name} choisit le jeu…`), hint('Regarde la télé. Le jeu démarre tout seul sur ton téléphone.'), list);
@@ -143,7 +145,7 @@ function lobby() {
     ...TV_GAMES.map(g => {
       const ok = st.players.length >= g.min;
       const b = btn('flex items-center gap-3 rounded-2xl bg-slate-900 p-4 text-left ring-1 ring-white/5 transition active:scale-[0.98] disabled:opacity-40',
-        () => send({ play: g.id }),
+        () => { if (g.id === 'quiz') { quizScreen = 'menu'; key = ''; render(); } else send({ play: g.id }); },
         el('span', 'grid size-12 shrink-0 place-items-center rounded-xl text-white ' + g.tile, icon(g.icon, 'size-8')),
         el('span', 'min-w-0 flex-1', el('span', 'block text-[18px] font-semibold', g.name),
           el('span', 'mt-0.5 block text-[13px] leading-snug text-slate-400', ok ? g.tag : `Il faut au moins ${g.min} joueurs.`)),
@@ -152,6 +154,76 @@ function lobby() {
       return b;
     }),
     el('div', 'mt-2', list));
+}
+
+// ---------- Quiz : questions au hasard, ou celles du chef (gardées par le salon, jamais enregistrées) ----------
+let quizScreen = '', qDraft = { q: '', a: ['', '', '', ''], at: -1 }, pasteDraft = '';
+const field = (cls, placeholder, value, max, oninput) => {
+  const i = el('input', 'h-11 w-full rounded-xl bg-slate-900 px-3 text-[16px] ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-400 focus:outline-none ' + cls);
+  i.placeholder = placeholder; i.value = value; i.maxLength = max; i.oninput = () => oninput(i.value);
+  return i;
+};
+const back = to => btn('inline-flex items-center gap-0.5 self-start py-1 text-[16px] text-indigo-300', () => { quizScreen = to; key = ''; render(); }, icon('chevron-left', 'size-5'), 'Retour');
+function quizMenu() {
+  const n = (st.quiz || []).length;
+  const mine = btn(big + ' bg-indigo-500 text-white disabled:opacity-40', () => { quizScreen = ''; send({ play: 'quiz', mine: true }); }, `Mes questions (${n})`);
+  mine.disabled = !n;
+  return el('div', 'flex flex-1 flex-col gap-3 py-2',
+    back(''),
+    el('h2', 'px-1 text-[22px] font-bold', 'Quiz rapide'),
+    btn(big + ' bg-indigo-500 text-white', () => { quizScreen = ''; send({ play: 'quiz' }); }, `${10} questions au hasard`),
+    mine,
+    btn(big + ' bg-white/10', () => { quizScreen = 'edit'; key = ''; render(); }, icon('sparkles', 'size-5'), n ? 'Modifier mes questions' : 'Écrire mes questions'),
+    hint('Tes questions restent tant que la télé est ouverte. Rien n\'est enregistré.'));
+}
+function setQuiz(list) { send({ questions: list }); }
+function quizEditor() {
+  const list = st.quiz || [];
+  const save = () => {
+    const q = { q: qDraft.q.trim(), a: qDraft.a.map(x => x.trim()) };
+    if (!q.q || q.a.some(x => !x)) return alert('Il faut la question et les 4 réponses.');
+    if (new Set(q.a.map(x => x.toLowerCase())).size < 4) return alert('Les 4 réponses doivent être différentes.');
+    const next = [...list];
+    if (qDraft.at >= 0) next[qDraft.at] = q; else next.push(q);
+    if (next.length > 50) return alert('50 questions au plus.');
+    qDraft = { q: '', a: ['', '', '', ''], at: -1 };
+    setQuiz(next);
+  };
+  const paste = () => { // une question par ligne : question ; bonne ; fausse ; fausse ; fausse
+    const next = [...list], bad = [];
+    pasteDraft.split('\n').map(l => l.trim()).filter(Boolean).forEach((l, i) => {
+      const p = l.split(/\s*[;|\t]\s*/).filter(x => x !== '');
+      if (p.length === 5 && new Set(p.slice(1).map(x => x.toLowerCase())).size === 4) next.push({ q: p[0], a: p.slice(1) }); else bad.push(i + 1);
+    });
+    if (bad.length) alert(`Ligne${bad.length > 1 ? 's' : ''} ignorée${bad.length > 1 ? 's' : ''} : ${bad.join(', ')}. Il faut 5 morceaux séparés par « ; » et 4 réponses différentes.`);
+    pasteDraft = '';
+    setQuiz(next.slice(0, 50));
+  };
+  const rows = list.map((q, i) => el('div', 'flex items-start gap-2 rounded-xl bg-slate-900 p-3 ring-1 ring-white/5',
+    btn('min-w-0 flex-1 text-left', () => { qDraft = { q: q.q, a: [...q.a], at: i }; key = ''; render(); },
+      el('span', 'block text-[15px] font-semibold leading-snug', `${i + 1}. ${q.q}`),
+      el('span', 'mt-1 block text-[13px] text-slate-400', el('b', 'text-emerald-400', '✓ ' + q.a[0]), ' · ' + q.a.slice(1).join(' · '))),
+    btn('grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-slate-300 active:bg-white/20', () => { if (confirm('Supprimer cette question ?')) setQuiz(list.filter((_, j) => j !== i)); }, '×')));
+  const area = el('textarea', 'w-full rounded-xl bg-slate-900 p-3 text-[14px] ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-400 focus:outline-none');
+  area.rows = 4; area.value = pasteDraft; area.oninput = () => { pasteDraft = area.value; };
+  area.placeholder = 'Capitale du Gers ? ; Auch ; Agen ; Pau ; Tarbes';
+  return el('div', 'flex flex-1 flex-col gap-3 overflow-y-auto py-2',
+    back('menu'),
+    el('div', 'flex items-baseline justify-between px-1', el('h2', 'text-[22px] font-bold', 'Mes questions'), el('span', 'text-[14px] text-slate-400', `${list.length}/50`)),
+    hint('Gardées tant que la télé est ouverte, jamais enregistrées. Touche une question pour la modifier.'),
+    ...rows,
+    el('div', 'flex flex-col gap-2 rounded-2xl bg-white/5 p-3',
+      el('div', 'text-[15px] font-semibold', qDraft.at >= 0 ? `Modifier la question ${qDraft.at + 1}` : 'Nouvelle question'),
+      field('', 'La question', qDraft.q, 160, v => { qDraft.q = v; }),
+      field('ring-emerald-500/60', 'Bonne réponse', qDraft.a[0], 60, v => { qDraft.a[0] = v; }),
+      ...[1, 2, 3].map(i => field('', `Mauvaise réponse ${i}`, qDraft.a[i], 60, v => { qDraft.a[i] = v; })),
+      el('div', 'flex gap-2', btn(big + ' bg-indigo-500 text-white', save, qDraft.at >= 0 ? 'Enregistrer' : 'Ajouter'),
+        qDraft.at >= 0 && btn(big + ' w-auto bg-white/10 px-4', () => { qDraft = { q: '', a: ['', '', '', ''], at: -1 }; key = ''; render(); }, 'Annuler'))),
+    el('details', 'rounded-2xl bg-white/5 p-3',
+      el('summary', 'cursor-pointer text-[15px] font-semibold', 'Coller une liste'),
+      el('p', 'my-2 text-[13px] leading-snug text-slate-400', 'Une question par ligne : la question, la bonne réponse puis 3 mauvaises, séparées par « ; ». Depuis un tableur, le copier-coller marche aussi.'),
+      area, el('div', 'mt-2', btn(big + ' bg-indigo-500 text-white', paste, 'Ajouter ces questions'))),
+    list.length > 0 && btn('self-center py-2 text-[14px] text-rose-300', () => { if (confirm('Effacer toutes tes questions ?')) setQuiz([]); }, 'Tout effacer'));
 }
 
 // ---------- Sumo : joystick à gauche, dash à droite ----------
@@ -229,15 +301,110 @@ function sumoBuild() {
   }
   return { root, update };
 }
-let sumoPad = null;
-// au clavier aussi (pour tester sur ordinateur) : ZQSD ou flèches, espace pour le dash
+let livePad = null;
+
+// ---------- Course : gauche / droite (ou inclinaison), et l'objet au milieu ----------
+let steer = 0, steerSent = 0, steerTimer = 0, tilt = null;
+function steerTo(v) {
+  v = Math.round(v * 20) / 20;
+  const now = performance.now();
+  if (v === steer && now - steerSent < 400) return;
+  if (v !== 0 && v !== steer && Math.abs(v) < 1 && now - steerSent < 60) return; // inclinaison : 15 envois/s au plus
+  steer = v; steerSent = now;
+  send({ s: v });
+}
+function tiltOff() { if (tilt) { removeEventListener('deviceorientation', onTilt); tilt = null; } }
+// gauche/droite vue par le joueur, selon que le téléphone est tenu en portrait ou en paysage
+function onTilt(e) {
+  if (!tilt || e.gamma == null) return;
+  const a = screen.orientation?.angle ?? window.orientation ?? 0;
+  const raw = a === 90 ? e.beta : (a === 270 || a === -90) ? -e.beta : e.gamma;
+  if (tilt.zero == null) tilt.zero = raw; // la position de départ sert de « tout droit »
+  let v = Math.max(-1, Math.min(1, (raw - tilt.zero) / 25));
+  if (Math.abs(v) < 0.1) v = 0;
+  tilt.v = v;
+  steerTo(v);
+}
+async function tiltOn() {
+  if (!window.isSecureContext || !('DeviceOrientationEvent' in window)) { alert("L'inclinaison n'est possible que si le site est en https."); return false; }
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') { // iPhone : il faut demander
+    const r = await DeviceOrientationEvent.requestPermission().catch(() => 'denied');
+    if (r !== 'granted') { alert("Inclinaison refusée : autorise l'accès aux mouvements dans Safari."); return false; }
+  }
+  tilt = { zero: null, v: 0 };
+  addEventListener('deviceorientation', onTilt);
+  return true;
+}
+function raceBuild() {
+  const pressed = new Set();
+  const apply = () => steerTo((pressed.has('R') ? 1 : 0) - (pressed.has('L') ? 1 : 0));
+  const arrow = (side, ic) => {
+    const b = el('button', 'nope grid flex-1 place-items-center rounded-3xl bg-slate-800 text-white shadow-xl ring-1 ring-white/10 transition active:bg-slate-700', icon(ic, 'size-20'));
+    b.onpointerdown = e => { e.preventDefault(); b.setPointerCapture(e.pointerId); pressed.add(side); b.classList.add('bg-slate-600'); apply(); };
+    b.onpointerup = b.onpointercancel = b.onlostpointercapture = () => { pressed.delete(side); b.classList.remove('bg-slate-600'); apply(); };
+    b.oncontextmenu = e => e.preventDefault();
+    return b;
+  };
+  const left = arrow('L', 'chevron-left'), right = arrow('R', 'chevron-right');
+  left.setAttribute('aria-label', 'Tourner à gauche'); right.setAttribute('aria-label', 'Tourner à droite');
+  const itemIcon = el('span', ''), itemTxt = el('span', 'text-[13px] font-bold');
+  const item = el('button', 'nope grid size-28 shrink-0 place-items-center content-center gap-0.5 rounded-full shadow-2xl transition active:scale-95', itemIcon, itemTxt);
+  item.onpointerdown = e => { e.preventDefault(); send({ item: true }); buzz(25); };
+  item.setAttribute('aria-label', 'Utiliser l\'objet');
+  const rank = el('span', 'text-[34px] leading-none font-black tabular-nums'), lap = el('span', 'text-[17px] font-semibold'), info = el('span', 'text-[14px] text-slate-400');
+  const botN = el('span', 'text-slate-400');
+  const bots = st.me.host && el('div', 'flex items-center justify-center gap-2 text-[14px]',
+    btn('inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 active:bg-white/20', () => send({ bot: 1 }), icon('user-plus', 'size-4'), 'Bot'),
+    btn('inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 active:bg-white/20', () => send({ bot: -1 }), icon('user-minus', 'size-4'), 'Bot'),
+    botN);
+  const gauge = el('div', 'h-2 flex-1 overflow-hidden rounded-full bg-white/10', el('div', 'h-full w-1 rounded-full bg-sky-400'));
+  const tiltBtn = btn('rounded-full bg-white/10 px-3 py-1.5 text-[14px] active:bg-white/20', async () => {
+    if (tilt) { tiltOff(); steerTo(0); } else await tiltOn();
+    paintTilt();
+  });
+  const recenter = btn('rounded-full bg-white/10 px-3 py-1.5 text-[14px] active:bg-white/20', () => { if (tilt) tilt.zero = null; }, 'Recentrer');
+  const paintTilt = () => {
+    tiltBtn.textContent = tilt ? 'Boutons' : 'Incliner pour tourner';
+    show(recenter, !!tilt); show(gauge, !!tilt);
+    left.classList.toggle('opacity-30', !!tilt); right.classList.toggle('opacity-30', !!tilt);
+  };
+  const tick = () => { // aiguille de l'inclinaison
+    if (!gauge.isConnected) return;
+    if (tilt) { const n = gauge.firstChild; n.style.marginLeft = `calc(${(tilt.v + 1) * 50}% - 2px)`; }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  paintTilt();
+  const root = el('div', 'flex flex-1 flex-col gap-3 py-2',
+    el('div', 'flex items-end justify-between px-1', el('span', 'flex items-baseline gap-2', rank, info), lap),
+    bots,
+    el('div', 'flex min-h-0 flex-1 items-stretch gap-3', left, el('div', 'flex flex-col items-center justify-center', item), right),
+    el('div', 'flex items-center gap-2', tiltBtn, recenter, gauge));
+  let wasItem = '';
+  function update(v) {
+    rank.textContent = !v.in ? '—' : v.done ? `${v.place}${v.place === 1 ? 'er' : 'e'}` : `${v.rank}${v.rank === 1 ? 'er' : 'e'}`;
+    info.textContent = !v.in ? 'tu pars à la prochaine course' : v.phase === 'count' ? `Départ dans ${v.wait}…` : v.phase === 'result' ? `+${v.gain} pts · total ${v.pts}` : `sur ${v.of}`;
+    lap.textContent = v.done ? 'Arrivé !' : v.in ? `Tour ${v.lap}/${v.laps}` : '';
+    botN.textContent = `${v.bots} bot${v.bots > 1 ? 's' : ''}`;
+    const it = { turbo: ['fire', 'Turbo', 'bg-orange-400 text-slate-950'], huile: ['face-frown', 'Huile', 'bg-slate-200 text-slate-950'] }[v.item];
+    item.className = 'nope grid size-28 shrink-0 place-items-center content-center gap-0.5 rounded-full shadow-2xl transition active:scale-95 ' + (it ? it[2] : 'bg-slate-800 text-slate-500 ring-1 ring-white/10');
+    itemIcon.replaceChildren(icon(it ? it[0] : 'sparkles', 'size-9'));
+    itemTxt.textContent = it ? it[1] : 'Objet';
+    if (v.item && v.item !== wasItem) buzz(30);
+    wasItem = v.item;
+  }
+  return { root, update };
+}
+
+// au clavier aussi (pour tester sur ordinateur) : ZQSD ou flèches, espace pour le dash ou l'objet
 const held = new Set();
 addEventListener('keydown', e => {
-  if (st?.game !== 'sumo' || e.target.tagName === 'INPUT') return;
-  if (e.code === 'Space') { send({ dash: true }); e.preventDefault(); return; }
-  held.add(e.code); keyStick();
+  if ((st?.game !== 'sumo' && st?.game !== 'course') || e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { send(st.game === 'sumo' ? { dash: true } : { item: true }); e.preventDefault(); return; }
+  held.add(e.code); st.game === 'sumo' ? keyStick() : keySteer();
 });
-addEventListener('keyup', e => { held.delete(e.code); if (st?.game === 'sumo') keyStick(); });
+addEventListener('keyup', e => { held.delete(e.code); if (st?.game === 'sumo') keyStick(); if (st?.game === 'course') keySteer(); });
+function keySteer() { steerTo((held.has('KeyD') || held.has('ArrowRight')) - (held.has('KeyA') || held.has('KeyQ') || held.has('ArrowLeft'))); }
 function keyStick() {
   const x = (held.has('KeyD') || held.has('ArrowRight')) - (held.has('KeyA') || held.has('KeyQ') || held.has('ArrowLeft'));
   const y = (held.has('KeyS') || held.has('ArrowDown')) - (held.has('KeyW') || held.has('KeyZ') || held.has('ArrowUp'));
@@ -439,6 +606,12 @@ function feel(was, m) {
   if (m.game === 'sumo' && was.game === 'sumo') {
     if (v.hits > w.hits) buzz(v.alive ? 40 : [120, 60, 160]);
     if (v.phase === 'play' && w.phase === 'count') buzz(80);
+  }
+  if (m.game === 'course' && was.game === 'course') {
+    if (v.pokes > w.pokes) buzz(60);
+    if (v.lap > w.lap) buzz(40);
+    if (v.done && !w.done) buzz([80, 40, 80]);
+    if (v.phase === 'race' && w.phase === 'count') buzz(80);
   }
   if (m.game === 'quiz' && v.phase === 'q' && v.n !== w.n) buzz(30);
   if (m.game === 'imposteur' && v.myTurn && !w.myTurn) buzz([60, 40, 60]);
