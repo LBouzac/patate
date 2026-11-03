@@ -42,8 +42,9 @@ ok "Binaire téléchargé et vérifié"
 if [ -n "${CTID:-}" ] && pct status "$CTID" >/dev/null 2>&1; then
   step "Mise à jour du conteneur $CTID"
   pct exec "$CTID" -- test -f /etc/init.d/patate || die "Le conteneur $CTID n'a pas été installé par ce script"
-  pct push "$CTID" "$TMP/patate" /usr/local/bin/patate --perms 755
-  pct exec "$CTID" -- rc-service patate restart >/dev/null
+  # envoi à côté puis renommage : écrire directement sur un binaire en cours d'exécution échoue (« Text file busy »)
+  pct push "$CTID" "$TMP/patate" /usr/local/bin/patate.new --perms 755
+  pct exec "$CTID" -- sh -c 'mv /usr/local/bin/patate.new /usr/local/bin/patate && rc-service patate restart >/dev/null'
   ok "Patate mis à jour dans le conteneur $CTID"
   exit 0
 fi
