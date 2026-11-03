@@ -14,6 +14,8 @@ L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'
 - **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.
 
+Et un **mode télé** (`/tele.html` + `/manette.html`) : le jeu s'affiche sur la télé, les téléphones servent de manettes. Quatre jeux faits pour ça : **Sumo**, **Quiz rapide**, **Imposteur** et **Dessin en chaîne** (détails plus bas).
+
 
 Jeu multijoueur dans le navigateur (2 à 10 joueurs, bots compris). Une bombe passe d'un joueur à l'autre quand ils se touchent. Celui qui la tient au moment où elle explose est éliminé. Le dernier survivant gagne. Le temps restant avant l'explosion est affiché.
 
@@ -33,6 +35,23 @@ Le script télécharge le jeu (et vérifie sa somme de contrôle), prend le dern
 - **Personnaliser** avec des variables placées avant la commande : `CTID`, `CT_HOSTNAME`, `PORT`, `MEMORY`, `DISK`, `BRIDGE`, `STORAGE`, `TEMPLATE_STORAGE`. Exemple : `PORT=9000 CTID=150 bash -c "$(curl …)"`.
 
 Le binaire est compilé par GitHub Actions à chaque push sur `main`, puis publié dans la release [`latest`](https://github.com/LBouzac/patate/releases/tag/latest).
+
+## Mode télé
+
+Le jeu s'affiche sur un grand écran, chacun joue avec son téléphone. Jusqu'à 10 joueurs.
+
+1. Sur la télé (son navigateur, ou l'ordinateur branché dessus), ouvre `http://IP:PORT/tele.html`. Un salon s'ouvre avec un **QR code** et un **code à 4 chiffres**. Appuie sur OK (ou clique) une fois pour activer le son et le plein écran.
+2. Chacun scanne le QR code avec son téléphone (ou ouvre `/manette.html` et tape le code). Le premier arrivé est le **chef** (couronne) : il choisit le jeu sur son téléphone, puis peut rejouer ou changer de jeu à tout moment (bouton « Jeux »). Tout le monde suit d'un jeu à l'autre sans rescanner.
+3. Un petit QR code reste dans un coin de la télé pendant les jeux : on peut arriver en cours de route. Si la télé recharge sa page, elle retrouve son salon (le code est dans l'adresse).
+
+Les jeux :
+
+- **Sumo** (1 à 10, bots possibles) : joystick à gauche du téléphone, bouton **dash** à droite (gros élan, et plus lourd un court instant ; recharge 2 s). On pousse les autres hors d'une arène ronde qui rétrécit après 8 s. Le dernier debout marque un point, premier à 3. Le chef ajoute ou retire des bots. Le téléphone vibre à chaque choc (Android).
+- **Quiz rapide** (1 à 10) : 10 questions tirées parmi plus de 150, affichées sur la télé ; on répond A, B, C ou D sur le téléphone en 15 s. Bonne réponse : de 500 à 1000 points selon la rapidité. La télé montre qui a répondu, puis qui a choisi quoi.
+- **Imposteur** (3 à 10) : chacun reçoit le même mot secret sur son téléphone, sauf l'imposteur qui ne connaît que le thème. Chacun son tour dit un mot à voix haute (la télé indique qui parle), puis tout le monde vote sur son téléphone. Démasqué, l'imposteur peut encore retrouver le mot parmi 12. Points : imposteur jamais démasqué +2, démasqué mais trouve le mot +1, sinon +1 pour tous les autres. Pour revoir son mot, on maintient un bouton : il ne reste pas affiché sous les yeux du voisin.
+- **Dessin en chaîne** (3 à 10) : chacun écrit une phrase (ou prend une idée au hasard), le suivant la dessine sur son téléphone, le suivant décrit ce dessin, et ainsi de suite (8 étapes au plus, chaque chaîne passe une fois par chacun). Sans réponse à la fin du chrono, le téléphone envoie ce qu'il a. À la fin, la télé révèle chaque chaîne maillon par maillon : le chef fait défiler avec son téléphone. Rien n'est enregistré.
+
+La télé reçoit l'état public du jeu, chaque téléphone seulement ce qu'il doit voir (le mot secret, le dessin à deviner). On n'envoie que ce qui a changé ; un dessin à deviner part une seule fois, à part du reste.
 
 ## Ricochet
 

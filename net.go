@@ -179,14 +179,19 @@ func holdLocked(token, path string, s *Seat) {
 	helds[token] = h
 }
 
-// assetVersion : empreinte de style.css et common.js, différente à chaque version du jeu. Les pages pointent vers
-// /style.css?v=… : après une mise à jour l'adresse change, donc Cloudflare et les navigateurs ne peuvent plus servir
-// une vieille copie (elle cassait l'affichage des nouvelles pages).
+// assetVersion : empreinte de style.css, common.js et qr.js, différente à chaque version du jeu. Les pages pointent
+// vers /style.css?v=… : après une mise à jour l'adresse change, donc Cloudflare et les navigateurs ne peuvent plus
+// servir une vieille copie (elle cassait l'affichage des nouvelles pages).
 var assetVersion = func() string {
-	css, _ := files.ReadFile("style.css")
-	js, _ := files.ReadFile("common.js")
-	return sha256hex(append(css, js...))[:10]
+	var all []byte
+	for _, f := range versioned {
+		b, _ := files.ReadFile(f[1:])
+		all = append(all, b...)
+	}
+	return sha256hex(all)[:10]
 }()
+
+var versioned = []string{"/style.css", "/common.js", "/qr.js"}
 
 // serveFiles sert les pages (jamais gardées en cache, liens versionnés) et les fichiers statiques.
 func serveFiles() http.Handler {
@@ -202,7 +207,7 @@ func serveFiles() http.Handler {
 				http.NotFound(w, r)
 				return
 			}
-			for _, f := range []string{"/style.css", "/common.js"} {
+			for _, f := range versioned {
 				b = bytes.ReplaceAll(b, []byte(`"`+f+`"`), []byte(`"`+f+"?v="+assetVersion+`"`))
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")

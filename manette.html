@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020617">
+<title>Manette</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  #game { height: 100dvh; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .nope { touch-action: none; }
+  .ring-cool { background: conic-gradient(rgba(255,255,255,.9) var(--p, 100%), rgba(255,255,255,.15) 0); }
+  @keyframes pop { from { transform: scale(.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .pop { animation: pop .3s cubic-bezier(.2,1.6,.4,1) both; }
+</style>
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<!-- Accueil -->
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-16">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] bg-slate-600 text-white"><i data-icon="phone" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Manette</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">Ton téléphone devient ta manette, le jeu s'affiche sur la télé.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-amber-400">
+    </label>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Code affiché sur la télé</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-amber-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Le plus simple : scanne le QR code de la télé avec l'appareil photo. Pas encore d'écran ?
+      Ouvre <a href="/tele.html" class="text-amber-400 underline">l'écran télé</a> sur la télé ou sur l'ordinateur branché dessus.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+
+<!-- Manette -->
+<div id="game" data-nochat hidden class="mx-auto flex max-w-xl flex-col px-3 pt-[max(env(safe-area-inset-top),8px)] pb-[max(env(safe-area-inset-bottom),10px)]">
+  <header class="flex items-center gap-2 py-1">
+    <span id="meDot" class="grid size-9 shrink-0 place-items-center rounded-full text-[17px] font-black text-slate-950"></span>
+    <span id="meName" class="min-w-0 truncate text-[17px] font-semibold"></span>
+    <span id="meCrown" hidden class="text-amber-300" title="Tu es le chef : tu choisis le jeu"><i data-icon="crown" class="size-5"></i></span>
+    <span class="ml-auto flex items-center gap-1.5">
+      <button id="menuBtn" hidden class="h-9 rounded-full bg-white/10 px-3 text-[15px] font-semibold transition active:bg-white/20">Jeux</button>
+      <button id="quit" class="h-9 rounded-full bg-white/10 px-3 text-[15px] text-slate-300 transition active:bg-white/20">Quitter</button>
+    </span>
+  </header>
+  <div id="pad" class="flex min-h-0 flex-1 flex-col"></div>
+</div>
+
+<script src="/common.js"></script>
+<script>
+const pad = $('pad');
+const el = (tag, cls = '', ...kids) => { const e = document.createElement(tag); if (cls) e.className = cls; e.append(...kids.filter(k => k != null && k !== false)); return e; };
+const btn = (cls, onclick, ...kids) => { const b = el('button', cls, ...kids); b.onclick = onclick; return b; };
+const buzz = p => navigator.vibrate?.(p);
+function dot(p, cls = 'size-10 text-[18px]') { const d = el('span', 'grid shrink-0 place-items-center rounded-full font-black text-slate-950 ' + cls, (p.name || '?')[0].toUpperCase()); d.style.background = p.color; return d; }
+const big = 'flex h-[56px] w-full items-center justify-center gap-2 rounded-2xl text-[18px] font-bold transition active:scale-[0.98]';
+const hint = (...t) => el('p', 'text-center text-[15px] leading-snug text-slate-400', ...t);
+const center = (...k) => el('div', 'flex flex-1 flex-col items-center justify-center gap-4 px-2 text-center', ...k);
+const seconds = () => { const s = el('span', 'font-mono tabular-nums'); s.dataset.secs = ''; return s; };
+
+let st = null, key = '', bigDraw = null;
+function join() {
+  connect('/ws/manette', $('pin').value.trim(), '', onState);
+  navigator.wakeLock?.request('screen').catch(() => {}); // l'écran ne s'éteint pas pendant qu'on joue (https seulement)
+}
+$('join').onclick = e => { e.preventDefault(); if (!/^\d{4}$/.test($('pin').value.trim())) return setErr('Le code fait 4 chiffres'); join(); };
+$('quit').onclick = () => { location.href = location.pathname + (st ? '?pin=' + st.pin : ''); }; // la page se recharge : on quitte le salon
+$('menuBtn').onclick = () => { if (confirm('Arrêter ce jeu et revenir au choix du jeu ?')) send({ menu: true }); };
+if ($('pin').value && $('name').value) $('join').focus(); // QR code scanné, pseudo connu : il ne reste qu'à toucher Rejoindre
+else if ($('pin').value) $('name').focus();
+
+function onState(m) {
+  if (m === null) { st = null; key = ''; stopStick(); return; }
+  if (m.hb) return;
+  if ('big' in m) { bigDraw = m.big; key = ''; if (st) render(); return; } // le dessin à deviner arrive à part
+  const was = st;
+  st = m;
+  if (was && was.run !== m.run) { strokes = []; drawStep = sentStep = -1; textDraft = ''; key = ''; } // nouvelle partie (même relancée)
+  feel(was, m);
+  if (m.game === 'chaine') chainDue(m.v);
+  render();
+}
+
+function render() {
+  const me = st.me;
+  $('meDot').textContent = me.name[0].toUpperCase(); $('meDot').style.background = me.color;
+  $('meName').textContent = me.name;
+  show($('meCrown'), me.host);
+  show($('menuBtn'), me.host && st.game !== '');
+  const v = st.v || {};
+  if (st.game === 'sumo') {
+    const k = JSON.stringify(['sumo', me.host]);
+    if (k !== key) { key = k; sumoPad = sumoBuild(); pad.replaceChildren(sumoPad.root); }
+    sumoPad.update(v);
+  } else {
+    stopStick();
+    const k = JSON.stringify([st.game, me.host, st.game ? { ...v, left: 0 } : st.players]);
+    if (k !== key) {
+      key = k;
+      const view = st.game === '' ? lobby() : st.game === 'quiz' ? quiz(v) : st.game === 'imposteur' ? impostor(v) : chain(v);
+      pad.replaceChildren(view);
+    }
+  }
+  for (const t of pad.querySelectorAll('[data-secs]')) t.textContent = v.left ?? '';
+}
+
+// le chef relance ou change de jeu
+function hostEnd() {
+  if (!st.me.host) return hint('Le chef peut rejouer ou changer de jeu.');
+  return el('div', 'flex w-full flex-col gap-2',
+    btn(big + ' bg-amber-400 text-slate-950', () => send({ again: true }), icon('arrow-path', 'size-5'), 'Rejouer'),
+    btn(big + ' bg-white/10', () => send({ menu: true }), 'Changer de jeu'));
+}
+
+// ---------- Salon : le chef choisit le jeu ----------
+function lobby() {
+  const host = st.players.find(p => p.host);
+  const list = el('div', 'flex flex-wrap justify-center gap-3', ...st.players.map(p => el('span', 'flex items-center gap-1.5 rounded-full bg-white/5 py-1 pr-3 pl-1 text-[15px]', dot(p, 'size-7 text-[13px]'), p.name)));
+  if (!st.me.host) return center(el('div', 'text-[22px] font-bold', `${host?.name} choisit le jeu…`), hint('Regarde la télé. Le jeu démarre tout seul sur ton téléphone.'), list);
+  return el('div', 'flex flex-1 flex-col gap-3 overflow-y-auto py-2',
+    el('h2', 'px-1 text-[22px] font-bold', 'Choisis un jeu'),
+    hint(`Tu es le chef. ${st.players.length} joueur${st.players.length > 1 ? 's' : ''} connecté${st.players.length > 1 ? 's' : ''}.`),
+    ...TV_GAMES.map(g => {
+      const ok = st.players.length >= g.min;
+      const b = btn('flex items-center gap-3 rounded-2xl bg-slate-900 p-4 text-left ring-1 ring-white/5 transition active:scale-[0.98] disabled:opacity-40',
+        () => send({ play: g.id }),
+        el('span', 'grid size-12 shrink-0 place-items-center rounded-xl text-white ' + g.tile, icon(g.icon, 'size-8')),
+        el('span', 'min-w-0 flex-1', el('span', 'block text-[18px] font-semibold', g.name),
+          el('span', 'mt-0.5 block text-[13px] leading-snug text-slate-400', ok ? g.tag : `Il faut au moins ${g.min} joueurs.`)),
+        icon('chevron-right', 'size-5 text-slate-500'));
+      b.disabled = !ok;
+      return b;
+    }),
+    el('div', 'mt-2', list));
+}
+
+// ---------- Sumo : joystick à gauche, dash à droite ----------
+let stick = null, stickSent = 0, stickTimer = 0;
+function stopStick() { stick = null; clearInterval(stickTimer); stickTimer = 0; }
+function sendStick(force) {
+  const now = performance.now();
+  if (!force && now - stickSent < 50) return;
+  stickSent = now;
+  send(stick ? { x: +stick.x.toFixed(2), y: +stick.y.toFixed(2) } : { x: 0, y: 0 });
+}
+// La manette Sumo est construite une seule fois : la reconstruire ferait lâcher le joystick sous le doigt.
+function sumoBuild() {
+  const status = el('span', 'text-[17px] font-semibold'), score = el('span', 'flex gap-1.5');
+  const botN = el('span', 'text-slate-400');
+  const bots = st.me.host && el('div', 'flex items-center justify-center gap-2 text-[14px]',
+    btn('inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 active:bg-white/20', () => send({ bot: 1 }), icon('user-plus', 'size-4'), 'Bot'),
+    btn('inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 active:bg-white/20', () => send({ bot: -1 }), icon('user-minus', 'size-4'), 'Bot'),
+    botN);
+  const zone = el('div', 'nope relative flex-[3] overflow-hidden rounded-3xl bg-slate-900 ring-1 ring-white/5');
+  const base = el('div', 'pointer-events-none absolute size-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 ring-2 ring-white/15');
+  const knob = el('div', 'pointer-events-none absolute size-16 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-xl');
+  knob.style.background = st.me.color;
+  const help = el('div', 'pointer-events-none absolute inset-x-0 bottom-4 text-center text-[14px] text-slate-500', 'Glisse le doigt pour bouger');
+  zone.append(help, base, knob);
+  const R = 64;
+  const place = (bx, by, kx, ky) => { base.style.left = bx + 'px'; base.style.top = by + 'px'; knob.style.left = kx + 'px'; knob.style.top = ky + 'px'; };
+  const rest = () => { const r = zone.getBoundingClientRect(); place(r.width / 2, r.height / 2, r.width / 2, r.height / 2); };
+  requestAnimationFrame(rest);
+  addEventListener('resize', () => { if (!stick && zone.isConnected) rest(); });
+  zone.onpointerdown = e => {
+    zone.setPointerCapture(e.pointerId);
+    const r = zone.getBoundingClientRect();
+    stick = { id: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, x: 0, y: 0 };
+    place(stick.ox, stick.oy, stick.ox, stick.oy);
+    clearInterval(stickTimer); stickTimer = setInterval(() => sendStick(true), 400); // au cas où
+  };
+  zone.onpointermove = e => {
+    if (!stick || e.pointerId !== stick.id) return;
+    const r = zone.getBoundingClientRect();
+    let dx = e.clientX - r.left - stick.ox, dy = e.clientY - r.top - stick.oy;
+    const d = Math.hypot(dx, dy);
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    stick.x = dx / R; stick.y = dy / R;
+    place(stick.ox, stick.oy, stick.ox + dx, stick.oy + dy);
+    sendStick(false);
+  };
+  zone.onpointerup = zone.onpointercancel = e => { if (stick && e.pointerId === stick.id) { stopStick(); rest(); sendStick(true); } };
+  const ringEl = el('span', 'ring-cool pointer-events-none absolute -inset-2 -z-10 rounded-full');
+  const dash = el('button', 'nope relative isolate grid aspect-square w-full max-w-40 place-items-center rounded-full text-[22px] font-black shadow-2xl transition active:scale-95', 'DASH', ringEl);
+  dash.onpointerdown = e => { e.preventDefault(); send({ dash: true }); buzz(25); };
+  let wasReady = true, coolFrom = 0;
+  const cool = () => {
+    const p = Math.min(1, (performance.now() - coolFrom) / 2000);
+    ringEl.style.setProperty('--p', p * 100 + '%');
+    if (p < 1 && ringEl.isConnected) requestAnimationFrame(cool);
+  };
+  const root = el('div', 'flex flex-1 flex-col gap-3 py-2',
+    el('div', 'flex items-center justify-between px-1', status, score), bots,
+    el('div', 'flex min-h-0 flex-1 items-stretch gap-3', zone, el('div', 'flex flex-[2] items-center justify-center', dash)));
+  function update(v) {
+    status.textContent = v.phase === 'wait' ? (st.me.host ? 'Ajoute un bot ou attends un ami' : 'Il faut un adversaire')
+      : v.phase === 'count' ? (v.in ? `Prêt ? ${v.wait}` : 'Tu joues à la prochaine manche')
+      : v.phase === 'play' ? (!v.in ? 'Tu joues à la prochaine manche' : v.alive ? 'Pousse-les dehors !' : 'Tombé ! Attends la manche suivante')
+      : v.phase === 'round' ? (v.winner ? `${v.winner} gagne la manche` : 'Égalité')
+      : `${v.champion} est champion !`;
+    score.replaceChildren(...[0, 1, 2].map(i => el('span', 'size-4 rounded-full ' + (i < v.score ? 'bg-amber-300' : 'bg-white/15'))));
+    botN.textContent = `${v.bots} bot${v.bots > 1 ? 's' : ''}`;
+    const on = v.ready && v.alive;
+    dash.classList.toggle('bg-rose-400', on); dash.classList.toggle('text-slate-950', on);
+    dash.classList.toggle('bg-slate-700', !on); dash.classList.toggle('text-slate-400', !on);
+    if (wasReady && !v.ready) { coolFrom = performance.now(); requestAnimationFrame(cool); } // la recharge s'anime ici
+    ringEl.hidden = v.ready;
+    wasReady = v.ready;
+  }
+  return { root, update };
+}
+let sumoPad = null;
+// au clavier aussi (pour tester sur ordinateur) : ZQSD ou flèches, espace pour le dash
+const held = new Set();
+addEventListener('keydown', e => {
+  if (st?.game !== 'sumo' || e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { send({ dash: true }); e.preventDefault(); return; }
+  held.add(e.code); keyStick();
+});
+addEventListener('keyup', e => { held.delete(e.code); if (st?.game === 'sumo') keyStick(); });
+function keyStick() {
+  const x = (held.has('KeyD') || held.has('ArrowRight')) - (held.has('KeyA') || held.has('KeyQ') || held.has('ArrowLeft'));
+  const y = (held.has('KeyS') || held.has('ArrowDown')) - (held.has('KeyW') || held.has('KeyZ') || held.has('ArrowUp'));
+  const l = Math.hypot(x, y) || 1;
+  send({ x: x / l, y: y / l });
+}
+
+// ---------- Quiz : A, B, C, D ----------
+const QUIZ_COLORS = ['bg-rose-500', 'bg-sky-500', 'bg-amber-400', 'bg-emerald-500'];
+function quiz(v) {
+  if (v.late) return center(el('div', 'text-[22px] font-bold', 'Tu joues dès la prochaine question'), hint('Regarde la télé.'));
+  const scoreLine = el('div', 'text-[15px] text-slate-400', `${v.score} pts · ${v.rank}${v.rank === 1 ? 'er' : 'e'} sur ${v.of}`);
+  if (v.phase === 'intro') return center(el('div', 'text-[26px] font-black', 'Prépare-toi !'), hint('Les questions s\'affichent sur la télé, tu réponds ici.'));
+  if (v.phase === 'end') return center(icon('trophy', 'size-16 text-amber-300'),
+    el('div', 'text-[30px] font-black', v.rank === 1 ? 'Tu as gagné !' : `${v.rank}${v.rank === 1 ? 'er' : 'e'} sur ${v.of}`),
+    el('div', 'text-[18px] text-slate-300', `${v.score} points`), hostEnd());
+  if (v.phase === 'reveal') {
+    const ok = v.pick === v.good;
+    return center(
+      el('div', 'pop grid size-28 place-items-center rounded-full text-white ' + (ok ? 'bg-emerald-500' : 'bg-rose-500'), icon(ok ? 'check' : 'face-frown', 'size-16')),
+      el('div', 'text-[30px] font-black', ok ? `+${v.gain}` : v.pick < 0 ? 'Pas de réponse' : 'Raté !'),
+      !ok && el('div', 'text-[17px] text-slate-300', 'La réponse : ', el('b', '', v.a[v.good])),
+      ok && v.streak >= 2 && el('div', 'flex items-center gap-1 text-[17px] text-orange-300', icon('fire', 'size-5'), `${v.streak} d'affilée`),
+      scoreLine);
+  }
+  if (v.done) return center(el('div', 'text-[24px] font-black', 'Réponse envoyée'),
+    el('div', 'rounded-2xl px-6 py-4 text-[20px] font-bold text-slate-950 ' + QUIZ_COLORS[v.pick], `${'ABCD'[v.pick]} · ${v.a[v.pick]}`),
+    hint('On attend les autres…'), scoreLine);
+  return el('div', 'flex flex-1 flex-col gap-3 py-2',
+    el('div', 'flex items-center justify-between px-1 text-[15px] text-slate-400', `Question ${v.n}/${v.total}`, el('span', 'flex items-center gap-1', icon('clock', 'size-4'), seconds())),
+    el('div', 'grid flex-1 grid-cols-2 grid-rows-2 gap-3', ...v.a.map((a, i) =>
+      btn('flex flex-col items-start justify-between gap-2 rounded-3xl p-4 text-left text-slate-950 shadow-xl transition active:scale-95 ' + QUIZ_COLORS[i],
+        () => { send({ pick: i }); buzz(30); },
+        el('span', 'grid size-11 place-items-center rounded-xl bg-black/20 text-[22px] font-black text-white', 'ABCD'[i]),
+        el('span', 'text-[19px] leading-tight font-bold', a)))));
+}
+
+// ---------- Imposteur ----------
+function secretCard(v, open) {
+  if (!open) return null;
+  return v.imp
+    ? el('div', 'pop w-full rounded-3xl bg-rose-500 p-6 text-center text-white shadow-2xl',
+        el('div', 'text-[15px] font-semibold uppercase opacity-80', 'Chut…'), el('div', 'mt-1 text-[30px] font-black', "Tu es l'imposteur !"),
+        el('div', 'mt-2 text-[17px]', 'Thème : ', el('b', '', v.cat)), el('div', 'mt-3 text-[14px] opacity-90', 'Écoute les autres, et fais comme si tu savais.'))
+    : el('div', 'pop w-full rounded-3xl bg-white p-6 text-center text-slate-950 shadow-2xl',
+        el('div', 'text-[15px] font-semibold text-slate-500 uppercase', 'Le mot secret'), el('div', 'mt-1 text-[38px] leading-tight font-black', v.word),
+        el('div', 'mt-2 text-[15px] text-slate-500', 'Thème : ', el('b', '', v.cat)));
+}
+// « Appuie longtemps pour revoir » : le mot ne reste pas affiché sous les yeux du voisin
+function peek(v) {
+  const box = el('div', 'w-full'), b = btn('nope w-full rounded-2xl bg-white/10 py-4 text-[16px] font-semibold active:bg-white/20', null, 'Maintiens pour revoir ton mot');
+  b.onpointerdown = () => { box.replaceChildren(secretCard(v, true)); };
+  b.onpointerup = b.onpointerleave = b.onpointercancel = () => box.replaceChildren();
+  return el('div', 'flex w-full flex-col gap-3', box, b);
+}
+function impostor(v) {
+  if (v.phase === 'wait') return center(el('div', 'text-[22px] font-bold', 'Il faut au moins 3 joueurs'), hint(`${v.count} pour l'instant.`), st.me.host && btn(big + ' bg-white/10', () => send({ menu: true }), 'Changer de jeu'));
+  if (!v.in && v.phase !== 'result') return center(el('div', 'text-[22px] font-bold', 'Tu joues à la prochaine manche'), hint('Regarde la télé en attendant.'));
+  const P = id => st.players.find(p => p.id === id);
+  switch (v.phase) {
+  case 'see':
+    return center(secretCard(v, !v.seen), v.seen ? el('div', 'text-[20px] font-bold', 'On attend les autres…') :
+      btn(big + ' bg-teal-400 text-slate-950', () => send({ seen: true }), icon('check', 'size-5'), "C'est bon, j'ai vu"),
+      v.seen && peek(v));
+  case 'clue':
+    return v.myTurn
+      ? center(el('div', 'pop text-[34px] leading-tight font-black text-teal-300', 'À toi !'), el('div', 'text-[20px] font-semibold', 'Dis un mot à voix haute'),
+          hint(v.imp ? 'Tu ne connais pas le mot : reste vague, sans te trahir.' : 'Assez précis pour prouver que tu sais, pas assez pour aider l\'imposteur.'),
+          el('div', 'flex items-center gap-1.5 text-[15px] text-slate-400', icon('clock', 'size-4'), seconds(), ' s'),
+          btn(big + ' bg-teal-400 text-slate-950', () => send({ done: true }), "J'ai parlé"), peek(v))
+      : center(el('div', 'text-[22px] font-bold', `${v.turn} parle…`), hint('Écoute bien, et repère celui qui hésite.'), peek(v));
+  case 'vote':
+    return el('div', 'flex flex-1 flex-col gap-2 overflow-y-auto py-2',
+      el('div', 'flex items-center justify-between px-1', el('h2', 'text-[22px] font-bold', "Qui est l'imposteur ?"), el('span', 'text-[15px] text-slate-400', seconds(), ' s')),
+      hint('Tu peux changer d\'avis tant que tout le monde n\'a pas voté.'),
+      ...v.opts.map(id => {
+        const p = P(id) || { name: '?', color: '#888' }, on = v.vote === id;
+        return btn('flex items-center gap-3 rounded-2xl p-3 text-left text-[18px] font-semibold ring-2 transition active:scale-[0.98] ' +
+          (on ? 'bg-rose-500/20 ring-rose-400' : 'bg-slate-900 ring-white/5'), () => { send({ vote: id }); buzz(20); },
+          dot(p), el('span', 'flex-1 truncate', p.name), on && icon('check', 'size-6 text-rose-300'));
+      }));
+  case 'guess':
+    if (!v.imp) return center(el('div', 'text-[22px] font-bold', "L'imposteur cherche le mot…"), hint('Croise les doigts.'));
+    return el('div', 'flex flex-1 flex-col gap-3 py-2',
+      el('div', 'flex items-center justify-between px-1', el('h2', 'text-[22px] font-bold text-rose-300', 'Retrouve le mot !'), el('span', 'text-[15px] text-slate-400', seconds(), ' s')),
+      hint('Démasqué… mais si tu trouves le mot, tu gagnes quand même 1 point.'),
+      el('div', 'grid grid-cols-2 gap-2', ...v.words.map(w => btn('rounded-xl bg-slate-900 px-2 py-3 text-[16px] font-semibold ring-1 ring-white/10 active:bg-white/10', () => send({ guess: w }), w))));
+  case 'result': {
+    const mine = v.impId === st.me.id;
+    const won = v.win === '' ? null : (v.win === 'imp') === mine;
+    return center(
+      won !== null && el('div', 'pop grid size-24 place-items-center rounded-full text-white ' + (won ? 'bg-emerald-500' : 'bg-rose-500'), icon(won ? 'trophy' : 'face-frown', 'size-12')),
+      el('div', 'text-[28px] font-black', won === null ? 'Manche annulée' : won ? 'Gagné !' : 'Perdu…'),
+      el('div', 'text-[16px] text-slate-300', v.note),
+      v.secret && el('div', 'text-[17px]', 'Le mot était ', el('b', 'rounded-md bg-white px-2 text-slate-950', v.secret)),
+      el('div', 'text-[15px] text-slate-400', `Tu as ${v.score} point${v.score > 1 ? 's' : ''}`),
+      st.me.host ? el('div', 'flex w-full flex-col gap-2', btn(big + ' bg-teal-400 text-slate-950', () => send({ next: true }), 'Manche suivante'),
+        btn(big + ' bg-white/10', () => send({ menu: true }), 'Changer de jeu')) : hint('Le chef lance la manche suivante.'));
+  }
+  }
+}
+
+// ---------- Dessin en chaîne ----------
+const PALETTE = ['#0f172a', '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#92400e', '#ec4899', '#ffffff'];
+const WIDTHS = [0, 5, 12, 28];
+let strokes = [], drawStep = -1, sentStep = -1, pen = { c: 0, w: 1 }, textDraft = '';
+function paint(cv, list) {
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 1000, 750);
+  c.lineCap = c.lineJoin = 'round';
+  for (const s of list || []) {
+    c.strokeStyle = PALETTE[s[0]] || '#000'; c.lineWidth = WIDTHS[s[1]] || 5;
+    c.beginPath(); c.moveTo(s[2], s[3]);
+    if (s.length === 4) c.lineTo(s[2] + 0.1, s[3]);
+    for (let i = 4; i < s.length; i += 2) c.lineTo(s[i], s[i + 1]);
+    c.stroke();
+  }
+}
+function submitChain(v) {
+  if (sentStep === v.step) return;
+  sentStep = v.step;
+  if (v.phase === 'draw') send({ draw: strokes });
+  else send({ text: textDraft });
+}
+// chrono écoulé : on envoie ce qu'on a
+function chainDue(v) {
+  if (!v) return;
+  if (v.step !== drawStep) { drawStep = v.step; strokes = []; textDraft = ''; sentStep = -1; if (!v.out && v.phase !== 'reveal' && v.phase !== 'done') buzz(40); }
+  if (v.due && !v.done && !v.out) submitChain(v);
+}
+function chain(v) {
+  if (v.out) return center(el('div', 'text-[22px] font-bold', 'Partie en cours'), hint('Tu joueras à la prochaine. Regarde la télé !'));
+  if (v.phase === 'reveal') return center(icon('tv', 'size-16 text-amber-300'), el('div', 'text-[24px] font-black', 'Regarde la télé !'),
+    hint(`Chaîne ${v.rc + 1}/${v.n} · ${v.rs}/${v.steps}`),
+    st.me.host ? btn(big + ' h-24 bg-amber-400 text-[24px] text-slate-950', () => { send({ next: true }); buzz(20); }, 'Suivant', icon('chevron-right', 'size-7')) : hint('Le chef fait défiler.'));
+  if (v.phase === 'done') return center(el('div', 'text-[26px] font-black', 'Fini !'), hostEnd());
+  const clock = el('span', 'flex items-center gap-1 text-[15px] text-slate-400', icon('clock', 'size-4'), seconds(), ' s');
+  const head = (t) => el('div', 'flex items-center justify-between px-1', el('h2', 'text-[20px] font-bold', t), clock);
+  if (v.done || sentStep === v.step) return center(el('div', 'pop grid size-20 place-items-center rounded-full bg-emerald-500 text-white', icon('check', 'size-10')),
+    el('div', 'text-[22px] font-black', 'Envoyé !'), hint('On attend les autres…'), clock);
+  if (v.phase === 'draw') {
+    const cv = el('canvas', 'nope block w-full rounded-2xl bg-white shadow-xl');
+    cv.width = 1000; cv.height = 750;
+    let cur = null;
+    const at = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) * 1000 / r.width), Math.round((e.clientY - r.top) * 750 / r.height)]; };
+    cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); cur = [pen.c, pen.w, ...at(e)]; strokes.push(cur); paint(cv, strokes); };
+    cv.onpointermove = e => {
+      if (!cur) return;
+      const p = at(e), lx = cur.at(-2), ly = cur.at(-1);
+      if (Math.abs(p[0] - lx) + Math.abs(p[1] - ly) < 4) return; // points trop proches : inutiles
+      cur.push(...p);
+      const c = cv.getContext('2d');
+      c.strokeStyle = PALETTE[cur[0]]; c.lineWidth = WIDTHS[cur[1]]; c.lineCap = c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(lx, ly); c.lineTo(p[0], p[1]); c.stroke();
+    };
+    cv.onpointerup = cv.onpointercancel = () => { cur = null; };
+    requestAnimationFrame(() => paint(cv, strokes));
+    const swatches = PALETTE.map((col, i) => {
+      const b = btn('size-9 shrink-0 rounded-full ring-2 transition ' + (pen.c === i ? 'ring-amber-300 scale-110' : 'ring-white/20'), () => { pen.c = i; key = ''; render(); });
+      b.style.background = col; b.title = i === 7 ? 'Gomme' : 'Couleur';
+      return b;
+    });
+    const sizes = [1, 2, 3].map(w => btn('grid size-9 shrink-0 place-items-center rounded-full ' + (pen.w === w ? 'bg-white/25' : 'bg-white/5'),
+      () => { pen.w = w; key = ''; render(); }, el('span', 'rounded-full bg-white', '')));
+    sizes.forEach((b, i) => { const d = b.firstChild; d.style.width = d.style.height = [6, 12, 20][i] + 'px'; });
+    return el('div', 'flex flex-1 flex-col gap-2 py-1',
+      head('Dessine :'),
+      el('div', 'rounded-xl bg-amber-400/15 px-3 py-2 text-[18px] leading-snug font-bold text-amber-200', `« ${v.prompt} »`),
+      cv,
+      el('div', 'flex items-center gap-1.5 overflow-x-auto p-1.5', ...swatches),
+      el('div', 'flex items-center gap-2', ...sizes,
+        btn('ml-auto h-9 rounded-full bg-white/10 px-3 text-[14px] active:bg-white/20', () => { strokes.pop(); paint(cv, strokes); }, 'Annuler'),
+        btn('h-9 rounded-full bg-white/10 px-3 text-[14px] active:bg-white/20', () => { if (confirm('Tout effacer ?')) { strokes = []; paint(cv, strokes); } }, 'Effacer')),
+      btn(big + ' bg-amber-400 text-slate-950', () => { submitChain(v); key = ''; render(); }, 'Envoyer le dessin'));
+  }
+  // écrire (départ) ou deviner un dessin
+  const input = el('textarea', 'w-full resize-none rounded-2xl bg-slate-900 p-4 text-[18px] leading-snug ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-amber-400 focus:outline-none');
+  input.rows = 3; input.maxLength = 80; input.value = textDraft;
+  input.placeholder = v.phase === 'write' ? 'Ex. : un chat qui fait du ski' : 'Ex. : un chien qui conduit un bus';
+  input.oninput = () => { textDraft = input.value; };
+  const send_ = btn(big + ' bg-amber-400 text-slate-950', () => { textDraft = input.value; submitChain(v); key = ''; render(); }, 'Envoyer');
+  if (v.phase === 'write') return el('div', 'flex flex-1 flex-col gap-3 py-2',
+    head('Écris une phrase'),
+    hint('Une scène que ton voisin devra dessiner. Plus c\'est drôle, mieux c\'est !'),
+    input,
+    btn('self-start rounded-full bg-white/10 px-4 py-2 text-[15px] active:bg-white/20', () => { input.value = textDraft = v.idea; }, icon('sparkles', 'size-4 inline'), ' Une idée ?'),
+    send_);
+  const cv = el('canvas', 'block w-full rounded-2xl bg-white shadow-xl');
+  cv.width = 1000; cv.height = 750;
+  requestAnimationFrame(() => paint(cv, bigDraw || []));
+  return el('div', 'flex flex-1 flex-col gap-3 py-2', head("Qu'est-ce que c'est ?"), cv, input, send_);
+}
+
+// ---------- Vibrations ----------
+function feel(was, m) {
+  if (!was) return;
+  const v = m.v || {}, w = was.v || {};
+  if (m.game !== was.game) buzz(40);
+  if (m.game === 'sumo' && was.game === 'sumo') {
+    if (v.hits > w.hits) buzz(v.alive ? 40 : [120, 60, 160]);
+    if (v.phase === 'play' && w.phase === 'count') buzz(80);
+  }
+  if (m.game === 'quiz' && v.phase === 'q' && v.n !== w.n) buzz(30);
+  if (m.game === 'imposteur' && v.myTurn && !w.myTurn) buzz([60, 40, 60]);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mode télé</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* La télé dessine sur une scène fixe de 1920×1080, mise à l'échelle de l'écran (720p, 1080p, 4K…). */
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden;
+    background: radial-gradient(1200px 700px at 20% 0%, #1e1b4b 0%, transparent 60%), radial-gradient(1000px 600px at 100% 100%, #3b0764 0%, transparent 55%), #020617; }
+  .bar { transition: width .12s linear; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .pop { animation: pop .35s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes floaty { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+  .floaty { animation: floaty 3s ease-in-out infinite; }
+</style>
+</head>
+<body class="h-full overflow-hidden text-slate-100 antialiased">
+
+<main id="home" class="grid h-full place-items-center p-8 text-center">
+  <div>
+    <span class="mx-auto grid size-16 place-items-center rounded-2xl bg-slate-700 text-white"><i data-icon="tv" class="size-10"></i></span>
+    <h1 class="mt-4 text-[34px] font-bold">Mode télé</h1>
+    <p class="mt-2 text-[17px] text-slate-400">Ouverture du salon…</p>
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+    <button id="retry" hidden class="mt-4 h-[50px] rounded-xl bg-white/10 px-6 text-[17px] font-semibold transition hover:bg-white/15">Réessayer</button>
+  </div>
+</main>
+
+<div id="game" data-nochat hidden class="fixed inset-0 overflow-hidden bg-black">
+  <div id="stage">
+    <div id="view" class="absolute inset-0"></div>
+    <canvas id="sumo" width="1920" height="1080" hidden class="absolute inset-0"></canvas>
+    <div id="sumoUI" hidden class="pointer-events-none absolute inset-0"></div>
+    <!-- pendant un jeu : de quoi rejoindre en cours de route -->
+    <div id="join" hidden class="absolute right-6 bottom-6 flex items-center gap-4 rounded-2xl bg-slate-900/85 p-3 pr-6 shadow-2xl ring-1 ring-white/10">
+      <div id="joinQR" class="size-[104px] overflow-hidden rounded-lg"></div>
+      <div>
+        <div class="text-[18px] text-slate-400">Rejoindre</div>
+        <div id="joinPin" class="font-mono text-[44px] leading-none font-black tracking-widest text-amber-300"></div>
+      </div>
+    </div>
+    <div id="soundHint" class="absolute top-6 right-6 flex items-center gap-2 rounded-full bg-slate-900/85 px-5 py-2.5 text-[20px] text-slate-300 ring-1 ring-white/10">
+      <i data-icon="speaker-x-mark" class="size-6"></i>Appuie sur OK (ou clique) pour le son et le plein écran
+    </div>
+  </div>
+</div>
+
+<script src="/common.js"></script>
+<script src="/qr.js"></script>
+<script>
+const stage = $('stage'), view = $('view');
+function fit() {
+  const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+  stage.style.transform = `translate(${(innerWidth - 1920 * k) / 2}px, ${(innerHeight - 1080 * k) / 2}px) scale(${k})`;
+}
+addEventListener('resize', fit); fit();
+
+// le son et le plein écran demandent un geste : OK de la télécommande, clic, ou n'importe quelle touche
+function wake() {
+  audio();
+  show($('soundHint'), false);
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+  navigator.wakeLock?.request('screen').catch(() => {});
+}
+addEventListener('keydown', wake); addEventListener('pointerdown', wake);
+
+const el = (tag, cls = '', ...kids) => { const e = document.createElement(tag); if (cls) e.className = cls; e.append(...kids.filter(k => k != null && k !== false)); return e; };
+function avatar(p, cls = 'size-24 text-[44px]') {
+  const a = el('div', 'grid shrink-0 place-items-center rounded-full font-black text-slate-950 shadow-lg ring-4 ring-black/20 ' + cls, (p.name || '?')[0].toUpperCase());
+  a.style.background = p.color;
+  return a;
+}
+function chip(p, extra) { // pastille + pseudo
+  return el('div', 'flex items-center gap-3', avatar(p, 'size-12 text-[22px]'), el('span', 'truncate text-[28px] font-semibold', p.name), extra);
+}
+function bar(left, total, color = 'bg-amber-400') {
+  const b = el('div', 'bar h-full rounded-full ' + color); b.style.width = Math.max(0, Math.min(100, left / total * 100)) + '%';
+  return el('div', 'h-4 w-full overflow-hidden rounded-full bg-white/10', b);
+}
+function title(icon_, text, cls) { return el('div', 'flex items-center gap-4 text-[40px] font-black ' + cls, icon(icon_, 'size-12'), text); }
+
+let st = null, key = '', joinURL = '';
+const pinFromURL = new URLSearchParams(location.search).get('pin') || '';
+function start(pin) {
+  show($('retry'), false);
+  connect('/ws/tele', /^\d{4}$/.test(pin) ? pin : '', '', onState, 'Télé');
+}
+$('retry').onclick = () => start(pinFromURL);
+start(pinFromURL);
+
+function onState(m) {
+  if (m === null) { st = null; key = ''; show($('retry'), true); return; }
+  if (m.hb) return;
+  const was = st;
+  st = m;
+  if (!joinURL || !joinURL.endsWith(m.pin)) {
+    joinURL = location.origin + '/manette.html?pin=' + m.pin;
+    $('joinQR').innerHTML = qrSVG(joinURL);
+    $('joinPin').textContent = m.pin;
+  }
+  sounds(was, m);
+  render();
+}
+
+// ---------- Rendu : on reconstruit la vue quand son contenu change, les chronos sont mis à jour à part ----------
+function render() {
+  const g = st.game, s = st.s;
+  show($('sumo'), g === 'sumo'); show($('sumoUI'), g === 'sumo');
+  show($('join'), g !== '');
+  const k = JSON.stringify([g, st.players, g === 'sumo' ? null : stripTimers(s)]);
+  if (k !== key) {
+    key = k;
+    const v = g === '' ? lobby() : g === 'quiz' ? quiz(s) : g === 'imposteur' ? impostor(s) : g === 'chaine' ? chain(s) : null;
+    view.replaceChildren(...(v ? [v] : []));
+    if (g === 'chaine' && s.phase === 'reveal') paintAll();
+  }
+  for (const b of view.querySelectorAll('[data-timer]')) { // chronos
+    const left = s?.left ?? 0, total = +b.dataset.timer;
+    b.firstChild.style.width = Math.max(0, Math.min(100, left / total * 100)) + '%';
+  }
+  for (const t of view.querySelectorAll('[data-secs]')) t.textContent = Math.ceil(s?.left ?? 0);
+  if (g === 'sumo') sumoState(s);
+}
+const stripTimers = s => s && Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'left' && k !== 'events'));
+function timer(total, color) { const b = bar(1, 1, color); b.dataset.timer = total; return b; }
+function secs(cls = '') { const t = el('span', 'font-mono tabular-nums ' + cls); t.dataset.secs = ''; return t; }
+
+// ---------- Salon : QR code, code, joueurs ----------
+function lobby() {
+  const host = st.players.find(p => p.host);
+  const qr = el('div', 'size-[440px] overflow-hidden rounded-3xl shadow-2xl ring-8 ring-white');
+  qr.innerHTML = qrSVG(joinURL);
+  const left = el('div', 'flex w-[640px] shrink-0 flex-col items-center',
+    el('div', 'text-[34px] font-bold text-slate-300', 'Scanne pour jouer'),
+    el('div', 'mt-6', qr),
+    el('div', 'mt-6 text-[26px] text-slate-400', 'ou va sur ', el('b', 'text-slate-200', location.host + '/manette.html')),
+    el('div', 'mt-2 flex items-baseline gap-4', el('span', 'text-[30px] text-slate-400', 'code'),
+      el('span', 'font-mono text-[120px] leading-none font-black tracking-[0.15em] text-amber-300', st.pin)));
+  const players = el('div', 'grid grid-cols-5 gap-x-6 gap-y-8',
+    ...st.players.map(p => el('div', 'pop flex w-[176px] flex-col items-center gap-3',
+      el('div', 'relative', avatar(p, 'size-28 text-[52px]'), p.host && el('span', 'absolute -top-5 left-1/2 -translate-x-1/2 text-amber-300', icon('crown', 'size-10'))),
+      el('div', 'w-full truncate text-center text-[28px] font-semibold', p.name))));
+  const cards = el('div', 'mt-auto grid grid-cols-4 gap-5', ...TV_GAMES.map(gm =>
+    el('div', 'rounded-2xl bg-white/5 p-5 ring-1 ring-white/10',
+      el('div', 'flex items-center gap-3', el('span', 'grid size-12 place-items-center rounded-xl text-white ' + gm.tile, icon(gm.icon, 'size-8')),
+        el('span', 'text-[26px] font-bold leading-tight', gm.name)),
+      el('div', 'mt-3 text-[19px] leading-snug text-slate-400', gm.tag),
+      el('div', 'mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-[17px] font-semibold text-slate-300', icon('users', 'size-5'), gm.players))));
+  const hint = !st.players.length ? 'Chacun scanne le QR code avec son téléphone : il devient sa manette.'
+    : `${host.name} choisit le jeu sur son téléphone.`;
+  return el('div', 'flex h-full gap-16 px-20 py-16',
+    left,
+    el('div', 'flex min-w-0 flex-1 flex-col',
+      el('div', 'flex items-baseline justify-between', el('h1', 'text-[64px] leading-none font-black', 'Soirée jeux'),
+        el('span', 'text-[30px] text-slate-400', `${st.players.length}/10 joueurs`)),
+      el('p', 'mt-4 flex items-center gap-3 text-[30px] text-slate-300', st.players.length ? icon('crown', 'size-8 text-amber-300') : icon('phone', 'size-8'), hint),
+      el('div', 'mt-10', st.players.length ? players : el('div', 'floaty text-[30px] text-slate-500', 'En attente des joueurs…')),
+      cards));
+}
+
+// ---------- Quiz ----------
+const QUIZ_COLORS = ['bg-rose-500', 'bg-sky-500', 'bg-amber-400', 'bg-emerald-500'];
+const LETTERS = ['A', 'B', 'C', 'D'];
+function quiz(s) {
+  const byId = id => st.players.find(p => p.id === id) || s.p.find(p => p.id === id);
+  if (s.phase === 'intro') return el('div', 'grid h-full place-items-center text-center', el('div', 'pop',
+    el('div', 'mx-auto grid size-32 place-items-center rounded-3xl bg-indigo-500 text-white', icon('quiz', 'size-20')),
+    el('h1', 'mt-8 text-[96px] font-black', 'Quiz rapide'),
+    el('p', 'mt-4 text-[40px] text-slate-300', `${s.total} questions · répondez sur votre téléphone`)));
+  if (s.phase === 'end') {
+    const rank = [...s.p].sort((a, b) => b.score - a.score);
+    const podium = [rank[1], rank[0], rank[2]].map((p, i) => p && el('div', 'flex flex-col items-center gap-4',
+      avatar(p, i === 1 ? 'size-40 text-[72px]' : 'size-28 text-[52px]'),
+      el('div', 'text-[34px] font-bold', p.name), el('div', 'text-[28px] text-slate-300 tabular-nums', p.score + ' pts'),
+      el('div', 'grid w-56 place-items-start justify-center rounded-t-2xl bg-white/10 pt-4 text-[56px] font-black ' + ['h-40', 'h-60', 'h-28'][i], ['2', '1', '3'][i])));
+    return el('div', 'flex h-full flex-col items-center justify-center gap-10',
+      title('trophy', `${rank[0]?.name || 'Personne'} gagne le quiz !`, 'text-amber-300 pop'),
+      el('div', 'flex items-end gap-10', ...podium),
+      el('div', 'flex flex-wrap justify-center gap-6 text-[24px] text-slate-400', ...rank.slice(3).map((p, i) => el('span', '', `${i + 4}. ${p.name} · ${p.score}`))),
+      el('p', 'text-[26px] text-slate-500', 'Le chef peut rejouer ou changer de jeu depuis son téléphone.'));
+  }
+  const reveal = s.phase === 'reveal';
+  const tiles = s.a.map((a, i) => {
+    const pickers = reveal ? s.p.filter(p => p.pick === i) : [];
+    const good = reveal && i === s.good;
+    return el('div', 'relative flex min-h-[190px] items-center gap-6 rounded-3xl p-6 pr-8 shadow-xl transition ' + QUIZ_COLORS[i] +
+      (reveal && !good ? ' opacity-30' : '') + (good ? ' ring-8 ring-white' : ''),
+      el('span', 'grid size-20 shrink-0 place-items-center rounded-2xl bg-black/25 text-[44px] font-black text-white', LETTERS[i]),
+      el('span', 'flex-1 text-[44px] leading-tight font-bold text-slate-950', a),
+      reveal && el('span', 'flex items-center gap-3', el('span', 'text-[40px] font-black text-slate-950 tabular-nums', s.counts[i]),
+        el('span', 'flex -space-x-3', ...pickers.slice(0, 6).map(p => avatar(p, 'size-12 text-[22px]')))),
+      good && el('span', 'absolute -top-6 -right-6 grid size-16 place-items-center rounded-full bg-white text-emerald-600 shadow-xl', icon('check', 'size-10')));
+  });
+  const answered = s.p.filter(p => p.done).length;
+  const top = [...s.p].sort((a, b) => b.score - a.score).slice(0, 5);
+  return el('div', 'flex h-full flex-col gap-8 px-20 pt-14 pb-40',
+    el('div', 'flex items-center justify-between text-[30px]',
+      el('span', 'font-bold text-indigo-300', `Question ${s.n}/${s.total}`),
+      reveal ? el('span', 'text-slate-300', `${answered} réponse${answered > 1 ? 's' : ''}`) :
+        el('span', 'flex items-center gap-3 text-slate-300', `${answered}/${s.p.length} ont répondu`, icon('clock', 'size-8'), secs('text-[40px] font-black text-white'))),
+    reveal ? el('div', 'h-4') : timer(s.time, 'bg-indigo-400'),
+    el('h1', 'pop text-center text-[64px] leading-tight font-black', s.q),
+    el('div', 'grid grid-cols-2 gap-6', ...tiles),
+    reveal ? el('div', 'flex items-center justify-center gap-10 text-[28px]', ...top.map((p, i) =>
+      el('span', 'flex items-center gap-3', el('b', 'text-slate-400', `${i + 1}.`), avatar(p, 'size-12 text-[22px]'), p.name,
+        el('b', 'tabular-nums', p.score), p.gain ? el('span', 'font-bold text-emerald-400', '+' + p.gain) : null)))
+      : el('div', 'flex flex-wrap justify-center gap-4', ...s.p.map(p => {
+        const a = avatar(p, 'size-16 text-[30px]');
+        if (!p.done) a.classList.add('opacity-25');
+        return a;
+      })));
+}
+
+// ---------- Imposteur ----------
+function impostor(s) {
+  const P = id => s.p.find(p => p.id === id);
+  const inRound = s.p.filter(p => p.in);
+  const head = el('div', 'flex items-center justify-between',
+    title('mask', 'Imposteur', 'text-teal-300'),
+    s.cat && el('span', 'rounded-full bg-white/10 px-6 py-2 text-[32px]', 'Thème : ', el('b', '', s.cat)));
+  const wrap = (...kids) => el('div', 'flex h-full flex-col gap-10 px-20 pt-14 pb-40', head, ...kids);
+  const ring = (list, mark) => el('div', 'flex flex-wrap justify-center gap-8', ...list.map(p => {
+    const on = mark(p);
+    const a = el('div', 'flex w-40 flex-col items-center gap-3' + (on ? '' : ' opacity-30'),
+      el('div', 'relative', avatar(p, 'size-28 text-[52px]'), on && el('span', 'absolute -right-2 -bottom-2 grid size-11 place-items-center rounded-full bg-emerald-500 text-white ring-4 ring-slate-950', icon('check', 'size-7'))),
+      el('span', 'w-full truncate text-center text-[26px] font-semibold', p.name));
+    return a;
+  }));
+  switch (s.phase) {
+  case 'wait':
+    return wrap(el('div', 'grid flex-1 place-items-center text-center text-[44px] text-slate-300', 'Il faut au moins 3 joueurs.'));
+  case 'see':
+    return wrap(el('h1', 'text-center text-[72px] font-black', 'Regardez votre téléphone… en cachette !'),
+      el('p', 'text-center text-[34px] text-slate-300', "Tout le monde a le même mot, sauf l'imposteur qui ne connaît que le thème."),
+      timer(25, 'bg-teal-400'), ring(inRound, p => p.seen));
+  case 'clue': {
+    const cur = P(s.order[s.turn]);
+    return wrap(
+      el('div', 'flex items-center justify-center gap-12',
+        cur && el('div', 'pop', avatar(cur, 'size-56 text-[110px]')),
+        el('div', '', el('div', 'text-[40px] text-slate-300', 'Au tour de'),
+          el('div', 'text-[110px] leading-none font-black', cur?.name || ''),
+          el('div', 'mt-4 text-[32px] text-slate-400', 'Un seul mot, à voix haute. Ni trop clair, ni trop vague !'))),
+      timer(20, 'bg-teal-400'),
+      el('div', 'mt-4 flex justify-center gap-8', ...s.order.map((id, i) => {
+        const p = P(id);
+        if (!p) return null;
+        return el('div', 'flex w-36 flex-col items-center gap-3' + (i < s.turn ? ' opacity-30' : ''),
+          avatar(p, i === s.turn ? 'size-28 text-[52px] ring-teal-300' : 'size-24 text-[44px]'),
+          el('span', 'w-full truncate text-center text-[26px]' + (i === s.turn ? ' font-bold text-teal-300' : ''), p.name));
+      })));
+  }
+  case 'vote':
+    return wrap(el('h1', 'text-center text-[72px] font-black', "Qui est l'imposteur ?"),
+      el('p', 'flex items-center justify-center gap-3 text-[34px] text-slate-300', 'Discutez, puis votez sur votre téléphone · ', icon('clock', 'size-9'), secs('font-bold text-white')),
+      timer(60, 'bg-rose-400'), ring(inRound, p => p.voted));
+  case 'guess': {
+    const imp = P(s.imp);
+    return wrap(el('div', 'flex flex-1 items-center justify-center gap-14',
+      imp && el('div', 'pop', avatar(imp, 'size-56 text-[110px]')),
+      el('div', '', el('div', 'text-[44px] text-rose-300', 'Démasqué !'),
+        el('div', 'text-[96px] leading-none font-black', `${imp?.name || '?'} était l'imposteur`),
+        el('div', 'mt-6 text-[36px] text-slate-300', 'Dernière chance : retrouver le mot secret sur son téléphone…'))),
+      timer(25, 'bg-rose-400'));
+  }
+  case 'result': {
+    const imp = P(s.imp);
+    const won = s.win === 'imp' ? "L'imposteur gagne" : s.win === 'civ' ? 'Les autres gagnent' : 'Manche annulée';
+    const rank = [...s.p].sort((a, b) => b.score - a.score);
+    const most = Math.max(1, ...s.p.map(p => p.votes));
+    return wrap(
+      el('div', 'flex items-center gap-14',
+        imp && el('div', 'pop flex flex-col items-center gap-3', avatar(imp, 'size-48 text-[90px]'), el('span', 'text-[30px] text-rose-300', 'Imposteur')),
+        el('div', 'min-w-0 flex-1',
+          el('div', 'text-[80px] leading-none font-black ' + (s.win === 'imp' ? 'text-rose-300' : 'text-emerald-300'), won),
+          el('div', 'mt-4 text-[34px] text-slate-300', s.note),
+          s.word && el('div', 'mt-6 text-[40px]', 'Le mot était ', el('b', 'rounded-xl bg-white px-4 text-slate-950', s.word),
+            s.guess ? el('span', 'text-slate-400', ` · il a proposé « ${s.guess} »`) : null))),
+      el('div', 'grid grid-cols-2 gap-x-16 gap-y-3',
+        el('div', '', el('h2', 'mb-3 text-[26px] text-slate-400 uppercase', 'Votes'),
+          ...inRound.map(p => {
+            const b = el('div', 'h-6 rounded-full ' + (p.id === s.imp ? 'bg-rose-400' : 'bg-white/30'));
+            b.style.width = (24 + 300 * p.votes / most) + 'px';
+            return el('div', 'flex items-center gap-4 py-1.5', avatar(p, 'size-12 text-[22px]'), el('span', 'w-56 truncate text-[28px]', p.name), b, el('b', 'text-[28px] tabular-nums', p.votes));
+          })),
+        el('div', '', el('h2', 'mb-3 text-[26px] text-slate-400 uppercase', 'Classement'),
+          ...rank.map((p, i) => el('div', 'flex items-center gap-4 py-1.5 text-[28px]', el('b', 'w-10 text-slate-400', `${i + 1}.`), avatar(p, 'size-12 text-[22px]'),
+            el('span', 'flex-1 truncate', p.name), el('b', 'tabular-nums', `${p.score} pt${p.score > 1 ? 's' : ''}`))))),
+      el('p', 'text-center text-[26px] text-slate-500', 'Le chef lance la manche suivante depuis son téléphone.'));
+  }
+  }
+}
+
+// ---------- Dessin en chaîne ----------
+const PALETTE = ['#0f172a', '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#92400e', '#ec4899', '#ffffff'];
+const WIDTHS = [0, 5, 12, 28];
+function paint(cv, strokes) {
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 1000, 750);
+  c.lineCap = c.lineJoin = 'round';
+  for (const s of strokes || []) {
+    c.strokeStyle = PALETTE[s[0]] || '#000'; c.lineWidth = WIDTHS[s[1]] || 5;
+    c.beginPath(); c.moveTo(s[2], s[3]);
+    if (s.length === 4) c.lineTo(s[2] + 0.1, s[3]);
+    for (let i = 4; i < s.length; i += 2) c.lineTo(s[i], s[i + 1]);
+    c.stroke();
+  }
+}
+function paintAll() { for (const cv of view.querySelectorAll('canvas[data-link]')) paint(cv, st.s.show[+cv.dataset.link].draw); }
+function linkCard(l, i, big) {
+  const who = el('div', 'flex items-center gap-3 ' + (big ? 'text-[30px]' : 'text-[18px]'),
+    avatar({ name: l.by, color: l.color }, big ? 'size-14 text-[26px]' : 'size-8 text-[15px]'),
+    el('span', 'truncate', l.by + (i === 0 ? ' a écrit' : l.kind === 'draw' ? ' a dessiné' : ' a deviné')));
+  let body;
+  if (l.kind === 'draw') {
+    body = el('canvas', 'block w-full rounded-2xl bg-white shadow-xl');
+    body.width = 1000; body.height = 750; body.dataset.link = i;
+  } else {
+    body = el('div', 'grid place-items-center rounded-2xl bg-white p-6 text-center font-black text-slate-900 shadow-xl ' +
+      (big ? 'min-h-[300px] text-[64px] leading-tight' : 'aspect-[4/3] text-[20px] leading-tight'), l.skip ? '…' : `« ${l.text} »`);
+  }
+  return el('div', big ? 'pop flex w-[960px] flex-col gap-4' : 'flex w-[190px] flex-col gap-2 opacity-80', who, body);
+}
+function chain(s) {
+  const head = el('div', 'flex items-center justify-between', title('link', 'Dessin en chaîne', 'text-amber-300'),
+    s.phase !== 'reveal' && s.phase !== 'done' && el('span', 'rounded-full bg-white/10 px-6 py-2 text-[32px]', `Étape ${s.step + 1}/${s.steps}`));
+  const wrap = (...kids) => el('div', 'flex h-full flex-col gap-8 px-20 pt-14 pb-40', head, ...kids);
+  if (s.phase === 'reveal') {
+    const last = s.show.length - 1;
+    return el('div', 'flex h-full flex-col gap-6 px-20 pt-12 pb-10',
+      el('div', 'flex items-center justify-between', el('div', 'text-[48px] font-black', `La chaîne de ${s.owner}`),
+        el('span', 'text-[28px] text-slate-400', `Chaîne ${s.rc + 1}/${s.p.length} · ${s.show.length}/${s.steps}`)),
+      el('div', 'flex min-h-0 flex-1 gap-10',
+        el('div', 'flex w-[420px] shrink-0 flex-wrap content-start gap-4', ...s.show.slice(0, last).map((l, i) => linkCard(l, i, false))),
+        el('div', 'flex flex-1 items-start justify-center', linkCard(s.show[last], last, true))));
+  }
+  if (s.phase === 'done') return wrap(el('div', 'grid flex-1 place-items-center text-center', el('div', 'pop',
+    el('div', 'text-[96px] font-black', 'Fini !'), el('p', 'mt-4 text-[36px] text-slate-300', 'Le chef peut relancer une partie depuis son téléphone.'))));
+  const what = { write: ['Écrivez une phrase', 'Une scène drôle, que le voisin devra dessiner.'],
+    draw: ['Dessinez !', 'Dessinez la phrase reçue sur votre téléphone. Pas de lettres !'],
+    guess: ['Que représente ce dessin ?', 'Décrivez en une phrase le dessin reçu.'] }[s.phase];
+  return wrap(el('h1', 'pop text-center text-[88px] font-black', what[0]), el('p', 'text-center text-[36px] text-slate-300', what[1]),
+    el('div', 'flex items-center gap-6', timer({ write: 45, draw: 80, guess: 40 }[s.phase], 'bg-amber-400'), secs('w-24 text-right text-[44px] font-black')),
+    s.late && el('p', 'text-center text-[30px] text-amber-300', 'Temps écoulé, on récupère les dernières réponses…'),
+    el('div', 'mt-6 flex flex-wrap justify-center gap-8', ...s.p.filter(p => !p.gone).map(p => el('div', 'flex w-40 flex-col items-center gap-3' + (p.done ? '' : ' opacity-30'),
+      el('div', 'relative', avatar(p, 'size-28 text-[52px]'), p.done && el('span', 'absolute -right-2 -bottom-2 grid size-11 place-items-center rounded-full bg-emerald-500 text-white ring-4 ring-slate-950', icon('check', 'size-7'))),
+      el('span', 'w-full truncate text-center text-[26px] font-semibold', p.name)))));
+}
+
+// ---------- Sumo : canvas, positions lissées entre deux images du serveur ----------
+const sc = $('sumo'), sx = sc.getContext('2d'), K = 1.2; // terrain 1600×900 → scène 1920×1080
+let sPrev = null, sCur = null, sAt = 0, sparks = [], shake = 0, sumoKey = '';
+function sumoState(s) {
+  sPrev = sCur; sCur = s; sAt = performance.now();
+  for (const e of s.events || []) {
+    if (e.kind === 'hit') { for (let i = 0; i < 14; i++) sparks.push({ x: e.x, y: e.y, vx: (Math.random() - .5) * 700, vy: (Math.random() - .5) * 700, t: .45, c: '#fde68a' }); shake = Math.min(14, +e.text / 60); }
+    if (e.kind === 'out') shake = 18;
+  }
+  const k = JSON.stringify([s.phase, s.winner, s.champion, Math.ceil(s.wait), s.f.map(f => [f.id, f.score, f.alive])]);
+  if (k !== sumoKey) { sumoKey = k; sumoOverlay(s); }
+  if (!sumoLoop) sumoLoop = requestAnimationFrame(drawSumo);
+}
+function sumoOverlay(s) {
+  const rank = [...s.f].sort((a, b) => b.score - a.score);
+  let msg = null;
+  if (s.phase === 'wait') msg = el('div', 'text-center', el('div', 'text-[72px] font-black', 'Sumo'),
+    el('div', 'mt-3 text-[34px] text-slate-200', s.f.length ? 'Il faut un adversaire : un ami, ou un bot (bouton sur le téléphone du chef).' : ''));
+  if (s.phase === 'count') msg = el('div', 'pop text-[220px] font-black text-white drop-shadow-2xl', String(Math.ceil(s.wait)));
+  if (s.phase === 'round') msg = el('div', 'pop text-center text-[80px] font-black drop-shadow-2xl', s.winner ? `${s.winner} gagne la manche` : 'Égalité !');
+  if (s.phase === 'end') msg = el('div', 'pop text-center', icon('trophy', 'mx-auto size-28 text-amber-300'), el('div', 'text-[96px] font-black drop-shadow-2xl', `${s.champion} est champion !`));
+  $('sumoUI').replaceChildren(...[
+    el('div', 'absolute top-6 left-6 flex flex-col gap-2 rounded-2xl bg-slate-950/70 p-4 text-[26px]',
+      el('div', 'mb-1 text-[20px] text-slate-400 uppercase', `Manche ${s.round} · premier à 3`),
+      ...rank.map(f => el('div', 'flex items-center gap-3' + (f.alive || s.phase !== 'play' ? '' : ' opacity-40'), avatar(f, 'size-9 text-[17px]'),
+        el('span', 'w-48 truncate', f.name), el('span', 'flex gap-1', ...[0, 1, 2].map(i => el('span', 'size-5 rounded-full ' + (i < f.score ? 'bg-amber-300' : 'bg-white/15'))))))),
+    msg && el('div', 'absolute inset-0 grid place-items-center', msg)].filter(Boolean));
+}
+let sumoLoop = 0, lastFrame = 0;
+function drawSumo(now) {
+  sumoLoop = 0;
+  if (!st || st.game !== 'sumo' || !sCur) return;
+  const dt = Math.min(.05, (now - (lastFrame || now)) / 1000); lastFrame = now;
+  const a = Math.min(1, (now - sAt) / 33), s = sCur;
+  const pos = f => { const p = sPrev?.f.find(o => o.id === f.id); return p ? [p.x + (f.x - p.x) * a, p.y + (f.y - p.y) * a] : [f.x, f.y]; };
+  sx.setTransform(1, 0, 0, 1, 0, 0);
+  sx.fillStyle = '#020617'; sx.fillRect(0, 0, 1920, 1080);
+  shake *= 0.86;
+  sx.setTransform(K, 0, 0, K, (Math.random() - .5) * shake, (Math.random() - .5) * shake);
+  // le dohyō : sable, puis le cercle de paille, qui rétrécit
+  const cx = 800, cy = 450;
+  sx.fillStyle = '#3f2d1d'; sx.beginPath(); sx.arc(cx, cy, 440, 0, Math.PI * 2); sx.fill();
+  const ring = sPrev ? sPrev.ring + (s.ring - sPrev.ring) * a : s.ring;
+  const grad = sx.createRadialGradient(cx, cy, 0, cx, cy, ring);
+  grad.addColorStop(0, '#e9d3a3'); grad.addColorStop(1, '#c9a96a');
+  sx.fillStyle = grad; sx.beginPath(); sx.arc(cx, cy, ring, 0, Math.PI * 2); sx.fill();
+  sx.lineWidth = 12; sx.strokeStyle = ring < 400 ? '#f97316' : '#fef3c7'; sx.stroke();
+  sx.strokeStyle = 'rgba(0,0,0,.15)'; sx.lineWidth = 6;
+  sx.beginPath(); sx.moveTo(cx - 60, cy - 18); sx.lineTo(cx - 60, cy + 18); sx.moveTo(cx + 60, cy - 18); sx.lineTo(cx + 60, cy + 18); sx.stroke();
+  for (const f of s.f) {
+    if (!f.alive) continue; // tombé (pendant la chute, alive reste vrai)
+    const [x, y] = pos(f), k = 1 - f.fall * 0.7;
+    sx.save(); sx.translate(x, y); sx.scale(k, k); sx.globalAlpha = 1 - f.fall * 0.8;
+    sx.fillStyle = 'rgba(0,0,0,.3)'; sx.beginPath(); sx.ellipse(0, 26, 34, 12, 0, 0, Math.PI * 2); sx.fill();
+    if (f.dash) { sx.fillStyle = f.color + '55'; sx.beginPath(); sx.arc(0, 0, 54, 0, Math.PI * 2); sx.fill(); }
+    sx.fillStyle = f.color; sx.beginPath(); sx.arc(0, 0, 34, 0, Math.PI * 2); sx.fill();
+    sx.lineWidth = 5; sx.strokeStyle = 'rgba(0,0,0,.35)'; sx.stroke();
+    sx.fillStyle = '#fff'; sx.beginPath(); sx.arc(-11, -6, 8, 0, Math.PI * 2); sx.arc(11, -6, 8, 0, Math.PI * 2); sx.fill(); // yeux
+    sx.fillStyle = '#0f172a'; sx.beginPath(); sx.arc(-9, -5, 4, 0, Math.PI * 2); sx.arc(13, -5, 4, 0, Math.PI * 2); sx.fill();
+    sx.fillStyle = '#0f172a'; sx.fillRect(-22, 14, 44, 8); // mawashi
+    sx.restore();
+    sx.font = 'bold 26px system-ui, sans-serif'; sx.textAlign = 'center'; sx.lineJoin = 'round';
+    sx.lineWidth = 6; sx.strokeStyle = 'rgba(2,6,23,.8)'; sx.strokeText(f.name, x, y - 48); sx.fillStyle = '#fff'; sx.fillText(f.name, x, y - 48);
+  }
+  sparks = sparks.filter(p => (p.t -= dt) > 0);
+  for (const p of sparks) { p.x += p.vx * dt; p.y += p.vy * dt; sx.globalAlpha = p.t / .45; sx.fillStyle = p.c; sx.fillRect(p.x - 4, p.y - 4, 8, 8); }
+  sx.globalAlpha = 1;
+  sumoLoop = requestAnimationFrame(drawSumo);
+}
+
+// ---------- Sons (sur la télé) ----------
+function sounds(was, m) {
+  const s = m.s, w = was?.s;
+  if (was && was.players.length < m.players.length) tone(880, 0.12, 'triangle', 0.1);
+  if (m.game === 'sumo' && s) {
+    for (const e of s.events || []) {
+      if (e.kind === 'hit') noise(0.18, Math.min(0.5, +e.text / 1500));
+      if (e.kind === 'dash') tone(300, 0.15, 'sawtooth', 0.04, 600);
+      if (e.kind === 'out') tone(500, 0.6, 'triangle', 0.15, 90);
+      if (e.kind === 'win') [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12));
+    }
+    if (s.phase === 'count' && w && Math.ceil(w.wait) !== Math.ceil(s.wait)) tone(660, 0.12, 'square', 0.06);
+    if (s.phase === 'play' && w?.phase === 'count') tone(990, 0.3, 'square', 0.08);
+  }
+  if (m.game === 'quiz' && s && w) {
+    if (s.phase === 'q' && w.n !== s.n) tone(740, 0.15, 'triangle', 0.1);
+    if (s.phase === 'reveal' && w.phase === 'q') [659, 880].forEach((f, i) => tone(f, 0.18, 'triangle', 0.12, 0, i * 0.1));
+    if (s.phase === 'q' && s.left <= 5 && Math.ceil(s.left) !== Math.ceil(w.left)) tone(1200, 0.05, 'square', 0.04);
+    if (s.phase === 'end' && w.phase !== 'end') [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12));
+  }
+  if (m.game === 'imposteur' && s && w && s.phase !== w.phase) {
+    if (s.phase === 'clue' || s.phase === 'vote') tone(660, 0.2, 'triangle', 0.1);
+    if (s.phase === 'guess') tone(220, 0.5, 'sawtooth', 0.08, 110);
+    if (s.phase === 'result') [523, 659, 784].forEach((f, i) => tone(f, 0.25, 'triangle', 0.12, 0, i * 0.12));
+  }
+  if (m.game === 'imposteur' && s && w && s.phase === 'clue' && w.turn !== s.turn) tone(880, 0.12, 'triangle', 0.08);
+  if (m.game === 'chaine' && s && w) {
+    if (s.phase !== w.phase) tone(660, 0.2, 'triangle', 0.1);
+    if (s.phase === 'reveal' && (w.rs !== s.rs || w.rc !== s.rc)) tone(520 + 60 * s.rs, 0.15, 'sine', 0.12);
+  }
+}
+</script>
+</body>
+</html>
