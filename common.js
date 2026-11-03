@@ -113,8 +113,10 @@ if ($('err')) setErr('');
 
 function screen(game) { show($('home'), !game); show($('game'), game); if ($('games')) show($('games'), !game); }
 
-// ---------- Connexion ----------
-let ws = null, me = 0;
+// ---------- Connexion, avec reconnexion automatique ----------
+// Le serveur donne un jeton secret à l'arrivée et garde la place 20 s si la connexion lâche (réseau, écran
+// verrouillé…). On revient alors tout seul avec ce jeton : même joueur, même score, même tour.
+let ws = null, me = 0, token = '', link = null, lastMsg = 0, retries = 0;
 const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
 
 // connect valide pseudo et code, ouvre le WebSocket et appelle onState(état) à chaque image, onState(null) à la déconnexion.
@@ -125,15 +127,56 @@ function connect(path, pin, extra, onState) {
   localStorage.name = name;
   audio(); // le navigateur n'autorise le son qu'après un clic
   setErr('Connexion…', false);
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host +
-    path + '?name=' + encodeURIComponent(name) + '&pin=' + pin + extra);
-  ws.onmessage = e => {
+  link = { url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + path + '?name=' + encodeURIComponent(name) + '&pin=' + pin + extra, onState };
+  token = '';
+  dial();
+}
+
+function dial() {
+  const sock = ws = new WebSocket(link.url + (token ? '&resume=' + token : ''));
+  lastMsg = Date.now();
+  sock.onmessage = e => {
+    if (sock !== ws) return;
+    lastMsg = Date.now();
     const m = JSON.parse(e.data);
-    if (m.you) { me = m.you; screen(true); setErr(''); return; }
+    if (m.you) { me = m.you; token = m.token; retries = 0; reconnecting(false); screen(true); setErr(''); return; }
     if (m.pin && location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
-    onState(m);
+    link.onState(m);
   };
-  ws.onclose = e => { onState(null); screen(false); setErr(e.reason || 'Déconnecté'); };
+  sock.onclose = e => {
+    if (sock !== ws) return;
+    // coupure : on retente avec le jeton tant que le serveur garde la place (sinon il répond 1008 avec la raison)
+    if (token && e.code !== 1008 && retries < 15) {
+      reconnecting(true);
+      setTimeout(dial, [500, 1000, 2000][retries++] || 3000);
+      return;
+    }
+    token = ''; reconnecting(false); link.onState(null); screen(false); setErr(e.reason || 'Déconnecté');
+  };
+}
+
+// connexion figée (téléphone réveillé, wifi → 4G) : les jeux envoient en continu, donc 4 s sans rien = elle est morte.
+// On n'attend pas qu'elle finisse de mourir : on en ouvre une nouvelle, le serveur lui passe la place.
+function checkAlive() {
+  if (!ws || ws.readyState !== 1 || !token || Date.now() - lastMsg < 4000) return;
+  const old = ws;
+  reconnecting(true);
+  dial();
+  old.close(4000, 'reprise');
+}
+setInterval(checkAlive, 1000);
+addEventListener('visibilitychange', () => { if (!document.hidden) checkAlive(); });
+
+let banner = null;
+function reconnecting(on) {
+  if (on && !banner) {
+    banner = document.createElement('div');
+    banner.setAttribute('role', 'status');
+    banner.className = 'fixed inset-x-0 top-3 z-50 mx-auto flex w-fit items-center gap-2 rounded-full bg-slate-800/90 px-4 py-2 text-sm font-semibold text-amber-300 shadow-2xl backdrop-blur-xl';
+    banner.append(icon('arrow-path', 'size-4 animate-spin'), 'Reconnexion…');
+    document.body.append(banner);
+  }
+  if (!on && banner) { banner.remove(); banner = null; }
 }
 
 if ($('copy')) $('copy').onclick = async () => {

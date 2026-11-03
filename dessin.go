@@ -247,6 +247,21 @@ func (s *Sketch) step(dt float64) {
 	}
 }
 
+// resend renvoie au joueur le dessin en cours et, s'il doit la voir, la photo.
+func (s *Sketch) resend(p *Sketcher) {
+	lines := s.lines
+	if lines == nil {
+		lines = [][]int{} // [] et pas null : le navigateur efface et redessine
+	}
+	b, _ := json.Marshal(map[string]any{"lines": lines})
+	push(p, b)
+	seesPhoto := s.Phase == "reveal" || ((s.Phase == "draw" || s.Phase == "judge") && (p.ID == s.Owner || p.ID == s.Drawer))
+	if s.photo != "" && seesPhoto {
+		b, _ = json.Marshal(map[string]string{"photo": s.photo})
+		push(p, b)
+	}
+}
+
 // stateFor : ceux qui devinent ne voient pas le texte des bonnes réponses des autres (avant la révélation).
 func (s *Sketch) stateFor(p *Sketcher) []byte {
 	gs := s.Guesses
@@ -336,6 +351,8 @@ func serveSketch(w http.ResponseWriter, r *http.Request) {
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { s.mu.Lock(); s.leave(p.ID); s.mu.Unlock() },
+			// reconnexion : des traits ou la photo ont pu être perdus pendant la coupure, on renvoie tout
+			Resume: func() { s.mu.Lock(); s.resend(p); s.mu.Unlock() },
 			OnMsg: func(b []byte) {
 				var m struct {
 					Start bool   `json:"start"`

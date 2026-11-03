@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -18,10 +21,97 @@ import (
 
 // Seat : la place d'un joueur dans un salon, quel que soit le jeu.
 type Seat struct {
-	ID    int
-	Send  chan []byte      // états à envoyer au client
-	OnMsg func(msg []byte) // chaque message reçu du client
-	Leave func()           // à la déconnexion
+	ID     int
+	Send   chan []byte      // états à envoyer au client
+	OnMsg  func(msg []byte) // chaque message reçu du client
+	Leave  func()           // quand le joueur quitte pour de bon
+	Resume func()           // facultatif : à la reconnexion (renvoyer ce qui a pu être perdu)
+}
+
+// Reconnexion : quand la connexion lâche sans que le joueur ait quitté (réseau, écran verrouillé, 4G…),
+// sa place reste réservée Grace secondes. Il la retrouve en revenant avec le jeton secret reçu à l'arrivée.
+var Grace = 20 * time.Second // variable pour les tests
+
+type held struct {
+	seat  *Seat
+	path  string
+	timer *time.Timer
+}
+
+// live : une connexion en cours. Une reconnexion peut arriver avant que le serveur ait vu mourir l'ancienne
+// connexion (téléphone qui se réveille) : la nouvelle prend alors la place, l'ancienne est coupée.
+type live struct {
+	seat *Seat
+	path string
+	kick context.CancelFunc
+	over bool // place passée à une nouvelle connexion
+}
+
+var (
+	heldMu  sync.Mutex
+	helds   = map[string]*held{} // jeton → place réservée
+	actives = map[string]*live{} // jeton → connexion en cours
+)
+
+func newToken() string {
+	b := make([]byte, 16)
+	crand.Read(b) // jeton imprévisible : il donne accès à la place d'un joueur
+	return hex.EncodeToString(b)
+}
+
+// reclaim rend la place de ce jeton (et de ce jeu) : réservée, ou encore tenue par une vieille connexion qu'on coupe.
+// nil si elle a expiré.
+func reclaim(token, path string) *Seat {
+	heldMu.Lock()
+	defer heldMu.Unlock()
+	if h := helds[token]; h != nil && h.path == path {
+		delete(helds, token)
+		h.timer.Stop()
+		return h.seat
+	}
+	if lv := actives[token]; lv != nil && lv.path == path {
+		lv.over = true
+		delete(actives, token)
+		lv.kick()
+		return lv.seat
+	}
+	return nil
+}
+
+// release : la connexion se termine. Départ volontaire : le joueur quitte ; coupure : sa place est réservée.
+func release(token string, lv *live, voluntary bool) {
+	heldMu.Lock()
+	if actives[token] == lv {
+		delete(actives, token)
+	}
+	if lv.over { // place déjà reprise par une nouvelle connexion
+		heldMu.Unlock()
+		return
+	}
+	if !voluntary {
+		holdLocked(token, lv.path, lv.seat)
+		heldMu.Unlock()
+		return
+	}
+	heldMu.Unlock()
+	lv.seat.Leave()
+}
+
+// holdLocked réserve la place (heldMu tenu) ; sans retour avant Grace, le joueur quitte la partie.
+func holdLocked(token, path string, s *Seat) {
+	h := &held{seat: s, path: path}
+	h.timer = time.AfterFunc(Grace, func() {
+		heldMu.Lock()
+		mine := helds[token] == h // pas repris entre-temps
+		if mine {
+			delete(helds, token)
+		}
+		heldMu.Unlock()
+		if mine {
+			s.Leave()
+		}
+	})
+	helds[token] = h
 }
 
 // assetVersion : empreinte de style.css et common.js, différente à chaque version du jeu. Les pages pointent vers
@@ -109,24 +199,44 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 	defer c.CloseNow()
 	c.SetReadLimit(readLimit)
 
-	s, why := join(name, q)
-	if s == nil {
-		c.Close(websocket.StatusPolicyViolation, why)
-		return
+	token := q.Get("resume")
+	var s *Seat
+	if token != "" { // reconnexion
+		if s = reclaim(token, r.URL.Path); s == nil {
+			c.Close(websocket.StatusPolicyViolation, "Connexion perdue trop longtemps : rejoins la partie avec le code")
+			return
+		}
+	} else {
+		var why string
+		if s, why = join(name, q); s == nil {
+			c.Close(websocket.StatusPolicyViolation, why)
+			return
+		}
+		token = newToken()
 	}
-	defer s.Leave()
-
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
+	lv := &live{seat: s, path: r.URL.Path, kick: cancel}
+	heldMu.Lock()
+	actives[token] = lv
+	heldMu.Unlock()
+	closeCode := websocket.StatusCode(-1) // -1 : coupure sans au revoir
+	defer func() {
+		// fermeture volontaire (Quitter, onglet fermé) : on part tout de suite ; sinon la place est réservée
+		release(token, lv, closeCode == websocket.StatusNormalClosure || closeCode == websocket.StatusGoingAway)
+	}()
 	start := time.Now()
 	var why2 atomic.Value // raison de la coupure (texte), côté envoi ou côté réception : la première gagne
 	defer func() {        // une ligne par déconnexion : utile pour comprendre les coupures (journal du service)
 		log.Printf("déconnexion %s %q après %s : %v", r.URL.Path, name, time.Since(start).Round(time.Second), why2.Load())
 	}()
-	hello, _ := json.Marshal(map[string]int{"you": s.ID})
+	hello, _ := json.Marshal(map[string]any{"you": s.ID, "token": token})
 	if err := c.Write(ctx, websocket.MessageText, hello); err != nil {
 		why2.Store("bonjour : " + err.Error())
 		return
+	}
+	if q.Get("resume") != "" && s.Resume != nil {
+		s.Resume()
 	}
 	go func() {
 		defer cancel()
@@ -146,6 +256,7 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 		_, b, err := c.Read(ctx)
 		if err != nil {
 			why2.CompareAndSwap(nil, "réception : "+err.Error())
+			closeCode = websocket.CloseStatus(err)
 			return
 		}
 		s.OnMsg(b)

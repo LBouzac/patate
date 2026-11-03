@@ -195,8 +195,8 @@ func TestRooms(t *testing.T) {
 		t.Fatalf("code inconnu attendu, obtenu %v", m)
 	}
 
-	a.CloseNow()
-	c.CloseNow()
+	a.Close(websocket.StatusGoingAway, "") // départ volontaire : la place est libérée tout de suite
+	c.Close(websocket.StatusGoingAway, "")
 	time.Sleep(200 * time.Millisecond)
 	roomsMu.Lock()
 	_, still := rooms[pin]

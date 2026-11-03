@@ -161,8 +161,8 @@ func TestDuelRooms(t *testing.T) {
 	if websocket.CloseStatus(err) != websocket.StatusPolicyViolation || !strings.Contains(err.Error(), "pleine") {
 		t.Fatalf("3e joueur refusé attendu, obtenu %v", err)
 	}
-	a.CloseNow()
-	b.CloseNow()
+	a.Close(websocket.StatusGoingAway, "") // départ volontaire : la place est libérée tout de suite
+	b.Close(websocket.StatusGoingAway, "")
 	time.Sleep(200 * time.Millisecond)
 	duelsMu.Lock()
 	_, still := duels[pin]

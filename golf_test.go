@@ -181,7 +181,7 @@ func TestGolfRooms(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	c.CloseNow()
+	c.Close(websocket.StatusGoingAway, "") // départ volontaire : la place est libérée tout de suite
 	time.Sleep(200 * time.Millisecond)
 	coursesMu.Lock()
 	_, still := courses[m.Pin]
