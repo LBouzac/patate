@@ -2,7 +2,9 @@
 
 Deux jeux multijoueurs dans le navigateur, servis par un seul petit serveur Go (environ 15 Mo de RAM) :
 
-- **Patate** (`/`) : de 2 à 10 joueurs, une bombe à se passer avant qu'elle n'explose.
+L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'invitation `/?pin=1234` mènent toujours à la partie de Patate.
+
+- **Patate** (`/patate.html`) : de 2 à 10 joueurs, une bombe à se passer avant qu'elle n'explose.
 - **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
 - **Dessine** (`/dessin.html`) : de 3 à 10 joueurs. Chacun son tour envoie une photo, un joueur tiré au sort la dessine en 30 s et les autres devinent.
 - **Foot** (`/foot.html`) : foot de pions à 2 joueurs (ou contre un bot), chacun son tour, premier à 3 buts.
@@ -108,11 +110,11 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 ## Interface
 
-Les quatre jeux ont le même accueil : une **barre en haut pour passer d'un jeu à l'autre**, le pseudo (gardé d'un jeu à l'autre), un bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose) et une ligne « code + Rejoindre ». En partie, un bouton **Quitter** ramène à l'accueil. Ces deux éléments viennent de `common.js`.
+Tous les jeux ont le même accueil : un lien « Tous les jeux » vers le menu, une **barre pour passer d'un jeu à l'autre**, le pseudo (gardé d'un jeu à l'autre), un bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron) et une ligne « code + Rejoindre ». En partie, un bouton **Quitter** ramène à l'accueil. Ces deux éléments viennent de `common.js`.
 
 L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 
-Si tu modifies des classes dans `index.html`, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
+Si tu modifies des classes dans une page, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
 
 ```sh
 tailwindcss -i app.css -o style.css --minify

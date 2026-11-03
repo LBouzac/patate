@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-//go:embed index.html ricochet.html dessin.html golf.html foot.html admin.html common.js style.css
+//go:embed index.html patate.html ricochet.html dessin.html golf.html foot.html admin.html common.js style.css
 var files embed.FS
 
 const (

@@ -120,6 +120,6 @@ done
 [ "$up" = 1 ] || die "Le jeu ne répond pas (logs : pct exec $CTID -- cat /var/log/patate.log)"
 
 printf '\n'
-ok "En ligne : http://$IP:$PORT  (Patate)  ·  http://$IP:$PORT/ricochet.html  (Ricochet)"
+ok "En ligne : http://$IP:$PORT  (menu de tous les jeux)"
 printf '  Conteneur : %s (%s)\n' "$CTID" "$CT_HOSTNAME"
 printf '  Mises à jour : http://%s:%s/admin.html  (mot de passe : %s, garde-le)\n' "$IP" "$PORT" "$PASS"

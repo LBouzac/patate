@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -143,7 +144,8 @@ func TestSketchLines(t *testing.T) {
 func TestSketchPhotoOverWebSocket(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(serveSketch))
 	defer srv.Close()
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // échouer plutôt que bloquer
+	defer cancel()
 	dial := func(q string) *websocket.Conn {
 		c, _, err := websocket.Dial(ctx, "ws"+srv.URL[4:]+"/?"+q, nil)
 		if err != nil {

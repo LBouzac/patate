@@ -24,17 +24,44 @@ document.querySelectorAll('i[data-icon]').forEach(i => {
 
 const $ = id => document.getElementById(id);
 
-// ---------- Barre des jeux (accueil) et bouton Quitter (en partie), identiques sur toutes les pages ----------
+// ---------- Menu des jeux, barre des jeux (accueil) et bouton Quitter (en partie) : une seule liste pour tout le site ----------
 // classes écrites en entier : Tailwind ne génère que les noms complets qu'il trouve dans ce fichier
 const GAMES = [
-  { href: '/', name: 'Patate', icon: 'fire', on: 'bg-orange-500/15 text-orange-300 ring-orange-400/40' },
-  { href: '/ricochet.html', name: 'Ricochet', icon: 'bolt', on: 'bg-cyan-500/15 text-cyan-300 ring-cyan-400/40' },
-  { href: '/golf.html', name: 'Golf', icon: 'map', on: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/40' },
-  { href: '/dessin.html', name: 'Dessine', icon: 'sparkles', on: 'bg-pink-500/15 text-pink-300 ring-pink-400/40' },
-  { href: '/foot.html', name: 'Foot', icon: 'star', on: 'bg-lime-500/15 text-lime-300 ring-lime-400/40' },
+  { href: '/patate.html', name: 'Patate', icon: 'fire', players: '2 à 10', tag: "Passe la bombe avant qu'elle n'explose.",
+    on: 'bg-orange-500/15 text-orange-300 ring-orange-400/40', hover: 'hover:ring-orange-400/50' },
+  { href: '/ricochet.html', name: 'Ricochet', icon: 'bolt', players: '2', tag: 'Duel de raquettes, ou contre un bot.',
+    on: 'bg-cyan-500/15 text-cyan-300 ring-cyan-400/40', hover: 'hover:ring-cyan-400/50' },
+  { href: '/golf.html', name: 'Golf', icon: 'map', players: '1 à 8', tag: 'Mini-golf, 9 trous difficiles, tous en même temps.',
+    on: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/40', hover: 'hover:ring-emerald-400/50' },
+  { href: '/dessin.html', name: 'Dessine', icon: 'sparkles', players: '3 à 10', tag: "Quelqu'un dessine ta photo, les autres devinent.",
+    on: 'bg-pink-500/15 text-pink-300 ring-pink-400/40', hover: 'hover:ring-pink-400/50' },
+  { href: '/foot.html', name: 'Foot', icon: 'star', players: '2', tag: 'Foot de pions chacun son tour, premier à 3 buts.',
+    on: 'bg-lime-500/15 text-lime-300 ring-lime-400/40', hover: 'hover:ring-lime-400/50' },
 ];
+if ($('gameList')) { // page d'accueil du site : la liste de tous les jeux
+  for (const g of GAMES) {
+    const a = document.createElement('a'), tile = document.createElement('span'), txt = document.createElement('span'),
+      name = document.createElement('span'), tag = document.createElement('span'), who = document.createElement('span');
+    a.href = g.href;
+    a.className = 'flex items-center gap-4 rounded-2xl bg-slate-900/90 p-4 ring-1 ring-white/10 transition hover:bg-slate-800/90 active:scale-[0.98] ' + g.hover;
+    tile.className = 'grid size-12 shrink-0 place-items-center rounded-xl ring-1 ' + g.on;
+    tile.append(icon(g.icon, 'size-6'));
+    name.className = 'block text-lg font-bold'; name.textContent = g.name;
+    tag.className = 'block text-sm text-slate-400'; tag.textContent = g.tag;
+    txt.className = 'min-w-0 flex-1'; txt.append(name, tag);
+    who.className = 'inline-flex shrink-0 items-center gap-1 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-300';
+    who.append(icon('users', 'size-4 text-slate-400'), g.players);
+    a.append(tile, txt, who);
+    $('gameList').append(a);
+  }
+}
 if ($('games')) {
-  const here = location.pathname === '/index.html' ? '/' : location.pathname;
+  const here = location.pathname;
+  const all = document.createElement('a'); // retour au menu de tous les jeux
+  all.href = '/';
+  all.className = 'mb-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-400 transition hover:text-slate-200';
+  all.textContent = '‹ Tous les jeux';
+  $('games').before(all);
   $('games').className = 'grid grid-cols-5 gap-1 rounded-xl bg-slate-950/60 p-1 ring-1 ring-white/10';
   for (const g of GAMES) {
     const a = document.createElement('a'), cur = g.href === here;
@@ -59,8 +86,10 @@ if ($('copy')) {
   wrap.append(q, copy);
 }
 const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
-$('name').value = localStorage.name || '';
-$('pin').value = new URLSearchParams(location.search).get('pin') || '';
+if ($('name')) { // pages de jeu seulement (pas le menu)
+  $('name').value = localStorage.name || '';
+  $('pin').value = new URLSearchParams(location.search).get('pin') || '';
+}
 
 function setErr(msg, isError = true) {
   $('err').textContent = msg;
@@ -69,7 +98,7 @@ function setErr(msg, isError = true) {
   $('errBox').classList.toggle('text-red-400', isError);
   $('errBox').classList.toggle('text-slate-400', !isError);
 }
-setErr('');
+if ($('err')) setErr('');
 
 function screen(game) { show($('home'), !game); show($('game'), game); }
 
@@ -96,7 +125,7 @@ function connect(path, pin, extra, onState) {
   ws.onclose = e => { onState(null); screen(false); setErr(e.reason || 'Déconnecté'); };
 }
 
-$('copy').onclick = async () => {
+if ($('copy')) $('copy').onclick = async () => {
   const url = location.href;
   // l'API presse-papiers n'existe qu'en https ou sur localhost
   if (!navigator.clipboard) return prompt('Lien d\'invitation à copier :', url);
@@ -115,8 +144,10 @@ function setMuted(v) {
   muted = v; localStorage.muted = v ? '1' : '0';
   show($('soundOn'), !v); show($('soundOff'), v);
 }
-setMuted(muted);
-$('mute').onclick = () => { setMuted(!muted); $('mute').blur(); };
+if ($('mute')) {
+  setMuted(muted);
+  $('mute').onclick = () => { setMuted(!muted); $('mute').blur(); };
+}
 
 function tone(freq, dur, type = 'sine', vol = 0.15, to = 0, delay = 0) {
   if (muted || !actx) return;
