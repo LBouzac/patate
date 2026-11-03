@@ -387,19 +387,22 @@ func enterTable(pin, name string) (*Table, *Cueist, string) {
 func (t *Table) run() {
 	tk := time.NewTicker(PoolTick)
 	defer tk.Stop()
+	n := 0
 	for range tk.C {
 		if t.closeIfEmpty() {
 			return
 		}
 		t.mu.Lock()
 		t.step(PoolTick.Seconds())
-		b, _ := json.Marshal(t)
-		t.Events = nil
-		for _, p := range t.Players {
-			if p != nil && p.send != nil {
-				select {
-				case p.send <- b:
-				default: // client lent : on saute cette image
+		if n++; n%2 == 0 { // physique à 60 images/s, envoi à 30 : le navigateur lisse entre deux états
+			b, _ := json.Marshal(t)
+			t.Events = nil
+			for _, p := range t.Players {
+				if p != nil && p.send != nil {
+					select {
+					case p.send <- b:
+					default: // client lent : on saute cette image
+					}
 				}
 			}
 		}

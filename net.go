@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/coder/websocket"
 )
@@ -99,7 +101,8 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 	if name == "" {
 		name = "Joueur"
 	}
-	c, err := websocket.Accept(w, r, nil)
+	// compression : les états JSON pèsent 2 à 2,5 fois moins (mesuré). Sans « context takeover » : peu de mémoire par connexion.
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionNoContextTakeover, CompressionThreshold: 128})
 	if err != nil {
 		return
 	}
@@ -115,8 +118,14 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
+	start := time.Now()
+	var why2 atomic.Value // raison de la coupure (texte), côté envoi ou côté réception : la première gagne
+	defer func() {        // une ligne par déconnexion : utile pour comprendre les coupures (journal du service)
+		log.Printf("déconnexion %s %q après %s : %v", r.URL.Path, name, time.Since(start).Round(time.Second), why2.Load())
+	}()
 	hello, _ := json.Marshal(map[string]int{"you": s.ID})
-	if c.Write(ctx, websocket.MessageText, hello) != nil {
+	if err := c.Write(ctx, websocket.MessageText, hello); err != nil {
+		why2.Store("bonjour : " + err.Error())
 		return
 	}
 	go func() {
@@ -124,7 +133,8 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 		for {
 			select {
 			case b := <-s.Send:
-				if c.Write(ctx, websocket.MessageText, b) != nil {
+				if err := c.Write(ctx, websocket.MessageText, b); err != nil {
+					why2.CompareAndSwap(nil, "envoi : "+err.Error())
 					return
 				}
 			case <-ctx.Done():
@@ -135,6 +145,7 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 	for {
 		_, b, err := c.Read(ctx)
 		if err != nil {
+			why2.CompareAndSwap(nil, "réception : "+err.Error())
 			return
 		}
 		s.OnMsg(b)

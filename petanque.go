@@ -360,18 +360,21 @@ func enterPitch(pin, name string) (*Pitch, *Bouliste, string) {
 func (g *Pitch) run() {
 	t := time.NewTicker(PetTick)
 	defer t.Stop()
+	n := 0
 	for range t.C {
 		if g.closeIfEmpty() {
 			return
 		}
 		g.mu.Lock()
 		g.step(PetTick.Seconds())
-		b, _ := json.Marshal(g)
-		g.Events = nil
-		for _, p := range g.Players {
-			select {
-			case p.send <- b:
-			default: // client lent : on saute cette image
+		if n++; n%2 == 0 { // physique à 60 images/s, envoi à 30 : le navigateur lisse entre deux états
+			b, _ := json.Marshal(g)
+			g.Events = nil
+			for _, p := range g.Players {
+				select {
+				case p.send <- b:
+				default: // client lent : on saute cette image
+				}
 			}
 		}
 		g.mu.Unlock()

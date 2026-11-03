@@ -201,4 +201,6 @@ Le script lance les tests, compile un binaire statique et l'envoie. Il crée le 
 - **En-têtes** : politique de sécurité du contenu (pas de script externe, pas d'affichage dans un cadre d'un autre site), `nosniff`, aucun référent envoyé.
 - **WebSocket** : refusées si elles viennent d'un autre site. 300 connexions simultanées au maximum, tous jeux confondus, et des délais d'attente contre les connexions qui traînent.
 - **Dessine** : 50 parties en même temps au maximum. Photo de 300 Ko au plus, uniquement en JPEG, gardée en mémoire seulement. Taille du dessin limitée.
+- **Débit** : les messages WebSocket sont compressés, les jeux envoient leur état 30 fois par seconde (la physique tourne à 60) et le golf n'envoie le trou qu'une fois par trou. Par joueur, ça fait de 4 à 28 Ko/s avant compression, environ deux fois moins sur le réseau.
+- **Déconnexions** : chacune est notée dans le journal du service avec sa raison (`/var/log/patate.log` sur Alpine, `journalctl -u patate` sur Debian).
 - **Limites connues** : les codes de partie font 4 chiffres et peuvent se deviner. Le service peut réécrire son propre binaire, c'est le prix de la mise à jour depuis le site.

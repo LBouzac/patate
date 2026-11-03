@@ -259,3 +259,27 @@ func TestGolfHardHoles(t *testing.T) {
 	}
 	t.Logf("pars : %v, %v pour 200 trous", pars, time.Since(start))
 }
+
+// Le trou n'est envoyé qu'une fois par joueur et par trou ; il repart quand le trou change.
+func TestGolfHoleSentOnce(t *testing.T) {
+	c := newCourse("0000")
+	g := c.join("A")
+	read := func() map[string]any {
+		var m map[string]any
+		json.Unmarshal(<-g.send, &m)
+		return m
+	}
+	c.broadcast()
+	if read()["hole"] == nil {
+		t.Fatal("premier état : le trou doit être envoyé")
+	}
+	c.broadcast()
+	if read()["hole"] != nil {
+		t.Fatal("état suivant : le trou ne doit pas être renvoyé")
+	}
+	c.nextHole(2)
+	c.broadcast()
+	if h, _ := read()["hole"].(map[string]any); h == nil || h["num"] != 2.0 {
+		t.Fatal("nouveau trou : il doit être renvoyé")
+	}
+}

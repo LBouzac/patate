@@ -63,6 +63,7 @@ type Golfer struct {
 	fromX   float64 // position avant le coup : on y revient après un plongeon dans l'eau
 	fromY   float64
 	send    chan []byte
+	seen    int // dernier trou (holeID) reçu par ce joueur
 }
 
 type Course struct {
@@ -76,6 +77,7 @@ type Course struct {
 	Events  []Event   `json:"events"`
 	nextID  int
 	rng     *rand.Rand
+	holeID  int // change à chaque nouveau trou
 }
 
 func inAny(cs []Circle, x, y, r float64) bool {
@@ -238,6 +240,7 @@ func (c *Course) newGame() {
 
 func (c *Course) nextHole(num int) {
 	c.Hole = genHole(c.rng, num)
+	c.holeID++
 	c.Phase, c.Wait = "play", HoleTime
 	for _, g := range c.Golfers {
 		c.tee(g)
@@ -473,22 +476,46 @@ func enterCourse(pin, name string) (*Course, *Golfer, string) {
 	return nil, nil, "Partie pleine (8 joueurs)"
 }
 
+// broadcast envoie l'état à chacun. Le trou (murs, sable, eau : ~1,4 Ko) ne part qu'une fois par joueur et par trou,
+// pas à chaque image : c'était l'essentiel du débit (90 Ko/s par joueur).
+func (c *Course) broadcast() {
+	type view struct {
+		*Course
+		Hole *Hole `json:"hole,omitempty"`
+	}
+	light, _ := json.Marshal(view{c, nil})
+	var full []byte
+	c.Events = nil
+	for _, g := range c.Golfers {
+		b, withHole := light, g.seen != c.holeID
+		if withHole {
+			if full == nil {
+				full, _ = json.Marshal(view{c, &c.Hole})
+			}
+			b = full
+		}
+		select {
+		case g.send <- b:
+			if withHole {
+				g.seen = c.holeID // marqué reçu seulement si le message est vraiment parti
+			}
+		default: // client lent : on saute cette image
+		}
+	}
+}
+
 func (c *Course) run() {
 	t := time.NewTicker(GolfTick)
 	defer t.Stop()
+	tick := 0
 	for range t.C {
 		if c.closeIfEmpty() {
 			return
 		}
 		c.mu.Lock()
 		c.step(GolfTick.Seconds())
-		b, _ := json.Marshal(c)
-		c.Events = nil
-		for _, g := range c.Golfers {
-			select {
-			case g.send <- b:
-			default: // client lent : on saute cette image
-			}
+		if tick++; tick%2 == 0 { // physique à 60 images/s, envoi à 30 : le navigateur lisse entre deux états
+			c.broadcast()
 		}
 		c.mu.Unlock()
 	}

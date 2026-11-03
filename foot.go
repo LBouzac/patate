@@ -442,19 +442,22 @@ func enterMatch(pin, name string) (*Match, *Footer, string) {
 func (m *Match) run() {
 	t := time.NewTicker(FootTick)
 	defer t.Stop()
+	n := 0
 	for range t.C {
 		if m.closeIfEmpty() {
 			return
 		}
 		m.mu.Lock()
 		m.step(FootTick.Seconds())
-		b, _ := json.Marshal(m)
-		m.Events = nil
-		for _, p := range m.Players {
-			if p != nil && p.send != nil {
-				select {
-				case p.send <- b:
-				default: // client lent : on saute cette image
+		if n++; n%2 == 0 { // physique à 60 images/s, envoi à 30 : le navigateur lisse entre deux états
+			b, _ := json.Marshal(m)
+			m.Events = nil
+			for _, p := range m.Players {
+				if p != nil && p.send != nil {
+					select {
+					case p.send <- b:
+					default: // client lent : on saute cette image
+					}
 				}
 			}
 		}

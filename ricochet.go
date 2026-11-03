@@ -293,19 +293,22 @@ func enterDuel(pin, name string) (*Duel, *Paddle, string) {
 func (d *Duel) run() {
 	t := time.NewTicker(DuelTick)
 	defer t.Stop()
+	n := 0
 	for range t.C {
 		if d.closeIfEmpty() {
 			return
 		}
 		d.mu.Lock()
 		d.step(DuelTick.Seconds())
-		b, _ := json.Marshal(d)
-		d.Events = nil
-		for _, p := range d.Pads {
-			if p != nil && p.send != nil {
-				select {
-				case p.send <- b:
-				default: // client lent : on saute cette image
+		if n++; n%2 == 0 { // physique à 60 images/s, envoi à 30 : le navigateur lisse entre deux états
+			b, _ := json.Marshal(d)
+			d.Events = nil
+			for _, p := range d.Pads {
+				if p != nil && p.send != nil {
+					select {
+					case p.send <- b:
+					default: // client lent : on saute cette image
+					}
 				}
 			}
 		}
