@@ -84,10 +84,39 @@ func TestSelfUpdate(t *testing.T) {
 
 func TestSecurityHeaders(t *testing.T) {
 	w := httptest.NewRecorder()
-	secure(http.FileServerFS(files)).ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+	secure(serveFiles()).ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 	for _, h := range []string{"Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy"} {
 		if w.Header().Get(h) == "" {
 			t.Errorf("en-tête %s manquant", h)
 		}
+	}
+}
+
+// Les pages pointent vers des fichiers versionnés : après une mise à jour, aucun cache ne sert un vieux CSS ou script.
+func TestAssetVersioning(t *testing.T) {
+	h := serveFiles()
+	get := func(u string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", u, nil))
+		return w
+	}
+	page := get("/")
+	if page.Code != 200 || !strings.Contains(page.Body.String(), `"/style.css?v=`+assetVersion+`"`) ||
+		!strings.Contains(page.Body.String(), `"/common.js?v=`+assetVersion+`"`) || page.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("page d'accueil : liens versionnés et no-cache attendus, obtenu %d %q", page.Code, page.Header().Get("Cache-Control"))
+	}
+	if w := get("/style.css?v=" + assetVersion); w.Code != 200 || !strings.Contains(w.Header().Get("Cache-Control"), "immutable") {
+		t.Fatalf("CSS versionné : cache long attendu, obtenu %d %q", w.Code, w.Header().Get("Cache-Control"))
+	}
+	if w := get("/style.css"); w.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatal("CSS sans version : no-cache attendu")
+	}
+	for _, p := range []string{"/patate.html", "/foot.html", "/admin.html"} {
+		if w := get(p); w.Code != 200 || !strings.Contains(w.Body.String(), "?v="+assetVersion) {
+			t.Errorf("%s : page versionnée attendue (code %d)", p, w.Code)
+		}
+	}
+	if w := get("/nexistepas.html"); w.Code != 404 {
+		t.Fatalf("page inconnue : 404 attendu, obtenu %d", w.Code)
 	}
 }

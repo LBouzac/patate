@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,6 +20,46 @@ type Seat struct {
 	Send  chan []byte      // états à envoyer au client
 	OnMsg func(msg []byte) // chaque message reçu du client
 	Leave func()           // à la déconnexion
+}
+
+// assetVersion : empreinte de style.css et common.js, différente à chaque version du jeu. Les pages pointent vers
+// /style.css?v=… : après une mise à jour l'adresse change, donc Cloudflare et les navigateurs ne peuvent plus servir
+// une vieille copie (elle cassait l'affichage des nouvelles pages).
+var assetVersion = func() string {
+	css, _ := files.ReadFile("style.css")
+	js, _ := files.ReadFile("common.js")
+	return sha256hex(append(css, js...))[:10]
+}()
+
+// serveFiles sert les pages (jamais gardées en cache, liens versionnés) et les fichiers statiques.
+func serveFiles() http.Handler {
+	static := http.FileServerFS(files)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" {
+			name = "index.html"
+		}
+		if strings.HasSuffix(name, ".html") {
+			b, err := files.ReadFile(name)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			for _, f := range []string{"/style.css", "/common.js"} {
+				b = bytes.ReplaceAll(b, []byte(`"`+f+`"`), []byte(`"`+f+"?v="+assetVersion+`"`))
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Write(b)
+			return
+		}
+		if r.URL.Query().Get("v") == assetVersion {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // l'adresse change à chaque version
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		static.ServeHTTP(w, r)
+	})
 }
 
 // MaxSessions : connexions simultanées, tous jeux confondus. Au-delà, le petit conteneur manquerait de mémoire.

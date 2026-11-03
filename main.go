@@ -699,7 +699,7 @@ func main() {
 	http.HandleFunc("/ws/foot", serveFoot)
 	http.HandleFunc("/admin/update", serveUpdate)
 	http.HandleFunc("/admin/version", serveVersion)
-	http.Handle("/", http.FileServerFS(files))
+	http.Handle("/", serveFiles())
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	srv := &http.Server{
 		Addr:              addr,
