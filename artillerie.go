@@ -400,6 +400,7 @@ func serveArtillerie(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  g.Pin,
 			ID:    t.ID,
 			Send:  t.send,
 			Leave: func() { g.mu.Lock(); g.leave(t.ID); g.mu.Unlock() },

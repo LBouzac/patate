@@ -26,6 +26,71 @@ type Seat struct {
 	OnMsg  func(msg []byte) // chaque message reçu du client
 	Leave  func()           // quand le joueur quitte pour de bon
 	Resume func()           // facultatif : à la reconnexion (renvoyer ce qui a pu être perdu)
+	Room   string           // code du salon : le chat relie les places du même salon
+	// facultatif : le chat est-il ouvert en ce moment ? (Dessine le coupe pendant le dessin)
+	CanChat  func() bool
+	name     string    // pseudo, pour signer les messages du chat
+	lastChat time.Time // anti-spam
+}
+
+// ---------- Chat : relayé en direct aux joueurs du même salon, jamais enregistré ----------
+
+const (
+	ChatMax   = 200 // caractères par message
+	ChatEvery = 500 * time.Millisecond
+)
+
+var (
+	chatMu sync.Mutex
+	chats  = map[string]map[*Seat]bool{} // jeu + code du salon → places connectées
+)
+
+func chatJoin(key string, s *Seat) {
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	if chats[key] == nil {
+		chats[key] = map[*Seat]bool{}
+	}
+	chats[key][s] = true
+}
+
+func chatLeave(key string, s *Seat) {
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	delete(chats[key], s)
+	if len(chats[key]) == 0 {
+		delete(chats, key)
+	}
+}
+
+// chatSay relaie un message à tout le salon (l'auteur compris). Rien n'est gardé.
+func chatSay(key string, from *Seat, text string) {
+	text = strings.Join(strings.Fields(text), " ") // pas de retours à la ligne ni d'espaces en rafale
+	if r := []rune(text); len(r) > ChatMax {
+		text = string(r[:ChatMax])
+	}
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	if text == "" || time.Since(from.lastChat) < ChatEvery {
+		return
+	}
+	from.lastChat = time.Now()
+	if from.CanChat != nil && !from.CanChat() {
+		b, _ := json.Marshal(map[string]any{"chat": map[string]string{"text": "Chat en pause pendant le dessin"}})
+		trySend(from, b)
+		return
+	}
+	b, _ := json.Marshal(map[string]any{"chat": map[string]any{"from": from.name, "id": from.ID, "text": text}})
+	for s := range chats[key] {
+		trySend(s, b)
+	}
+}
+
+func trySend(s *Seat, b []byte) {
+	select {
+	case s.Send <- b:
+	default: // client saturé : le message est perdu (le chat n'est pas garanti)
+	}
 }
 
 // Reconnexion : quand la connexion lâche sans que le joueur ait quitté (réseau, écran verrouillé, 4G…),
@@ -197,7 +262,7 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 		return
 	}
 	defer c.CloseNow()
-	c.SetReadLimit(readLimit)
+	c.SetReadLimit(max(readLimit, 1024)) // au moins de quoi écrire un message de chat
 
 	token := q.Get("resume")
 	var s *Seat
@@ -213,7 +278,11 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 			return
 		}
 		token = newToken()
+		s.name = name
 	}
+	chatKey := r.URL.Path + "|" + s.Room
+	chatJoin(chatKey, s)
+	defer chatLeave(chatKey, s)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	lv := &live{seat: s, path: r.URL.Path, kick: cancel}
@@ -258,6 +327,13 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 			why2.CompareAndSwap(nil, "réception : "+err.Error())
 			closeCode = websocket.CloseStatus(err)
 			return
+		}
+		if bytes.HasPrefix(b, []byte(`{"chat":`)) { // message de chat : relayé, jamais transmis au jeu
+			var m struct{ Chat string }
+			if json.Unmarshal(b, &m) == nil {
+				chatSay(chatKey, s, m.Chat)
+			}
+			continue
 		}
 		s.OnMsg(b)
 	}

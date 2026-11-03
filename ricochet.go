@@ -335,6 +335,7 @@ func serveDuel(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  d.Pin,
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { d.mu.Lock(); d.leave(p.ID); d.mu.Unlock() },

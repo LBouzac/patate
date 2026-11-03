@@ -540,6 +540,7 @@ func serveGolf(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  c.Pin,
 			ID:    g.ID,
 			Send:  g.send,
 			Leave: func() { c.mu.Lock(); c.leave(g.ID); c.mu.Unlock() },

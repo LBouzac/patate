@@ -484,6 +484,7 @@ func serveFoot(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  m.Pin,
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { m.mu.Lock(); m.leave(p.ID); m.mu.Unlock() },

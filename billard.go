@@ -429,6 +429,7 @@ func serveBillard(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  t.Pin,
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { t.mu.Lock(); t.leave(p.ID); t.mu.Unlock() },

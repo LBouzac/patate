@@ -158,3 +158,82 @@ func TestResumeRealGame(t *testing.T) {
 	}
 	c.Close(websocket.StatusGoingAway, "")
 }
+
+// Chat : relayé à tout le salon (pas aux autres salons), tronqué, anti-spam ; jamais transmis au jeu.
+func TestChat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(serveDuel))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	dial := func(q string) *websocket.Conn {
+		c, _, err := websocket.Dial(ctx, "ws"+srv.URL[4:]+"/ws/ricochet?"+q, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	// next lit jusqu'au prochain message de chat (en sautant les états du jeu)
+	next := func(c *websocket.Conn) map[string]any {
+		for {
+			var m map[string]any
+			if err := wsjson.Read(ctx, c, &m); err != nil {
+				t.Fatal(err)
+			}
+			if ch, ok := m["chat"].(map[string]any); ok {
+				return ch
+			}
+		}
+	}
+	pinOf := func(c *websocket.Conn) string {
+		for {
+			var m map[string]any
+			wsjson.Read(ctx, c, &m)
+			if p, ok := m["pin"].(string); ok {
+				return p
+			}
+		}
+	}
+	a := dial("name=A")
+	pin := pinOf(a)
+	b := dial("name=B&pin=" + pin)
+	other := dial("name=Autre") // un autre salon
+	defer a.CloseNow()
+	defer b.CloseNow()
+	defer other.CloseNow()
+
+	long := strings.Repeat("é", 300)
+	wsjson.Write(ctx, a, map[string]string{"chat": "  salut \n tout   le monde  "})
+	if m := next(b); m["from"] != "A" || m["text"] != "salut tout le monde" {
+		t.Fatalf("B doit recevoir le message de A, nettoyé : %v", m)
+	}
+	if m := next(a); m["text"] != "salut tout le monde" {
+		t.Fatalf("l'auteur reçoit aussi son message : %v", m)
+	}
+	wsjson.Write(ctx, a, map[string]string{"chat": "spam"}) // trop tôt : ignoré
+	time.Sleep(ChatEvery)
+	wsjson.Write(ctx, a, map[string]string{"chat": long})
+	if m := next(b); len([]rune(m["text"].(string))) != ChatMax {
+		t.Fatalf("le spam est ignoré et un message trop long est coupé à %d caractères : %v", ChatMax, m)
+	}
+	ctxShort, cancelShort := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancelShort()
+	for {
+		var m map[string]any
+		if wsjson.Read(ctxShort, other, &m) != nil {
+			break // plus rien : l'autre salon n'a jamais reçu de chat
+		}
+		if m["chat"] != nil {
+			t.Fatal("un autre salon ne doit pas recevoir le chat")
+		}
+	}
+}
+
+func TestChatPaused(t *testing.T) {
+	s := &Seat{ID: 1, Send: make(chan []byte, 2), name: "A", CanChat: func() bool { return false }}
+	chatJoin("test", s)
+	defer chatLeave("test", s)
+	chatSay("test", s, "la réponse c'est chat")
+	if b := string(<-s.Send); !strings.Contains(b, "pause") || strings.Contains(b, "réponse") {
+		t.Fatalf("chat en pause : seul l'auteur est prévenu, le message ne part pas : %s", b)
+	}
+}

@@ -348,11 +348,14 @@ func serveSketch(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  s.Pin,
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { s.mu.Lock(); s.leave(p.ID); s.mu.Unlock() },
 			// reconnexion : des traits ou la photo ont pu être perdus pendant la coupure, on renvoie tout
 			Resume: func() { s.mu.Lock(); s.resend(p); s.mu.Unlock() },
+			// pendant le dessin, le chat donnerait la réponse aux autres : il est en pause
+			CanChat: func() bool { s.mu.Lock(); defer s.mu.Unlock(); return s.Phase != "draw" && s.Phase != "judge" },
 			OnMsg: func(b []byte) {
 				var m struct {
 					Start bool   `json:"start"`

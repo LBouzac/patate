@@ -140,6 +140,7 @@ function dial() {
     lastMsg = Date.now();
     const m = JSON.parse(e.data);
     if (m.you) { me = m.you; token = m.token; retries = 0; reconnecting(false); screen(true); setErr(''); return; }
+    if (m.chat) return chatShow(m.chat);
     if (m.pin && location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
     link.onState(m);
   };
@@ -151,7 +152,7 @@ function dial() {
       setTimeout(dial, [500, 1000, 2000][retries++] || 3000);
       return;
     }
-    token = ''; reconnecting(false); link.onState(null); screen(false); setErr(e.reason || 'Déconnecté');
+    token = ''; reconnecting(false); chatClear(); link.onState(null); screen(false); setErr(e.reason || 'Déconnecté');
   };
 }
 
@@ -166,6 +167,49 @@ function checkAlive() {
 }
 setInterval(checkAlive, 1000);
 addEventListener('visibilitychange', () => { if (!document.hidden) checkAlive(); });
+
+// ---------- Chat de la partie : relayé en direct par le serveur, jamais enregistré ----------
+let chatOpen = false, unread = 0;
+const chatUI = $('game') && (() => {
+  const mk = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+  const badge = mk('span', 'absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white', '');
+  const btn = mk('button', 'fixed right-4 bottom-4 z-40 grid size-12 place-items-center rounded-full bg-slate-800/90 text-xl shadow-2xl ring-1 ring-white/10 backdrop-blur-xl transition hover:bg-slate-700 active:scale-95', '💬', badge);
+  btn.title = 'Chat de la partie'; btn.setAttribute('aria-label', 'Chat de la partie');
+  const list = mk('ul', 'flex max-h-64 min-h-16 flex-col gap-1 overflow-y-auto p-3 text-sm', '');
+  const input = mk('input', 'h-10 min-w-0 flex-1 rounded-lg bg-slate-900 px-3 text-[15px] ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-amber-400 focus:outline-none', '');
+  input.maxLength = 200; input.placeholder = 'Écris un message…'; input.autocomplete = 'off'; input.setAttribute('aria-label', 'Message');
+  // les touches tapées dans le chat ne doivent pas piloter le jeu (Z Q S D, M, B…)
+  for (const ev of ['keydown', 'keyup']) input.addEventListener(ev, e => e.stopPropagation());
+  const form = mk('form', 'flex gap-2 border-t border-white/10 p-2', input,
+    mk('button', 'h-10 rounded-lg bg-amber-400 px-3 font-semibold text-slate-950 transition hover:bg-amber-300 active:scale-95', 'Envoyer'));
+  const panel = mk('div', 'fixed right-4 bottom-20 z-40 flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-[14px] bg-slate-800/90 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl',
+    mk('div', 'border-b border-white/10 px-3 py-2 text-[13px] text-slate-400', 'Chat de la partie · rien n\'est enregistré'), list, form);
+  panel.hidden = true;
+  form.onsubmit = e => { e.preventDefault(); const t = input.value.trim(); if (t) send({ chat: t }); input.value = ''; };
+  btn.onclick = () => { chatOpen = !chatOpen; panel.hidden = !chatOpen; if (chatOpen) { unread = 0; input.focus(); } paint(); };
+  const paint = () => { badge.textContent = unread; badge.hidden = !unread; };
+  paint();
+  $('game').append(btn, panel);
+  return { list, paint };
+})();
+
+function chatShow(c) {
+  if (!chatUI) return;
+  const li = document.createElement('li');
+  if (!c.from) { li.className = 'text-slate-400 italic'; li.textContent = c.text; } // message du serveur
+  else {
+    const who = document.createElement('b');
+    who.className = c.id === me ? 'text-amber-300' : 'text-slate-100';
+    who.textContent = c.from + ' ';
+    li.className = 'break-words text-slate-200';
+    li.append(who, c.text);
+  }
+  chatUI.list.append(li);
+  while (chatUI.list.children.length > 100) chatUI.list.firstChild.remove();
+  chatUI.list.scrollTop = chatUI.list.scrollHeight;
+  if (!chatOpen && c.id !== me) { unread++; chatUI.paint(); tone(990, 0.06, 'sine', 0.06); }
+}
+function chatClear() { if (chatUI) { chatUI.list.replaceChildren(); unread = 0; chatUI.paint(); } }
 
 let banner = null;
 function reconnecting(on) {

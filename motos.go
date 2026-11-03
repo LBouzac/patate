@@ -351,6 +351,7 @@ func serveMotos(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  g.Pin,
 			ID:    rd.ID,
 			Send:  rd.send,
 			Leave: func() { g.mu.Lock(); g.leave(rd.ID); g.mu.Unlock() },

@@ -660,6 +660,7 @@ func serveWS(w http.ResponseWriter, r *http.Request) {
 			return nil, why
 		}
 		return &Seat{
+			Room:  g.Pin,
 			ID:    p.ID,
 			Send:  p.send,
 			Leave: func() { g.mu.Lock(); g.leave(p.ID); g.mu.Unlock() },
