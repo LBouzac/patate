@@ -52,7 +52,7 @@ De 3 à 10 joueurs. On crée une partie et on partage le code, puis n'importe qu
 
 Mini-golf de 1 à 8 joueurs. On crée un parcours et on partage le code. Tout le monde joue le même trou **en même temps**, chacun avec sa balle. Les balles **se cognent** : tu peux pousser celle d'un adversaire (si elle finit dans l'eau, elle revient à sa place sans pénalité).
 
-- **Chaque trou est généré au hasard** : départ et drapeau aux deux bouts, murs en bois, bunkers de sable, étangs. Le serveur vérifie qu'un chemin existe avant de le proposer et calcule le **par** (2 à 5) d'après la longueur du chemin.
+- **Chaque trou est généré au hasard, et difficile** : départ et drapeau aux deux bouts, 4 à 8 murs dont la moitié en travers du chemin, du sable et au moins un étang sur la trajectoire, un bunker ou un mur qui garde le drapeau. Jamais de coup direct possible. Le serveur vérifie qu'un chemin existe avant de le proposer et calcule le **par** (2 à 5) d'après la longueur du chemin.
 - **Frapper** : clique n'importe où sur le terrain, tire en arrière comme un lance-pierre, puis relâche. Plus tu tires, plus c'est fort. Ça marche aussi au doigt.
 - Le **sable** freine fort, l'**eau** te ramène à ton point de frappe avec un coup de pénalité. Trop vite, la balle saute par-dessus le trou.
 - 90 s par trou et 10 coups au maximum. Une balle pas rentrée compte 10.

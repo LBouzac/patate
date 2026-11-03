@@ -241,3 +241,21 @@ func TestGolfStackedTee(t *testing.T) {
 		t.Fatal("la balle restée au départ ne doit pas bouger quand l'autre part")
 	}
 }
+
+// Trous difficiles par défaut : toujours jouables, jamais de coup direct, du sable et de l'eau partout, générés vite.
+func TestGolfHardHoles(t *testing.T) {
+	r := rand.New(rand.NewPCG(3, 4))
+	start := time.Now()
+	pars := map[int]int{}
+	for range 200 {
+		h := genHole(r, 1)
+		if _, ok := h.route(); !ok || h.direct() || len(h.Sand) == 0 || len(h.Water) == 0 || len(h.Walls) < 4 {
+			t.Fatalf("trou trop facile ou injouable : %+v", h)
+		}
+		pars[h.Par]++
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("génération trop lente : %v pour 200 trous", d)
+	}
+	t.Logf("pars : %v, %v pour 200 trous", pars, time.Since(start))
+}

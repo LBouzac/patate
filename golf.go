@@ -96,7 +96,8 @@ func hitsWall(ws []Wall, x, y, r float64) bool {
 	return false
 }
 
-// genHole tire des trous au hasard jusqu'à en trouver un jouable.
+// genHole tire des trous au hasard jusqu'à en trouver un jouable mais difficile : beaucoup de murs, du sable
+// et de l'eau sur chaque trou, un obstacle qui garde le drapeau, et jamais de coup direct possible.
 func genHole(r *rand.Rand, num int) Hole {
 	between := func(a, b float64) float64 { return a + r.Float64()*(b-a) }
 	for {
@@ -106,38 +107,85 @@ func genHole(r *rand.Rand, num int) Hole {
 		if r.IntN(2) == 0 { // départ à droite une fois sur deux
 			h.TeeX, h.CupX = GW-h.TeeX, GW-h.CupX
 		}
-		for range 2 + r.IntN(5) {
+		// point au hasard le long du chemin départ → trou (un peu à côté) : c'est là que les obstacles gênent
+		onPath := func(off float64) (float64, float64) {
+			t, o := between(0.2, 0.8), between(-off, off)
+			dx, dy := h.CupX-h.TeeX, h.CupY-h.TeeY
+			l := math.Hypot(dx, dy)
+			return h.TeeX + dx*t - dy/l*o, h.TeeY + dy*t + dx/l*o
+		}
+		for i := range 4 + r.IntN(4) {
 			var w Wall
 			switch r.IntN(3) {
 			case 0: // barre horizontale
-				w.W, w.H = between(100, 260), 16
+				w.W, w.H = between(120, 300), 16
 			case 1: // barre verticale
-				w.W, w.H = 16, between(100, 260)
+				w.W, w.H = 16, between(120, 300)
 			default: // bloc
 				w.W, w.H = between(36, 90), between(36, 90)
 			}
 			w.X, w.Y = between(150, GW-150-w.W), between(0, GH-w.H)
+			if i%2 == 0 { // un mur sur deux en travers du chemin
+				x, y := onPath(110)
+				w.X, w.Y = min(max(x-w.W/2, 150), GW-150-w.W), min(max(y-w.H/2, 0), GH-w.H)
+			}
 			h.Walls = append(h.Walls, w)
 		}
-		blob := func() []Circle { // quelques cercles qui se chevauchent : une forme plus naturelle
-			x, y := between(170, GW-170), between(40, GH-40)
+		blob := func(x, y float64) []Circle { // quelques cercles qui se chevauchent : une forme plus naturelle
 			cs := make([]Circle, 2+r.IntN(3))
 			for i := range cs {
 				cs[i] = Circle{x + between(-40, 40), y + between(-30, 30), between(22, 45)}
 			}
 			return cs
 		}
-		for range r.IntN(3) {
-			h.Sand = append(h.Sand, blob()...)
+		anywhere := func() (float64, float64) { return between(170, GW-170), between(40, GH-40) }
+		for range 1 + r.IntN(2) {
+			h.Sand = append(h.Sand, blob(anywhere())...)
 		}
-		for range r.IntN(3) {
-			h.Water = append(h.Water, blob()...)
+		h.Water = append(h.Water, blob(onPath(90))...) // un étang sur le chemin
+		for range r.IntN(2) {
+			h.Water = append(h.Water, blob(anywhere())...)
+		}
+		// garde du drapeau : un bunker ou un bloc juste à côté, du côté d'où vient la balle une fois sur deux
+		a := math.Atan2(h.TeeY-h.CupY, h.TeeX-h.CupX) + between(-0.8, 0.8)
+		if r.IntN(2) == 0 {
+			a = between(0, 2*math.Pi)
+		}
+		if r.IntN(2) == 0 {
+			for range 2 {
+				d, rr := between(46, 58), between(16, 24)
+				b := a + between(-0.5, 0.5)
+				h.Sand = append(h.Sand, Circle{h.CupX + math.Cos(b)*d, h.CupY + math.Sin(b)*d, rr})
+			}
+		} else {
+			w := Wall{W: 16, H: 70}
+			if math.Abs(math.Cos(a)) < 0.7 { // drapeau gardé par-dessus ou par-dessous : barre horizontale
+				w.W, w.H = 70, 16
+			}
+			w.X, w.Y = h.CupX+math.Cos(a)*48-w.W/2, h.CupY+math.Sin(a)*48-w.H/2
+			h.Walls = append(h.Walls, w)
+		}
+		if h.direct() {
+			continue
 		}
 		if par, ok := h.route(); ok {
 			h.Par = par
 			return h
 		}
 	}
+}
+
+// direct : la balle peut-elle aller droit du départ au trou sans toucher mur ni eau ?
+func (h *Hole) direct() bool {
+	dx, dy := h.CupX-h.TeeX, h.CupY-h.TeeY
+	n := int(math.Hypot(dx, dy) / 4)
+	for i := 0; i <= n; i++ {
+		x, y := h.TeeX+dx*float64(i)/float64(n), h.TeeY+dy*float64(i)/float64(n)
+		if hitsWall(h.Walls, x, y, GBallR) || inAny(h.Water, x, y, GBallR) {
+			return false
+		}
+	}
+	return true
 }
 
 // route vérifie qu'une balle peut aller du départ au trou sans traverser mur ni eau (parcours en largeur
