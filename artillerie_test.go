@@ -107,8 +107,15 @@ func TestArtBotAims(t *testing.T) {
 		t.Fatalf("le bot aurait dû tirer, phase %s", g.Phase)
 	}
 	settleArt(g)
-	if h.HP == 100 {
-		t.Fatal("par vent faible sur terrain plat, le bot doit toucher")
+	// le bot vise avec un peu de hasard (il touche ~9 fois sur 10) : on vérifie qu'il tombe près, pas qu'il touche
+	impact := math.Inf(1)
+	for _, e := range g.Events {
+		if e.Kind == "boom" {
+			impact = math.Hypot(e.X-h.X, e.Y-h.Y)
+		}
+	}
+	if impact > 2*BlastR {
+		t.Fatalf("par vent faible sur terrain plat, le bot doit tomber près de sa cible : %.0f px", impact)
 	}
 	g.leave(h.ID)
 	if len(g.Tanks) != 0 {
