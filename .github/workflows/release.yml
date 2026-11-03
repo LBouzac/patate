@@ -1,0 +1,44 @@
+# À chaque push sur main : tests, compilation, puis publication du binaire dans la release « latest »
+# (c'est là que install.sh le télécharge).
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Tests
+        run: go test -race ./...
+
+      - name: Compilation
+        run: |
+          mkdir dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/patate-linux-amd64 .
+          cd dist && sha256sum patate-linux-amd64 > SHA256SUMS
+
+      - name: Publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest --title "Dernière version" --notes "Compilée automatiquement à chaque push sur main." --latest
+          gh release upload latest dist/* --clobber

@@ -2,6 +2,23 @@
 
 Jeu multijoueur dans le navigateur (2 à 10 joueurs, bots compris). Une bombe passe d'un joueur à l'autre quand ils se touchent. Celui qui la tient au moment où elle explose est éliminé. Le dernier survivant gagne. Le temps restant avant l'explosion est affiché.
 
+## Installation sur Proxmox en une ligne
+
+Dans le shell de l'hôte Proxmox VE (en root) :
+
+```sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"
+```
+
+Le script télécharge le jeu (et vérifie sa somme de contrôle), prend le dernier modèle Alpine et crée un conteneur LXC non privilégié (1 cœur, 64 Mo de RAM, 1 Go de disque, DHCP sur `vmbr0`, démarrage automatique). Il installe ensuite le service et affiche l'adresse à donner à tes amis.
+
+- **Mettre à jour** un conteneur déjà installé : `CTID=200 bash -c "$(curl -fsSL https://raw.githubusercontent.com/LBouzac/patate/main/install.sh)"`
+- **Personnaliser** avec des variables placées avant la commande : `CTID`, `CT_HOSTNAME`, `PORT`, `MEMORY`, `DISK`, `BRIDGE`, `STORAGE`, `TEMPLATE_STORAGE`. Exemple : `PORT=9000 CTID=150 bash -c "$(curl …)"`.
+
+Le binaire est compilé par GitHub Actions à chaque push sur `main`, puis publié dans la release [`latest`](https://github.com/LBouzac/patate/releases/tag/latest).
+
+## Le jeu
+
 **Modes de jeu** (choisis à la création de la partie) :
 - 🔥 **Classique** : mèche de 8 à 20 s.
 - 🔄 **Patate chaude** : mèche courte (6 s), mais chaque passe à un *nouveau* joueur la recharge de 1,5 s (8 s maximum). Renvoyer la bombe à celui qui vient de te la donner ne recharge rien.
@@ -54,7 +71,7 @@ go run .            # puis http://localhost:8080
 go test ./...
 ```
 
-## Déployer sur Proxmox
+## Déployer depuis ton PC (sans l'installeur)
 
 Le serveur utilise environ 15 Mo de RAM avec une partie pleine.
 
