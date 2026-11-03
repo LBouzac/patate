@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Motos</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-violet-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-violet-500"><i data-icon="trail" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Motos</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 8 motos qui laissent un mur. Ne touche rien. Premier à 5 manches.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-violet-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-violet-400 hover:bg-violet-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une course
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-violet-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+      <i data-icon="trophy" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="480" aria-label="Piste : flèches pour tourner, ou touche la moitié gauche ou droite de l'écran"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <!-- au doigt : deux gros boutons -->
+  <div class="grid grid-cols-2 gap-3 sm:hidden">
+    <button data-turn="-1" class="grid h-16 place-items-center rounded-[14px] bg-white/10 text-2xl font-bold active:bg-white/20" aria-label="Tourner à gauche">↺</button>
+    <button data-turn="1" class="grid h-16 place-items-center rounded-[14px] bg-white/10 text-2xl font-bold active:bg-white/20" aria-label="Tourner à droite">↻</button>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Ajouter un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer un bot
+      </button>
+    </div>
+    <span class="text-xs">Flèches ou ZQSD (WASD) pour tourner. Au doigt : boutons ↺ ↻. Premier à 5 manches.</span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const W = 800, H = 480, CELL = 8, TICK_MS = 1000 / 12;
+let st = null, prev = null, tRecv = 0, particles = [], lastCount = 0;
+
+function start(pin) {
+  connect('/ws/motos', pin, '', m => {
+    if (!m) { st = prev = null; return; }
+    prev = st; st = m; tRecv = performance.now();
+    for (const ev of m.events || []) onEvent(ev);
+    if (m.phase === 'count' && Math.ceil(m.wait) !== lastCount) { lastCount = Math.ceil(m.wait); tone(660, 0.1, 'sine', 0.1); }
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+document.querySelectorAll('[data-turn]').forEach(b => b.onpointerdown = e => { e.preventDefault(); send({ turn: +b.dataset.turn }); });
+
+// ---------- Commandes : flèches (direction absolue), ou moitiés de l'écran au doigt (virage relatif) ----------
+// e.code = touche physique : WASD en QWERTY = ZQSD en AZERTY
+const KEYS = { ArrowRight: 0, KeyD: 0, ArrowDown: 1, KeyS: 1, ArrowLeft: 2, KeyA: 2, ArrowUp: 3, KeyW: 3 };
+addEventListener('keydown', e => {
+  if ($('game').hidden) return;
+  if (e.code in KEYS) { e.preventDefault(); if (!e.repeat) send({ dir: KEYS[e.code] }); }
+  if (e.code === 'KeyM' && !e.repeat) setMuted(!muted);
+  if ((e.code === 'KeyB' || e.code === 'KeyN') && !e.repeat) send({ bot: e.code === 'KeyB' ? 1 : -1 });
+});
+cv.onpointerdown = e => {
+  const r = cv.getBoundingClientRect();
+  send({ turn: e.clientX - r.left < r.width / 2 ? -1 : 1 });
+};
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-3 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+const rider = id => st?.riders.find(r => r.id === id);
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  set($('statusTxt'), { wait: 'En attente', count: 'Prêt…', play: 'Manche ' + st.round, round: 'Fin de manche', end: 'Partie finie' }[st.phase] + ' · 1er à 5');
+  const key = JSON.stringify(st.riders.map(r => [r.id, r.score, r.alive, r.name]));
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...[...st.riders].sort((a, b) => b.score - a.score).map(r => {
+      const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = r.color;
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (r.alive || st.phase !== 'play' ? '' : ' opacity-50'),
+        dot, el('span', r.id === me ? 'font-bold' : '', r.name + (r.bot ? ' (bot)' : '')), el('span', 'font-mono text-amber-300', r.score));
+    }));
+  }
+  const mine = rider(me);
+  if (st.phase === 'wait') overlay('wait', () => bubble(
+    el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-violet-300'), 'En attente d\'adversaires'),
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' ou ajoute des bots'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-violet-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-violet-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Ajouter un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'count') overlay('c' + Math.ceil(st.wait), () => bubble(el('div', 'font-mono text-6xl font-black', Math.ceil(st.wait)),
+    el('div', 'text-sm text-slate-300', mine ? 'Ta moto clignote · flèches ou ↺ ↻' : '')));
+  else if (st.phase === 'round') overlay('r' + st.round, () => bubble(el('div', 'text-xl font-black text-violet-300', st.winner ? st.winner + ' gagne la manche' : 'Personne ne gagne la manche')));
+  else if (st.phase === 'end') overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.champion + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Nouvelle partie dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+function onEvent(e) {
+  switch (e.kind) {
+    case 'crash': {
+      const r = rider(e.a);
+      for (let i = 0; i < 40; i++) { const a = Math.random() * 7, v = 60 + Math.random() * 200; particles.push({ x: e.x * CELL + 4, y: e.y * CELL + 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.7, color: r?.color || '#fff' }); }
+      if (e.a === me) { noise(0.5, 0.3); tone(90, 0.5, 'sawtooth', 0.15, 40); } else tone(300, 0.15, 'square', 0.06, 120);
+      break;
+    }
+    case 'round': tone(e.a === me ? 880 : 440, 0.25, 'triangle', 0.12, e.a === me ? 1320 : 330); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12)); break;
+  }
+}
+
+// ---------- Piste ----------
+const grid = document.createElement('canvas'); grid.width = W; grid.height = H;
+{ const g = grid.getContext('2d'); g.fillStyle = '#05060f'; g.fillRect(0, 0, W, H); g.strokeStyle = '#ffffff0a'; g.lineWidth = 1;
+  for (let x = 0; x <= W; x += CELL * 5) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
+  for (let y = 0; y <= H; y += CELL * 5) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); } }
+
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
+  if (!st) return;
+  ctx.drawImage(grid, 0, 0);
+  const a = st.phase === 'play' ? Math.min((now - tRecv) / TICK_MS, 1) : 1;
+  for (const r of st.riders) {
+    if (!r.pts.length) continue;
+    const p = prev?.riders.find(o => o.id === r.id);
+    let hx = r.x, hy = r.y; // tête lissée entre deux ticks
+    if (p && r.alive && Math.abs(p.x - r.x) + Math.abs(p.y - r.y) === 1) { hx = p.x + (r.x - p.x) * a; hy = p.y + (r.y - p.y) * a; }
+    const C = v => v * CELL + CELL / 2;
+    ctx.globalAlpha = r.alive || st.phase !== 'play' ? 1 : 0.4;
+    ctx.strokeStyle = r.color; ctx.lineWidth = CELL - 2; ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+    ctx.shadowColor = r.color; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(C(r.pts[0][0]), C(r.pts[0][1]));
+    for (const q of r.pts.slice(1)) ctx.lineTo(C(q[0]), C(q[1]));
+    ctx.lineTo(C(hx), C(hy)); ctx.stroke();
+    ctx.shadowBlur = 0;
+    if (r.alive) {
+      ctx.fillStyle = '#fff'; ctx.fillRect(C(hx) - 4, C(hy) - 4, 8, 8);
+      if (r.id === me && st.phase === 'count' && Math.floor(now / 250) % 2) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(C(hx) - 9, C(hy) - 9, 18, 18); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.93; p.vy *= 0.93; ctx.globalAlpha = p.life / 0.7; ctx.fillStyle = p.color; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
+  ctx.globalAlpha = 1;
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

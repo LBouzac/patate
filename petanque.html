@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pétanque</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-yellow-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-yellow-500"><i data-icon="petanque" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Pétanque</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 6 joueurs, chacun ses 3 boules. Celui qui n'a pas le point rejoue. Premier à 7.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-yellow-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une partie
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-yellow-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+      <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="500" aria-label="Terrain de pétanque : à ton tour, tire en arrière puis relâche pour lancer"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <footer class="text-xs text-slate-400">
+    À ton tour : tire en arrière n'importe où sur le terrain puis relâche, la boule part du cercle. Celui qui n'a pas le point rejoue.
+    Le plus près du cochonnet marque une boule par boule mieux placée que la meilleure des autres. Premier à 7.
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const W = 800, H = 500, CX = 70, CY = 250, BOULE_R = 14, JACK_R = 7, MAX_DRAG = 180, TICK_MS = 1000 / 60;
+let st = null, prev = null, tRecv = 0;
+
+function start(pin) {
+  connect('/ws/petanque', pin, '', m => {
+    if (!m) { st = prev = null; return; }
+    prev = st; st = m; tRecv = performance.now();
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+
+const pl = id => st?.players.find(p => p.id === id);
+const myTurn = () => st && st.phase === 'aim' && st.turn === me && pl(me)?.left > 0;
+
+// ---------- Visée : on tire en arrière comme un lance-pierre, la boule part du cercle ----------
+let drag = null;
+function toField(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function aim() {
+  const dx = drag.x0 - drag.x, dy = drag.y0 - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => { if (myTurn()) { const p = toField(e); drag = { x0: p.x, y0: p.y, ...p }; cv.setPointerCapture(e.pointerId); } };
+cv.onpointermove = e => { if (drag) Object.assign(drag, toField(e)); };
+cv.onpointerup = () => { if (drag && myTurn()) { const s = aim(); if (s.p > 0.04) send(s); } drag = null; };
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'flex flex-col items-center gap-2 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+let lastPoint = null;
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  const secs = Math.max(0, Math.ceil(st.wait)), turn = pl(st.turn);
+  set($('statusTxt'), {
+    wait: 'En attente', mene: 'Mène suivante…', roll: 'Ça roule…', end: 'Partie finie',
+    aim: (st.turn === me ? 'À toi de lancer' : 'Au tour de ' + (turn?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase]);
+  $('status').classList.toggle('text-yellow-300', myTurn());
+
+  const key = JSON.stringify([st.players, st.turn, st.point]);
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...[...st.players].sort((a, b) => b.score - a.score).map(p => {
+      const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = p.color;
+      const balls = el('span', 'tracking-tight text-slate-400', '●'.repeat(p.left) + '○'.repeat(Math.max(0, 3 - p.left)));
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (p.id === st.turn && st.phase === 'aim' ? ' ring-2 ring-yellow-400/60' : ''),
+        dot, el('span', p.id === me ? 'font-bold' : '', p.name), el('span', 'font-mono text-amber-300', p.score), balls,
+        ...(p.id === st.point ? [el('span', 'text-xs text-yellow-300', 'le point')] : []));
+    }));
+  }
+
+  if (st.phase === 'wait') overlay('wait', () => bubble(el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-yellow-300'), 'En attente d\'un 2e joueur'),
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' à tes amis')));
+  else if (st.phase === 'mene' && lastPoint) overlay('mene' + st.mene, () => bubble(el('div', 'text-xl font-black text-yellow-300', lastPoint)));
+  else if (st.phase === 'end') overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Nouvelle partie dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+let particles = [];
+function burst(x, y, n, color, speed, life) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = speed * (0.3 + Math.random()); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life, size: 1.5 + Math.random() * 2, color }); }
+}
+function onEvent(e) {
+  switch (e.kind) {
+    case 'throw': tone(200, 0.12, 'triangle', 0.1, 120); break;
+    case 'clack': tone(1800, 0.05, 'square', Math.min(e.a / 6000, 0.12), 900); burst(e.x, e.y, 6, '#e2e8f0', 100, 0.25); break;
+    case 'out': tone(180, 0.2, 'sine', 0.08, 90); break;
+    case 'jackout': tone(300, 0.3, 'sawtooth', 0.06, 100); lastPoint = 'Cochonnet sorti : mène rejouée'; break;
+    case 'point': lastPoint = e.b ? e.text + ' marque ' + e.b + ' point' + (e.b > 1 ? 's' : '') : 'Mène nulle';
+      [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', 0.12, 0, i * 0.09)); burst(e.x, e.y, 30, '#fde047', 160, 0.7); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.4 + i * 0.12)); break;
+  }
+}
+
+// ---------- Terrain ----------
+const gravel = document.createElement('canvas'); gravel.width = W; gravel.height = H;
+{ // gravier pré-dessiné une fois
+  const g = gravel.getContext('2d');
+  g.fillStyle = '#b59b72'; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 6000; i++) { g.fillStyle = ['#a08760', '#c6ad84', '#9a8158', '#d2bb93'][i % 4]; g.fillRect(Math.random() * W, Math.random() * H, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+}
+function lerpAll(now) {
+  const a = Math.min((now - tRecv) / TICK_MS, 1), L = (p, q) => p && Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
+  return { jack: st.jack && L(prev?.jack, st.jack), boules: st.boules.map((b, i) => L(prev?.boules?.[i], b)) };
+}
+function boule(x, y, color) {
+  ctx.fillStyle = '#0005'; ctx.beginPath(); ctx.arc(x + 2, y + 3, BOULE_R, 0, 7); ctx.fill();
+  const g = ctx.createRadialGradient(x - 5, y - 5, 2, x, y, BOULE_R);
+  g.addColorStop(0, '#f8fafc'); g.addColorStop(0.5, '#94a3b8'); g.addColorStop(1, '#334155');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, BOULE_R, 0, 7); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, BOULE_R - 4, 0, 7); ctx.stroke();
+}
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
+  if (!st) return;
+  ctx.drawImage(gravel, 0, 0);
+  ctx.strokeStyle = '#ffffff60'; ctx.lineWidth = 3; ctx.strokeRect(2, 2, W - 4, H - 4);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(CX, CY, 24, 0, 7); ctx.stroke(); // cercle de lancer
+  const { jack, boules } = lerpAll(now);
+  if (jack) {
+    if (st.point) { // qui a le point : un trait vers sa meilleure boule
+      const mine = boules.filter(b => b.owner === st.point).sort((a, b) => Math.hypot(a.x - jack.x, a.y - jack.y) - Math.hypot(b.x - jack.x, b.y - jack.y))[0];
+      if (mine) { ctx.setLineDash([4, 6]); ctx.strokeStyle = '#fde04790'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(jack.x, jack.y); ctx.lineTo(mine.x, mine.y); ctx.stroke(); ctx.setLineDash([]); }
+    }
+    ctx.fillStyle = '#0005'; ctx.beginPath(); ctx.arc(jack.x + 1, jack.y + 2, JACK_R, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(jack.x, jack.y, JACK_R, 0, 7); ctx.fill();
+  }
+  for (const b of boules) boule(b.x, b.y, pl(b.owner)?.color || '#64748b');
+  if (myTurn() && !drag) { ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(CX, CY, 28 + Math.sin(now / 200) * 3, 0, 7); ctx.stroke(); }
+  if (drag && myTurn()) {
+    const { a, p } = aim(), len = 40 + p * 260;
+    ctx.setLineDash([8, 8]); ctx.lineWidth = 4; ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`;
+    ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(CX + Math.cos(a) * len, CY + Math.sin(a) * len); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(CX, CY, 30, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+  }
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Artillerie</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-red-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-red-500"><i data-icon="tank" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Artillerie</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 4 chars, chacun son tour. Vent, cratères : le dernier debout gagne.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-red-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-red-400 hover:bg-red-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une bataille
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-red-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span class="flex items-center gap-2">
+      <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+        <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+      </span>
+      <span class="rounded-full bg-white/10 px-3 py-1.5 font-mono text-sm" title="Vent"><span class="font-sans text-slate-400">Vent</span> <b id="wind"></b></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="450" aria-label="Champ de bataille : à ton tour, tire en arrière puis relâche pour tirer"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Ajouter un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer un bot
+      </button>
+    </div>
+    <span class="text-xs">À ton tour : tire en arrière puis relâche. Attention au vent, il change à chaque tour.</span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const W = 800, H = 450, COLW = 4, MAX_DRAG = 180;
+let st = null, trail = [], particles = [], flash = 0, shake = 0;
+
+function start(pin) {
+  connect('/ws/artillerie', pin, '', m => {
+    if (!m) { st = null; return; }
+    st = m;
+    if (m.shell) trail.push({ x: m.shell.x, y: m.shell.y }); else if (m.phase !== 'fly') trail = [];
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+
+const tank = id => st?.tanks.find(t => t.id === id);
+const myTurn = () => st && st.phase === 'aim' && st.turn === me && tank(me)?.alive;
+
+// ---------- Visée : on tire en arrière depuis n'importe où ----------
+let drag = null;
+function toField(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function aim() {
+  const dx = drag.x0 - drag.x, dy = drag.y0 - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => { if (myTurn()) { const p = toField(e); drag = { x0: p.x, y0: p.y, ...p }; cv.setPointerCapture(e.pointerId); } };
+cv.onpointermove = e => { if (drag) Object.assign(drag, toField(e)); };
+cv.onpointerup = () => { if (drag && myTurn()) { const s = aim(); if (s.p > 0.05) send(s); } drag = null; };
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-3 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  const secs = Math.max(0, Math.ceil(st.wait)), cur = tank(st.turn);
+  set($('statusTxt'), {
+    wait: 'En attente', fly: 'Tir en cours…', boom: 'Boum !', end: st.winner ? 'Partie finie' : 'Ça commence…',
+    aim: (st.turn === me ? 'À toi de tirer' : 'Au tour de ' + (cur?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase]);
+  $('status').classList.toggle('text-red-300', myTurn());
+  set($('wind'), st.wind === 0 ? '0' : (st.wind < 0 ? '← ' : '→ ') + Math.abs(st.wind).toFixed(1));
+
+  const key = JSON.stringify(st.tanks.map(t => [t.id, t.hp, t.alive, t.name])) + st.turn;
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...st.tanks.map(t => {
+      const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = t.color;
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (t.alive ? '' : ' opacity-50') + (t.id === st.turn && st.phase === 'aim' ? ' ring-2 ring-red-400/60' : ''),
+        dot, el('span', t.id === me ? 'font-bold' : '', t.name + (t.bot ? ' (bot)' : '')), el('span', 'font-mono text-amber-300', t.hp + ' PV'));
+    }));
+  }
+  if (st.phase === 'wait') overlay('wait', () => bubble(
+    el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-red-300'), 'En attente d\'adversaires'),
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' ou ajoute un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-red-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-red-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Ajouter un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'end' && st.winner) overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Nouveau terrain dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+function burst(x, y, n, color, speed, life) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = speed * (0.3 + Math.random()); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life, max: life, size: 1.5 + Math.random() * 3, color }); }
+}
+function onEvent(e) {
+  switch (e.kind) {
+    case 'fire': tone(120, 0.25, 'sawtooth', 0.12, 50); noise(0.15, 0.15); break;
+    case 'boom': noise(0.6, 0.35); tone(80, 0.5, 'sine', 0.2, 30); burst(e.x, e.y, 50, '#fb923c', 220, 0.8); burst(e.x, e.y, 30, '#78350f', 160, 1); flash = 0.25; shake = 0.35; break;
+    case 'miss': tone(400, 0.2, 'sine', 0.05, 200); break;
+    case 'dead': burst(e.x, e.y - 8, 60, '#fde047', 260, 1); tone(60, 0.8, 'sawtooth', 0.15, 30); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.5 + i * 0.12)); break;
+  }
+}
+
+// ---------- Champ de bataille ----------
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
+  if (!st) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (shake > 0) { shake -= dt; ctx.translate((Math.random() - 0.5) * shake * 30, (Math.random() - 0.5) * shake * 30); }
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#1e3a5f'); sky.addColorStop(1, '#f59e0b55');
+  ctx.fillStyle = '#0b1220'; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  if (st.ground.length) { // sol : herbe sur terre
+    ctx.beginPath(); ctx.moveTo(0, H);
+    st.ground.forEach((h, i) => { ctx.lineTo(i * COLW, H - h); ctx.lineTo((i + 1) * COLW, H - h); });
+    ctx.lineTo(W, H); ctx.closePath();
+    const g = ctx.createLinearGradient(0, 150, 0, H); g.addColorStop(0, '#4d7c0f'); g.addColorStop(0.15, '#65411f'); g.addColorStop(1, '#3b2512');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = '#84cc16'; ctx.lineWidth = 3; ctx.beginPath();
+    st.ground.forEach((h, i) => { ctx.lineTo(i * COLW, H - h); ctx.lineTo((i + 1) * COLW, H - h); }); ctx.stroke();
+  }
+  for (const t of st.tanks) {
+    if (!st.ground.length || t.y === 0) continue; // arrivé en cours de partie : pas encore de char
+    ctx.globalAlpha = t.alive ? 1 : 0.35;
+    let a = -Math.PI / 2 + (t.x < W / 2 ? 0.6 : -0.6); // canon : vers l'adversaire, ou suit la visée
+    if (t.id === me && drag && myTurn()) a = aim().a;
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(t.x, t.y - 10); ctx.lineTo(t.x + Math.cos(a) * 18, t.y - 10 + Math.sin(a) * 18); ctx.stroke();
+    ctx.fillStyle = t.color; ctx.beginPath(); ctx.roundRect(t.x - 13, t.y - 9, 26, 9, 3); ctx.fill();
+    ctx.beginPath(); ctx.arc(t.x, t.y - 9, 7, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.fillRect(t.x - 13, t.y - 2, 26, 3);
+    ctx.globalAlpha = 1;
+    if (t.alive) { // barre de vie et nom
+      ctx.fillStyle = '#0008'; ctx.fillRect(t.x - 16, t.y - 32, 32, 4);
+      ctx.fillStyle = t.hp > 50 ? '#22c55e' : t.hp > 25 ? '#f59e0b' : '#ef4444'; ctx.fillRect(t.x - 16, t.y - 32, 32 * t.hp / 100, 4);
+      ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(t.name, t.x, t.y - 37);
+    }
+    if (t.id === me && myTurn() && !drag) { ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(t.x, t.y - 8, 20 + Math.sin(now / 200) * 3, 0, 7); ctx.stroke(); }
+    if (t.id === me && drag && myTurn()) {
+      const { p } = aim();
+      ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y - 10, 26, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+    }
+  }
+  if (trail.length) { // obus et sa traînée
+    ctx.strokeStyle = '#fde68a90'; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke();
+    const s = trail.at(-1); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, 7); ctx.fill();
+  }
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) { p.vy += 300 * dt; p.x += p.vx * dt; p.y += p.vy * dt; ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  if (flash > 0) { flash -= dt; ctx.fillStyle = `rgba(255,200,120,${flash})`; ctx.fillRect(0, 0, W, H); }
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

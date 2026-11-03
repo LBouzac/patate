@@ -8,6 +8,10 @@ L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'
 - **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
 - **Dessine** (`/dessin.html`) : de 3 à 10 joueurs. Chacun son tour envoie une photo, un joueur tiré au sort la dessine en 30 s et les autres devinent.
 - **Foot** (`/foot.html`) : foot de pions à 2 joueurs (ou contre un bot), chacun son tour, premier à 3 buts.
+- **Pétanque** (`/petanque.html`) : de 2 à 6 joueurs, chacun ses 3 boules, premier à 7.
+- **Billard** (`/billard.html`) : jaunes contre rouges à 2 (ou contre un bot), la noire pour finir.
+- **Artillerie** (`/artillerie.html`) : de 2 à 4 chars (bots possibles), vent et cratères, le dernier debout gagne.
+- **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.
 
 
@@ -60,6 +64,39 @@ De 3 à 10 joueurs. On crée une partie et on partage le code, puis n'importe qu
 - Les pions sont plus lourds que le ballon et ne peuvent pas entrer dans les buts. Les poteaux renvoient le ballon.
 - **But** quand le ballon franchit la ligne entre les poteaux. On se replace, l'équipe qui a encaissé engage. **Premier à 3 buts**, puis revanche automatique.
 
+## Pétanque
+
+De 2 à 6 joueurs, chacun pour soi. Le cochonnet est posé au hasard au début de chaque mène.
+
+- Chacun a **3 boules par mène**. À ton tour, tire en arrière n'importe où sur le terrain puis relâche : la boule part du cercle. On peut **tirer** pour dégommer une boule adverse.
+- **Celui qui n'a pas le point rejoue** (le plus mal placé d'abord). Quand les autres n'ont plus de boules, celui qui a le point finit les siennes.
+- Une boule qui sort du terrain est perdue. Si le **cochonnet sort**, la mène est rejouée. 15 s par lancer, sinon la boule est perdue.
+- À la fin de la mène, celui qui a le point marque **une boule par boule plus proche que la meilleure des autres**, et commence la mène suivante. **Premier à 7 points.**
+
+## Billard
+
+À 2, ou contre un **bot**. Le premier joueur a les **jaunes**, le second les **rouges**.
+
+- Tire en arrière puis relâche : la queue recule avec la puissance.
+- **Rentrer une de ses billes fait rejouer.** Faute (la main passe) : blanche rentrée (elle revient au point de départ), aucune bille touchée, ou d'abord une bille adverse.
+- **Rentrer la noire après toutes ses billes fait gagner**, la rentrer trop tôt ou sur une faute fait perdre. 25 s par coup.
+
+## Artillerie
+
+De 2 à 4 chars, joueurs ou **bots** (« Ajouter un bot »). Chacun son tour, 20 s pour tirer.
+
+- Tire en arrière puis relâche pour régler l'angle et la puissance. Le **vent** (affiché en haut) change à chaque tour.
+- Les obus **creusent le terrain**, et les chars retombent au fond des cratères. Un tir direct enlève 70 PV, moins si l'obus tombe à côté.
+- Le dernier char debout gagne, puis un nouveau terrain est généré.
+
+## Motos
+
+De 2 à 8 motos en temps réel, joueurs ou **bots**. Chaque moto avance toute seule et laisse un mur derrière elle.
+
+- **Flèches** ou ZQSD (WASD) pour tourner. Au doigt : boutons ↺ ↻, ou toucher la moitié gauche ou droite de la piste.
+- Toucher un bord, un mur (même le sien) ou une autre moto élimine. Deux motos qui visent la même case sont éliminées toutes les deux.
+- Le dernier en piste marque un point. **Premier à 5 manches.**
+
 ## Golf
 
 Mini-golf de 1 à 8 joueurs. On crée un parcours et on partage le code. Tout le monde joue le même trou **en même temps**, chacun avec sa balle. Les balles **se cognent** : tu peux pousser celle d'un adversaire (si elle finit dans l'eau, elle revient à sa place sans pénalité).
@@ -110,7 +147,7 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 ## Interface
 
-Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
+Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron, Pétanque jaune, Billard bleu ciel, Artillerie rouge, Motos violet) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
 
 L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 

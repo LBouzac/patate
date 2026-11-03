@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-sky-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-sky-500"><i data-icon="billard" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Billard</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">Jaunes contre rouges, la noire pour finir. À deux, ou contre un bot.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-sky-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-sky-400 hover:bg-sky-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une partie
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-sky-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[912px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+      <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <!-- jaunes à gauche, rouges à droite -->
+  <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+    <div id="side0" class="flex items-center gap-3 rounded-xl bg-yellow-500/10 px-4 py-2 ring-1 ring-yellow-400/30">
+      <span class="min-w-0"><span id="name0" class="block truncate font-semibold"></span><span id="balls0" class="block text-sm tracking-tight text-yellow-300"></span></span>
+    </div>
+    <span id="last" class="max-w-40 text-center text-xs font-semibold text-slate-400"></span>
+    <div id="side1" class="flex flex-row-reverse items-center gap-3 rounded-xl bg-red-500/10 px-4 py-2 text-right ring-1 ring-red-400/30">
+      <span class="min-w-0"><span id="name1" class="block truncate font-semibold"></span><span id="balls1" class="block text-sm tracking-tight text-red-300"></span></span>
+    </div>
+  </div>
+
+  <div class="relative">
+    <canvas id="c" width="880" height="480" aria-label="Table de billard : à ton tour, tire en arrière puis relâche pour frapper la blanche"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Jouer contre un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer
+      </button>
+    </div>
+    <span class="text-xs">Tire en arrière puis relâche. Rentre tes billes pour rejouer, puis la noire pour gagner.</span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const TW = 800, TH = 400, OX = 40, OY = 40, R = 11, MAX_DRAG = 200, TICK_MS = 1000 / 60;
+const POCKETS = [[0, 0], [TW / 2, 0], [TW, 0], [0, TH], [TW / 2, TH], [TW, TH]];
+const COLOR = ['#f8fafc', '#facc15', '#ef4444', '#111827'];
+let st = null, prev = null, tRecv = 0;
+
+function start(pin) {
+  connect('/ws/billard', pin, '', m => {
+    if (!m) { st = prev = null; return; }
+    prev = st; st = m; tRecv = performance.now();
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+
+const myTeam = () => st ? st.players.findIndex(p => p && p.id === me) : -1;
+const myTurn = () => st && st.phase === 'aim' && st.turn === myTeam();
+
+// ---------- Visée ----------
+let drag = null;
+function toTable(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width - OX, y: (e.clientY - r.top) * cv.height / r.height - OY }; }
+function aim() {
+  const dx = drag.x0 - drag.x, dy = drag.y0 - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => { if (myTurn()) { const p = toTable(e); drag = { x0: p.x, y0: p.y, ...p }; cv.setPointerCapture(e.pointerId); } };
+cv.onpointermove = e => { if (drag) Object.assign(drag, toTable(e)); };
+cv.onpointerup = () => { if (drag && myTurn()) { const s = aim(); if (s.p > 0.03) send(s); } drag = null; };
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-3 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+
+function hud() {
+  if (!st) return;
+  const mine = myTeam(), secs = Math.max(0, Math.ceil(st.wait));
+  set($('pinTxt'), st.pin);
+  st.players.forEach((p, i) => {
+    const left = st.balls.filter(b => b.k === i + 1).length;
+    set($('name' + i), p ? p.name + (p.id === me ? ' (toi)' : p.bot ? ' (bot)' : '') : 'En attente…');
+    set($('balls' + i), '●'.repeat(left) + ' ' + (i ? 'rouges' : 'jaunes'));
+    $('side' + i).classList.toggle('ring-2', st.phase === 'aim' && st.turn === i);
+  });
+  set($('last'), st.last || '');
+  set($('statusTxt'), {
+    wait: 'En attente', roll: 'Ça roule…', end: 'Partie finie',
+    aim: (st.turn === mine ? 'À toi de jouer' : 'Au tour de ' + (st.players[st.turn]?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase]);
+  $('status').classList.toggle('text-sky-300', myTurn());
+  if (st.phase === 'wait') overlay('wait', () => bubble(
+    el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-sky-300'), 'En attente d\'un adversaire'),
+    el('div', 'text-sm text-slate-300', 'Donne-lui le code ', el('b', 'font-mono text-amber-300', st.pin), ' ou joue contre un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-sky-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-sky-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Jouer contre un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'end') overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Revanche dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son ----------
+function onEvent(e) {
+  switch (e.kind) {
+    case 'shot': tone(220, 0.06, 'triangle', 0.12, 140); break;
+    case 'clack': tone(2200, 0.03, 'square', Math.min(e.a / 9000, 0.12), 1400); break;
+    case 'cushion': tone(160, 0.05, 'sine', 0.06); break;
+    case 'pot': tone(e.a === 0 ? 150 : 520, 0.18, 'sine', 0.12, e.a === 0 ? 80 : 260); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12)); break;
+  }
+}
+
+// ---------- Table ----------
+function lerpBalls(now) {
+  const a = Math.min((now - tRecv) / TICK_MS, 1);
+  return st.balls.map((b, i) => { const p = prev?.balls?.[i]; return p && p.k === b.k && Math.hypot(b.x - p.x, b.y - p.y) < 60 ? { ...b, x: p.x + (b.x - p.x) * a, y: p.y + (b.y - p.y) * a } : b; });
+}
+function drawBall(b) {
+  ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.arc(b.x + 2, b.y + 3, R, 0, 7); ctx.fill();
+  const g = ctx.createRadialGradient(b.x - 4, b.y - 4, 1, b.x, b.y, R);
+  g.addColorStop(0, '#fff'); g.addColorStop(0.35, COLOR[b.k]); g.addColorStop(1, b.k === 3 ? '#000' : COLOR[b.k]);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, 7); ctx.fill();
+  if (b.k === 3) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = '#000'; ctx.font = 'bold 7px system-ui'; ctx.textAlign = 'center'; ctx.fillText('8', b.x, b.y + 2.5); }
+}
+function draw(now) {
+  requestAnimationFrame(draw);
+  if (!st) return;
+  // bois, puis tapis
+  ctx.fillStyle = '#5b3a1e'; ctx.beginPath(); ctx.roundRect(0, 0, cv.width, cv.height, 22); ctx.fill();
+  ctx.fillStyle = '#7a4d26'; ctx.beginPath(); ctx.roundRect(8, 8, cv.width - 16, cv.height - 16, 18); ctx.fill();
+  ctx.save(); ctx.translate(OX, OY);
+  ctx.fillStyle = '#0d7a52'; ctx.fillRect(-6, -6, TW + 12, TH + 12);
+  ctx.fillStyle = '#0f8a5d'; ctx.fillRect(0, 0, TW, TH);
+  ctx.strokeStyle = '#ffffff25'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(200, 0); ctx.lineTo(200, TH); ctx.stroke();
+  ctx.fillStyle = '#ffffff40'; ctx.beginPath(); ctx.arc(580, TH / 2, 3, 0, 7); ctx.fill();
+  for (const [x, y] of POCKETS) { ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.fill(); }
+  const balls = lerpBalls(now);
+  for (const b of balls) if (b.x > -50) drawBall(b);
+  const cue = balls[0];
+  if (myTurn() && cue && cue.x > -50) {
+    if (drag) {
+      const { a, p } = aim();
+      ctx.setLineDash([6, 8]); ctx.strokeStyle = '#ffffffb0'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cue.x, cue.y); ctx.lineTo(cue.x + Math.cos(a) * 600, cue.y + Math.sin(a) * 600); ctx.stroke(); ctx.setLineDash([]);
+      const back = R + 8 + p * 70; // la queue recule avec la puissance
+      ctx.strokeStyle = '#d6a466'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cue.x - Math.cos(a) * back, cue.y - Math.sin(a) * back); ctx.lineTo(cue.x - Math.cos(a) * (back + 260), cue.y - Math.sin(a) * (back + 260)); ctx.stroke();
+      ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cue.x, cue.y, R + 6, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+    } else { ctx.strokeStyle = '#ffffffa0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cue.x, cue.y, R + 5 + Math.sin(now / 200) * 2, 0, 7); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
