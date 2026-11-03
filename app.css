@@ -1,0 +1,4 @@
+/* Source Tailwind : régénérer style.css après avoir changé des classes dans index.html
+   tailwindcss -i app.css -o style.css --minify  (binaire autonome : github.com/tailwindlabs/tailwindcss/releases) */
+@import "tailwindcss" source(none);
+@source "./index.html";

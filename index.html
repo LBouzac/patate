@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Patate</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<!-- Accueil -->
+<main id="home" class="grid min-h-full place-items-center p-4">
+  <form id="f" class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900 p-8 shadow-2xl ring-1 ring-white/10">
+    <div class="text-center">
+      <div class="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30">
+        <i data-icon="fire" class="size-8"></i>
+      </div>
+      <h1 class="text-3xl font-black tracking-tight">Patate</h1>
+      <p class="mt-1 text-sm text-slate-400">Passe la bombe avant qu'elle n'explose.</p>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Pseudo</span>
+      <span class="relative block">
+        <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+      </span>
+    </label>
+
+    <fieldset>
+      <legend class="mb-1.5 text-sm font-medium text-slate-300">Mode de jeu</legend>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="cursor-pointer">
+          <input type="radio" name="mode" value="classic" checked class="peer sr-only">
+          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
+            <i data-icon="fire" class="size-5"></i>Classique
+          </span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="mode" value="hot" class="peer sr-only">
+          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
+            <i data-icon="arrow-path" class="size-5"></i>Patate chaude
+          </span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="mode" value="teams" class="peer sr-only">
+          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
+            <i data-icon="users" class="size-5"></i>Équipes
+          </span>
+        </label>
+      </div>
+      <p id="modeHelp" class="mt-2 min-h-8 text-xs text-slate-500"></p>
+    </fieldset>
+
+    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-slate-950 shadow-lg shadow-orange-500/20 transition hover:bg-orange-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une partie
+    </button>
+
+    <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
+      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre <span class="h-px flex-1 bg-white/10"></span>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Code de la partie</span>
+      <span class="relative block">
+        <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </span>
+    </label>
+
+    <button id="join" class="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 font-semibold text-white transition hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+      <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
+    </button>
+
+    <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="copy" title="Copier le lien d'invitation"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+        <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+        <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+      </button>
+      <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm ring-1 ring-white/10">
+        <i data-icon="star" class="size-4 text-amber-300"></i><span id="score" class="font-bold tabular-nums">0</span> pts
+      </span>
+      <span id="modeChip" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10"></span>
+      <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10">
+        <i data-icon="map" class="size-4 text-slate-400"></i><span id="arena"></span>
+      </span>
+      <span id="teamChip" hidden class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="timer" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold tabular-nums ring-1 ring-white/10">
+        <i data-icon="clock" class="size-5"></i><span id="fuse"></span>
+      </div>
+      <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+        class="grid size-10 place-items-center rounded-lg bg-slate-800 text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+        <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+      </button>
+    </div>
+  </header>
+
+  <div id="status" aria-live="polite" class="flex min-h-9 items-center justify-center"></div>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="600" aria-label="Arène de jeu Patate"
+      class="block w-full rounded-xl bg-[#14231a] ring-1 ring-white/10"></canvas>
+    <ol id="feed" aria-live="polite" class="pointer-events-none absolute top-2 left-2 flex max-w-[60%] flex-col gap-1"></ol>
+    <div id="board" hidden class="absolute inset-0 grid place-items-center overflow-y-auto rounded-xl bg-slate-950/60 p-2 backdrop-blur-sm">
+      <div class="w-96 max-w-full rounded-2xl bg-slate-900/95 p-5 shadow-2xl ring-1 ring-white/10">
+        <div id="winner" class="mb-4 flex items-center justify-center gap-2 text-center text-xl font-black text-amber-300"></div>
+        <div id="stats" class="mb-4 grid grid-cols-2 gap-2"></div>
+        <h2 class="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-400 uppercase">
+          <i data-icon="chart-bar-square" class="size-4"></i> Classement
+        </h2>
+        <ol id="rows" class="space-y-1"></ol>
+        <p class="mt-3 text-center text-xs text-slate-500">Survie à une explosion +1 · Victoire +2</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" title="Ajouter un bot (B)" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700">
+        <i data-icon="user-plus" class="size-4"></i> Bot
+      </button>
+      <button data-bot="-1" title="Retirer un bot (N)" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700">
+        <i data-icon="user-minus" class="size-4"></i> Bot
+      </button>
+      <span class="tabular-nums"><span id="count">0</span>/10</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center gap-1"><i data-icon="bolt" class="size-4 text-yellow-300"></i>Vitesse</span>
+      <span class="inline-flex items-center gap-1"><i data-icon="shield-check" class="size-4 text-cyan-300"></i>Bouclier</span>
+      <span class="inline-flex items-center gap-1"><i data-icon="pause-circle" class="size-4 text-sky-300"></i>Gèle les autres</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-1 text-xs">
+      <kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">ZQSD</kbd> bouger
+      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">1-4</kbd> 😂😡👋💀
+      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">Tab</kbd> scores
+      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">B</kbd><kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">N</kbd> bots
+      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son
+    </div>
+  </footer>
+</main>
+
+<script>
+// Heroicons v2.2.0 (solid 24) — MIT, https://heroicons.com — [tracé SVG, evenodd]
+const ICONS = {"bolt":[["M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z",true]],"shield-check":[["M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z",true]],"pause-circle":[["M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z",true]],"fire":[["M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z",true]],"user":[["M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z",true]],"hashtag":[["M11.097 1.515a.75.75 0 0 1 .589.882L10.666 7.5h4.47l1.079-5.397a.75.75 0 1 1 1.47.294L16.665 7.5h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.2 6h3.585a.75.75 0 0 1 0 1.5h-3.885l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103h-4.47l-1.08 5.397a.75.75 0 1 1-1.47-.294l1.02-5.103H3.75a.75.75 0 0 1 0-1.5h3.885l1.2-6H5.25a.75.75 0 0 1 0-1.5h3.885l1.08-5.397a.75.75 0 0 1 .882-.588ZM10.365 9l-1.2 6h4.47l1.2-6h-4.47Z",true]],"plus-circle":[["M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z",true]],"arrow-right-end-on-rectangle":[["M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6Zm-5.03 4.72a.75.75 0 0 0 0 1.06l1.72 1.72H2.25a.75.75 0 0 0 0 1.5h10.94l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 0 0-1.06 0Z",true]],"exclamation-triangle":[["M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",true]],"clock":[["M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z",true]],"star":[["M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z",true]],"trophy":[["M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.346A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 0 0-2.25 2.25c0 .414.336.75.75.75h15a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744Zm0 2.629c0 1.196.312 2.32.857 3.294A5.266 5.266 0 0 1 3.16 5.337a45.6 45.6 0 0 1 2.006-.343v.256Zm13.5 0v-.256c.674.1 1.343.214 2.006.343a5.265 5.265 0 0 1-2.863 3.207 6.72 6.72 0 0 0 .857-3.294Z",true]],"cpu-chip":[["M16.5 7.5h-9v9h9v-9Z",false],["M8.25 2.25A.75.75 0 0 1 9 3v.75h2.25V3a.75.75 0 0 1 1.5 0v.75H15V3a.75.75 0 0 1 1.5 0v.75h.75a3 3 0 0 1 3 3v.75H21A.75.75 0 0 1 21 9h-.75v2.25H21a.75.75 0 0 1 0 1.5h-.75V15H21a.75.75 0 0 1 0 1.5h-.75v.75a3 3 0 0 1-3 3h-.75V21a.75.75 0 0 1-1.5 0v-.75h-2.25V21a.75.75 0 0 1-1.5 0v-.75H9V21a.75.75 0 0 1-1.5 0v-.75h-.75a3 3 0 0 1-3-3v-.75H3A.75.75 0 0 1 3 15h.75v-2.25H3a.75.75 0 0 1 0-1.5h.75V9H3a.75.75 0 0 1 0-1.5h.75v-.75a3 3 0 0 1 3-3h.75V3a.75.75 0 0 1 .75-.75ZM6 6.75A.75.75 0 0 1 6.75 6h10.5a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V6.75Z",true]],"user-plus":[["M5.25 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM2.25 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM18.75 7.5a.75.75 0 0 0-1.5 0v2.25H15a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H21a.75.75 0 0 0 0-1.5h-2.25V7.5Z",false]],"user-minus":[["M10.375 2.25a4.125 4.125 0 1 0 0 8.25 4.125 4.125 0 0 0 0-8.25ZM10.375 12a7.125 7.125 0 0 0-7.124 7.247.75.75 0 0 0 .363.63 13.067 13.067 0 0 0 6.761 1.873c2.472 0 4.786-.684 6.76-1.873a.75.75 0 0 0 .364-.63l.001-.12v-.002A7.125 7.125 0 0 0 10.375 12ZM16 9.75a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5h-6Z",false]],"link":[["M19.902 4.098a3.75 3.75 0 0 0-5.304 0l-4.5 4.5a3.75 3.75 0 0 0 1.035 6.037.75.75 0 0 1-.646 1.353 5.25 5.25 0 0 1-1.449-8.45l4.5-4.5a5.25 5.25 0 1 1 7.424 7.424l-1.757 1.757a.75.75 0 1 1-1.06-1.06l1.757-1.757a3.75 3.75 0 0 0 0-5.304Zm-7.389 4.267a.75.75 0 0 1 1-.353 5.25 5.25 0 0 1 1.449 8.45l-4.5 4.5a5.25 5.25 0 1 1-7.424-7.424l1.757-1.757a.75.75 0 1 1 1.06 1.06l-1.757 1.757a3.75 3.75 0 1 0 5.304 5.304l4.5-4.5a3.75 3.75 0 0 0-1.035-6.037.75.75 0 0 1-.354-1Z",true]],"check":[["M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z",true]],"chart-bar-square":[["M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Zm4.5 7.5a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0v-2.25a.75.75 0 0 1 .75-.75Zm3.75-1.5a.75.75 0 0 0-1.5 0v4.5a.75.75 0 0 0 1.5 0V12Zm2.25-3a.75.75 0 0 1 .75.75v6.75a.75.75 0 0 1-1.5 0V9.75A.75.75 0 0 1 13.5 9Zm3.75-1.5a.75.75 0 0 0-1.5 0v9a.75.75 0 0 0 1.5 0v-9Z",true]],"map":[["M8.161 2.58a1.875 1.875 0 0 1 1.678 0l4.993 2.498c.106.052.23.052.336 0l3.869-1.935A1.875 1.875 0 0 1 21.75 4.82v12.485c0 .71-.401 1.36-1.037 1.677l-4.875 2.437a1.875 1.875 0 0 1-1.676 0l-4.994-2.497a.375.375 0 0 0-.336 0l-3.868 1.935A1.875 1.875 0 0 1 2.25 19.18V6.695c0-.71.401-1.36 1.036-1.677l4.875-2.437ZM9 6a.75.75 0 0 1 .75.75V15a.75.75 0 0 1-1.5 0V6.75A.75.75 0 0 1 9 6Zm6.75 3a.75.75 0 0 0-1.5 0v8.25a.75.75 0 0 0 1.5 0V9Z",true]],"face-frown":[["M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm-4.34 7.964a.75.75 0 0 1-1.061-1.06 5.236 5.236 0 0 1 3.73-1.538 5.236 5.236 0 0 1 3.695 1.538.75.75 0 1 1-1.061 1.06 3.736 3.736 0 0 0-2.639-1.098 3.736 3.736 0 0 0-2.664 1.098Z",true]],"arrow-path":[["M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z",true]],"sparkles":[["M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z",true]],"heart":[["m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z",false]],"speaker-wave":[["M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06ZM18.584 5.106a.75.75 0 0 1 1.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 0 1-1.06-1.06 8.25 8.25 0 0 0 0-11.668.75.75 0 0 1 0-1.06Z",false],["M15.932 7.757a.75.75 0 0 1 1.061 0 6 6 0 0 1 0 8.486.75.75 0 0 1-1.06-1.061 4.5 4.5 0 0 0 0-6.364.75.75 0 0 1 0-1.06Z",false]],"speaker-x-mark":[["M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06ZM17.78 9.22a.75.75 0 1 0-1.06 1.06L18.44 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06l1.72-1.72 1.72 1.72a.75.75 0 1 0 1.06-1.06L20.56 12l1.72-1.72a.75.75 0 1 0-1.06-1.06l-1.72 1.72-1.72-1.72Z",false]],"users":[["M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z",false]],"face-smile":[["M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm2.023 6.828a.75.75 0 1 0-1.06-1.06 3.75 3.75 0 0 1-5.304 0 .75.75 0 0 0-1.06 1.06 5.25 5.25 0 0 0 7.424 0Z",true]]};
+
+const NS = 'http://www.w3.org/2000/svg';
+function icon(name, cls = 'size-5') {
+  const s = document.createElementNS(NS, 'svg');
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'currentColor'); s.setAttribute('aria-hidden', 'true');
+  s.setAttribute('class', 'shrink-0 ' + cls);
+  for (const [d, eo] of ICONS[name]) {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    if (eo) { p.setAttribute('fill-rule', 'evenodd'); p.setAttribute('clip-rule', 'evenodd'); }
+    s.append(p);
+  }
+  return s;
+}
+document.querySelectorAll('i[data-icon]').forEach(i => {
+  const s = icon(i.dataset.icon, i.className);
+  if (i.id) s.id = i.id;
+  if (i.hidden) s.setAttribute('hidden', '');
+  i.replaceWith(s);
+});
+
+const $ = id => document.getElementById(id);
+const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
+const cv = $('c'), ctx = cv.getContext('2d');
+$('name').value = localStorage.name || '';
+$('pin').value = new URLSearchParams(location.search).get('pin') || '';
+
+const MODES = {
+  classic: ['fire', 'Classique', 'Mèche de 8 à 20 s, cachée jusqu\'au bout… ou presque.'],
+  hot: ['arrow-path', 'Patate chaude', 'Mèche courte (6 s), mais chaque passe à un nouveau joueur la recharge de 1,5 s.'],
+  teams: ['users', 'Équipes', 'Rouges contre Bleus : impossible de passer la bombe à un coéquipier.'],
+};
+const modeHelp = () => $('modeHelp').textContent = MODES[document.querySelector('input[name=mode]:checked').value][2] + ' Dès 6 survivants : 2 bombes !';
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = modeHelp);
+modeHelp();
+
+let ws = null, me = 0, st = null, prev = null, tRecv = 0, showScores = false;
+
+function setErr(msg, isError = true) {
+  $('err').textContent = msg;
+  show($('errBox'), !!msg);
+  show($('errIcon'), isError && !!msg);
+  $('errBox').classList.toggle('text-red-400', isError);
+  $('errBox').classList.toggle('text-slate-400', !isError);
+}
+setErr('');
+
+function screen(game) { show($('home'), !game); show($('game'), game); }
+
+function start(pin) {
+  const name = $('name').value.trim();
+  if (!name) return $('name').reportValidity();
+  if (pin !== '' && !/^\d{4}$/.test(pin)) return setErr('Le code fait 4 chiffres');
+  localStorage.name = name;
+  audio(); // le navigateur n'autorise le son qu'après un clic
+  setErr('Connexion…', false);
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host +
+    '/ws?name=' + encodeURIComponent(name) + '&pin=' + pin + '&mode=' + mode);
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.you) { me = m.you; screen(true); setErr(''); return; }
+    prev = st; st = m; tRecv = performance.now();
+    if (location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
+    for (const ev of m.events || []) onEvent(ev);
+    ticks();
+    hud();
+  };
+  ws.onclose = e => { st = prev = null; screen(false); setErr(e.reason || 'Déconnecté'); };
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+
+$('copy').onclick = async () => {
+  const url = location.href;
+  // l'API presse-papiers n'existe qu'en https ou sur localhost
+  if (!navigator.clipboard) return prompt('Lien d\'invitation à copier :', url);
+  await navigator.clipboard.writeText(url);
+  show($('copyLink'), false); show($('copyOk'), true);
+  setTimeout(() => { show($('copyOk'), false); show($('copyLink'), true); }, 1500);
+};
+
+// ---------- Son (synthétisé avec Web Audio, aucun fichier) ----------
+let actx = null, muted = localStorage.muted === '1';
+function audio() {
+  if (!actx) actx = new AudioContext();
+  if (actx.state === 'suspended') actx.resume();
+}
+function setMuted(v) {
+  muted = v; localStorage.muted = v ? '1' : '0';
+  show($('soundOn'), !v); show($('soundOff'), v);
+}
+setMuted(muted);
+$('mute').onclick = () => { setMuted(!muted); $('mute').blur(); };
+
+function tone(freq, dur, type = 'sine', vol = 0.15, to = 0, delay = 0) {
+  if (muted || !actx) return;
+  const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+function noise(dur, vol) {
+  if (muted || !actx) return;
+  const t = actx.currentTime, buf = actx.createBuffer(1, actx.sampleRate * dur, actx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = buf; f.type = 'lowpass';
+  f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(80, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(actx.destination); src.start(t);
+}
+const sfx = {
+  tick: mine => tone(mine ? 1300 : 950, 0.05, 'square', mine ? 0.07 : 0.03),
+  pass: () => tone(450, 0.12, 'triangle', 0.15, 1100),
+  boom: () => { noise(0.9, 0.6); tone(140, 0.6, 'sine', 0.5, 35); },
+  pick: () => { tone(660, 0.08, 'sine', 0.12); tone(990, 0.14, 'sine', 0.12, 0, 0.07); },
+  win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12)),
+  emote: () => tone(700, 0.07, 'sine', 0.08, 950),
+};
+
+// tic-tac : un tic par seconde, deux par seconde sous 3 s
+let lastTick = [];
+function ticks() {
+  if (st.phase !== 'play') { lastTick = []; return; }
+  st.bombs.forEach((b, i) => {
+    const step = b.fuse < 3 ? Math.ceil(b.fuse * 2) : Math.ceil(b.fuse);
+    if (lastTick[i] !== undefined && lastTick[i] !== step) sfx.tick(b.holder === me);
+    lastTick[i] = step;
+  });
+}
+
+// ---------- Événements : son + effets + fil d'actions ----------
+const BONUS = { speed: ['bolt', '#fde047', 'Vitesse', 'text-yellow-300'], shield: ['shield-check', '#67e8f9', 'Bouclier', 'text-cyan-300'], ice: ['pause-circle', '#7dd3fc', 'Gel', 'text-sky-300'] };
+const EMOTES = ['', '😂', '😡', '👋', '💀'];
+const nameOf = id => (st.players.find(p => p.id === id) || { name: '?' }).name;
+let particles = [], rings = [], shake = 0;
+
+function burst(x, y, n, colors, speed, life) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random());
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life, size: 2 + Math.random() * 4, color: colors[i % colors.length] });
+  }
+}
+
+function onEvent(e) {
+  switch (e.kind) {
+    case 'pass':
+      sfx.pass();
+      rings.push({ x: e.x, y: e.y, r: 18, life: 0.5, color: '#f97316' });
+      feed('fire', 'text-orange-300', nameOf(e.a) + ' → ' + nameOf(e.b));
+      break;
+    case 'boom':
+      sfx.boom();
+      burst(e.x, e.y, 60, ['#f97316', '#ef4444', '#fde047', '#fff'], 320, 0.9);
+      burst(e.x, e.y, 20, ['#475569', '#64748b'], 120, 1.4); // fumée
+      rings.push({ x: e.x, y: e.y, r: 10, life: 0.6, color: '#fde047', grow: 260 });
+      shake = e.a === me ? 0.6 : 0.35;
+      feed('fire', 'text-red-400', nameOf(e.a) + ' a explosé !');
+      break;
+    case 'pick': {
+      const [ic, col, label, cls] = BONUS[e.text];
+      sfx.pick();
+      burst(e.x, e.y, 14, [col, '#fff'], 140, 0.5);
+      feed(ic, cls, nameOf(e.a) + ' prend ' + label);
+      break;
+    }
+    case 'win':
+      sfx.win();
+      break;
+    case 'emote':
+      sfx.emote();
+      break;
+  }
+}
+
+function feed(iconName, cls, text) {
+  const li = document.createElement('li');
+  li.className = 'flex w-fit items-center gap-1.5 rounded-md bg-slate-950/70 px-2 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10 backdrop-blur transition-opacity duration-500';
+  li.append(icon(iconName, 'size-3.5 ' + cls), text); // text en nœud texte : pas d'injection HTML avec les pseudos
+  $('feed').prepend(li);
+  while ($('feed').children.length > 5) $('feed').lastChild.remove();
+  setTimeout(() => li.classList.add('opacity-0'), 4000);
+  setTimeout(() => li.remove(), 4500);
+}
+
+// ---------- Clavier ----------
+// e.code = touche physique : WASD en QWERTY = ZQSD en AZERTY
+const map = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+const keys = { u: false, d: false, l: false, r: false };
+const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
+function setKey(k, v) {
+  if (keys[k] === v) return;
+  keys[k] = v;
+  send(keys);
+}
+addEventListener('keydown', e => {
+  if ($('game').hidden) return; // ne pas capter les touches pendant la saisie du formulaire
+  if (map[e.code]) { e.preventDefault(); setKey(map[e.code], true); }
+  if (e.code === 'Tab') { e.preventDefault(); showScores = true; hud(); }
+  if (e.repeat) return;
+  if (e.code === 'KeyB' || e.code === 'KeyN') send({ bot: e.code === 'KeyB' ? 1 : -1 });
+  if (e.code === 'KeyM') setMuted(!muted);
+  const n = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code) + 1;
+  if (n) send({ emote: n });
+});
+addEventListener('keyup', e => {
+  if (map[e.code]) setKey(map[e.code], false);
+  if (e.code === 'Tab') { showScores = false; hud(); }
+});
+addEventListener('blur', () => { showScores = false; Object.keys(keys).forEach(k => setKey(k, false)); });
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+
+// ---------- Interface HTML (mise à jour à chaque état reçu) ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const TEAM = { 1: ['Rouges', '#ef4444', 'bg-red-500/15 text-red-300 ring-red-400/40'], 2: ['Bleus', '#3b82f6', 'bg-blue-500/15 text-blue-300 ring-blue-400/40'] };
+let statusKey = '', rowsKey = '', statsKey = '';
+
+function status(key, iconName, msg, cls) {
+  if (key === statusKey) return;
+  statusKey = key;
+  $('status').replaceChildren();
+  if (!msg) return;
+  const pill = document.createElement('span');
+  pill.className = 'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ring-1 ' + cls;
+  pill.append(icon(iconName, 'size-4'), msg);
+  $('status').append(pill);
+}
+
+function hud() {
+  if (!st) return;
+  const meP = st.players.find(p => p.id === me);
+  set($('pinTxt'), st.pin);
+  set($('score'), meP ? meP.score : 0);
+  set($('arena'), st.arena);
+  set($('count'), st.players.length);
+  if ($('modeChip').dataset.mode !== st.mode) {
+    $('modeChip').dataset.mode = st.mode;
+    $('modeChip').replaceChildren(icon(MODES[st.mode][0], 'size-4 text-orange-300'), MODES[st.mode][1]);
+  }
+  const team = meP && TEAM[meP.team];
+  show($('teamChip'), !!team);
+  if (team && $('teamChip').dataset.team !== String(meP.team)) {
+    $('teamChip').dataset.team = meP.team;
+    $('teamChip').className = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ' + team[2];
+    $('teamChip').replaceChildren(icon('users', 'size-4'), team[0]);
+  }
+
+  // minuteur : ma bombe si je l'ai, sinon la plus proche d'exploser
+  const play = st.phase === 'play', mine = st.bombs?.find(b => b.holder === me);
+  const fuse = mine ? mine.fuse : Math.min(...(st.bombs || []).map(b => b.fuse));
+  const danger = play && fuse < 3;
+  $('timer').classList.toggle('invisible', !play || !isFinite(fuse));
+  $('timer').classList.toggle('text-red-400', danger);
+  $('timer').classList.toggle('animate-pulse', danger);
+  set($('fuse'), play && isFinite(fuse) ? fuse.toFixed(1) + ' s' + (st.bombs.length > 1 ? ' ×2' : '') : '');
+
+  if (st.phase === 'lobby' && st.players.length < 2) status('wait', 'user-plus', 'Donne le code à tes amis, ou ajoute un bot', 'bg-slate-800 text-slate-300 ring-white/10');
+  else if (st.phase === 'lobby') status('go' + Math.ceil(st.wait), 'clock', 'Départ dans ' + Math.ceil(st.wait) + ' · ' + st.arena, 'bg-indigo-500/15 text-indigo-200 ring-indigo-400/30');
+  else if (play && mine) status('bomb', 'fire', st.mode === 'teams' ? 'Tu as la bombe ! Touche un adversaire !' : 'Tu as la bombe ! Touche quelqu\'un !', 'bg-red-500/15 text-red-300 ring-red-400/40 animate-pulse');
+  else if (play && meP && !meP.alive) status('dead', 'face-frown', 'Éliminé ! Regarde la fin…', 'bg-slate-800 text-slate-400 ring-white/10');
+  else if (play) status('run' + st.bombs.length, 'bolt', st.bombs.length > 1 ? 'Deux bombes en jeu ! Fuis !' : 'Fuis le porteur de la bombe !', 'bg-emerald-500/10 text-emerald-300 ring-emerald-400/30');
+  else status('', '', '', '');
+
+  const open = st.phase === 'end' || showScores;
+  show($('board'), open);
+  if (!open) return;
+
+  const w = $('winner'), end = st.phase === 'end';
+  show(w, end);
+  const winTxt = st.winTeam ? 'Les ' + st.winner + ' gagnent !' : st.winner ? st.winner + ' gagne !' : 'Personne ne gagne';
+  if (end && w.textContent !== winTxt) w.replaceChildren(icon('trophy', 'size-6'), winTxt);
+
+  // records de la manche
+  const sKey = end ? JSON.stringify(st.stats) : '';
+  if (sKey !== statsKey) {
+    statsKey = sKey;
+    const STAT_ICON = { 'Le plus de passes': ['arrow-path', 'text-orange-300'], 'Accro à la bombe': ['fire', 'text-red-400'], 'Chasseur de bonus': ['sparkles', 'text-yellow-300'], 'Victime préférée': ['heart', 'text-pink-400'] };
+    $('stats').replaceChildren(...(end ? st.stats || [] : []).map(s => {
+      const card = document.createElement('div');
+      card.className = 'rounded-lg bg-white/5 p-2.5 ring-1 ring-white/10';
+      const head = document.createElement('div');
+      head.className = 'mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-slate-400 uppercase';
+      const [ic, cls] = STAT_ICON[s.title] || ['star', 'text-amber-300'];
+      head.append(icon(ic, 'size-3.5 ' + cls), s.title);
+      const who = document.createElement('div');
+      who.className = 'truncate text-sm font-bold';
+      who.textContent = s.name;
+      const val = document.createElement('div');
+      val.className = 'text-xs text-slate-400';
+      val.textContent = s.value;
+      card.append(head, who, val);
+      return card;
+    }));
+  }
+
+  // classement : on ne reconstruit la liste que si elle a changé
+  const ps = [...st.players].sort((a, b) => b.score - a.score);
+  const key = ps.map(p => p.id + ':' + p.score + ':' + p.team).join();
+  if (key === rowsKey) return;
+  rowsKey = key;
+  $('rows').replaceChildren(...ps.map(p => {
+    const li = document.createElement('li');
+    li.className = 'flex items-center gap-2 rounded-lg px-2 py-1.5' + (p.id === me ? ' bg-white/10 font-semibold' : '');
+    const rank = document.createElement('span');
+    rank.className = 'w-5 text-right text-sm text-slate-500 tabular-nums';
+    rank.textContent = ps.findIndex(q => q.score === p.score) + 1; // ex-aequo = même rang
+    const dot = document.createElement('span');
+    dot.className = 'size-3 shrink-0 rounded-full';
+    dot.style.background = p.color;
+    if (TEAM[p.team]) dot.style.boxShadow = '0 0 0 2px ' + TEAM[p.team][1];
+    const name = document.createElement('span');
+    name.className = 'flex-1 truncate';
+    name.textContent = p.name;
+    const pts = document.createElement('span');
+    pts.className = 'text-sm text-slate-300 tabular-nums';
+    pts.textContent = p.score + ' pts';
+    li.append(rank, dot);
+    if (p.bot) li.append(icon('cpu-chip', 'size-4 text-slate-500'));
+    li.append(name, pts);
+    return li;
+  }));
+}
+
+// ---------- Arène (canvas) ----------
+const paths = Object.fromEntries(Object.entries(ICONS).map(([k, v]) => [k, v.map(([d, eo]) => [new Path2D(d), eo ? 'evenodd' : 'nonzero'])]));
+function drawIcon(name, x, y, size, color) {
+  ctx.save(); ctx.translate(x - size / 2, y - size / 2); ctx.scale(size / 24, size / 24);
+  ctx.fillStyle = color;
+  for (const [p, rule] of paths[name]) ctx.fill(p, rule);
+  ctx.restore();
+}
+function label(t, x, y, size, color) {
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4; ctx.strokeStyle = '#0b1410'; ctx.strokeText(t, x, y); // contour pour rester lisible sur les murs
+  ctx.fillStyle = color; ctx.fillText(t, x, y);
+}
+
+// Mouvements fluides : on affiche avec ~1 image de retard en interpolant entre les 2 derniers états reçus.
+const TICK_MS = 1000 / 30;
+function positions(now) {
+  const a = Math.min((now - tRecv) / TICK_MS, 1), old = {};
+  for (const p of prev?.players || []) old[p.id] = p;
+  const pos = {};
+  for (const p of st.players) {
+    const q = old[p.id];
+    // pas d'interpolation sur un saut (nouvelle manche, téléportation)
+    pos[p.id] = q && Math.hypot(p.x - q.x, p.y - q.y) < 60 ? [q.x + (p.x - q.x) * a, q.y + (p.y - q.y) * a] : [p.x, p.y];
+  }
+  return pos;
+}
+
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
+  if (!st) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, 800, 600);
+  if (shake > 0) { // tremblement après une explosion
+    shake -= dt;
+    const k = shake * 18;
+    ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+  }
+
+  ctx.strokeStyle = '#ffffff08'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = 40; x < 800; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, 600); }
+  for (let y = 40; y < 600; y += 40) { ctx.moveTo(0, y); ctx.lineTo(800, y); }
+  ctx.stroke();
+
+  for (const w of st.walls || []) {
+    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.roundRect(w.x, w.y, w.w, w.h, 6); ctx.fill();
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  for (const b of st.bonuses || []) {
+    const [ic, col] = BONUS[b.kind], pulse = 1 + Math.sin(now / 250) * 0.08;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 15 * pulse, 0, 7); ctx.fillStyle = col + '26'; ctx.fill();
+    ctx.strokeStyle = col + '80'; ctx.lineWidth = 1.5; ctx.stroke();
+    drawIcon(ic, b.x, b.y, 18, col);
+  }
+
+  const pos = positions(now), fuses = {};
+  for (const b of st.bombs || []) fuses[b.holder] = b.fuse;
+
+  for (const p of st.players) {
+    const [x, y] = pos[p.id];
+    ctx.globalAlpha = p.alive ? 1 : 0.25;
+    if (p.shield > 0) { ctx.beginPath(); ctx.arc(x, y, 27, 0, 7); ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 3; ctx.stroke(); }
+    if (TEAM[p.team]) { ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.strokeStyle = TEAM[p.team][1]; ctx.lineWidth = 4; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(x, y, 18, 0, 7);
+    ctx.fillStyle = p.color; ctx.fill();
+    if (p.slow > 0) { ctx.fillStyle = '#e0f2fe99'; ctx.fill(); } // voile givré : on garde la couleur du joueur
+    if (p.id === me) { ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+
+    // nom (+ icônes bot / effets), sous le joueur s'il est collé en haut, et jamais hors du cadre
+    const ly = y < 50 ? y + 32 : y - 30, lx = Math.min(Math.max(x, 70), 730);
+    label(p.name, lx, ly, 13, '#f1f5f9');
+    const half = ctx.measureText(p.name).width / 2;
+    if (p.bot) drawIcon('cpu-chip', lx - half - 10, ly, 14, '#94a3b8');
+    let fx = lx + half + 10;
+    if (p.fast > 0) { drawIcon('bolt', fx, ly, 14, '#fde047'); fx += 16; }
+    if (p.slow > 0) drawIcon('pause-circle', fx, ly, 14, '#7dd3fc');
+
+    if (p.id in fuses) {
+      const f = fuses[p.id], blink = Math.sin(now / Math.max(40, f * 25)) > 0; // clignote de plus en plus vite
+      ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.fillStyle = blink ? '#ef4444' : '#0f172a'; ctx.fill();
+      drawIcon('fire', x, y, 12, blink ? '#fff' : '#f97316');
+      label(String(Math.ceil(f)), x, y < 50 ? y + 50 : y + 34, 15, f < 3 ? '#f87171' : '#fff');
+    }
+
+    if (p.emote) { // bulle d'emote au-dessus du nom
+      const by = Math.max(ly - 30, 18);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(lx - 18, by - 16, 36, 32, 10); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(lx - 5, by + 15); ctx.lineTo(lx + 5, by + 15); ctx.lineTo(lx, by + 22); ctx.fill();
+      ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(EMOTES[p.emote], lx, by + 1);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // effets : anneaux (passes, explosions) puis particules
+  rings = rings.filter(r => (r.life -= dt) > 0);
+  for (const r of rings) {
+    r.r += (r.grow || 90) * dt;
+    ctx.globalAlpha = Math.min(r.life * 2, 1);
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.strokeStyle = r.color; ctx.lineWidth = 3; ctx.stroke();
+  }
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94;
+    ctx.globalAlpha = p.life / p.max;
+    ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
