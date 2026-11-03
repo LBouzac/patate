@@ -30,6 +30,7 @@ const (
 	PetSub      = 4
 	PetRooms    = 1000
 	PetRestitue = 0.6  // choc entre boules
+	PetBoard    = 0.5  // rebond sur les planches du bord
 	PetBotWait  = 1.2  // secondes avant que le bot lance
 	PetBotNoise = 0.03 // imprécision de visée (radians)
 )
@@ -277,7 +278,7 @@ func (g *Pitch) step(dt float64) {
 	}
 }
 
-// physics : un sous-pas. Une boule qui sort du terrain est morte ; si c'est le cochonnet, la mène est rejouée.
+// physics : un sous-pas. Les bords du terrain sont des planches : boules et cochonnet rebondissent, rien ne sort.
 func (g *Pitch) physics(dt float64) bool {
 	all := append([]*Boule{g.Jack}, g.Boules...)
 	moving := false
@@ -285,25 +286,16 @@ func (g *Pitch) physics(dt float64) bool {
 		b.roll(dt)
 		moving = moving || b.moving()
 	}
-	out := func(b *Boule) bool { return b.X < -b.r || b.X > PW+b.r || b.Y < -b.r || b.Y > PH+b.r }
-	if out(g.Jack) {
-		g.event(Event{Kind: "jackout", X: g.Jack.X, Y: g.Jack.Y})
-		g.Phase, g.Wait = "mene", 3 // même lanceur
-		return false
-	}
-	g.Boules = slices.DeleteFunc(g.Boules, func(b *Boule) bool {
-		if out(b) {
-			g.event(Event{Kind: "out", A: b.Owner, X: b.X, Y: b.Y})
-			return true
-		}
-		return false
-	})
-	all = append([]*Boule{g.Jack}, g.Boules...)
 	for i, a := range all {
 		for _, b := range all[i+1:] {
 			if v := collide(&a.Body, &b.Body, PetRestitue); v > 40 {
 				g.event(Event{Kind: "clack", A: int(min(v, 2000)), X: (a.X + b.X) / 2, Y: (a.Y + b.Y) / 2})
 			}
+		}
+	}
+	for _, b := range all { // après les chocs : une boule poussée contre le bord y reste aussi
+		if sp := b.speed(); b.bounce(0, 0, PW, PH, PetBoard) && sp > 40 {
+			g.event(Event{Kind: "board", A: int(min(sp, 2000)), X: b.X, Y: b.Y})
 		}
 	}
 	return moving

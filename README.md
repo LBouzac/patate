@@ -70,7 +70,7 @@ De 2 à 6 joueurs, chacun pour soi, ou avec des **bots** (« Ajouter un bot »).
 
 - Chacun a **3 boules par mène**. À ton tour, tire en arrière n'importe où sur le terrain puis relâche : la boule part du cercle. On peut **tirer** pour dégommer une boule adverse.
 - **Celui qui n'a pas le point rejoue** (le plus mal placé d'abord). Quand les autres n'ont plus de boules, celui qui a le point finit les siennes.
-- Une boule qui sort du terrain est perdue. Si le **cochonnet sort**, la mène est rejouée. 15 s par lancer, sinon la boule est perdue.
+- Le terrain est **entouré de planches** : boules et cochonnet rebondissent dessus, rien ne sort. 15 s par lancer, sinon la boule est perdue.
 - À la fin de la mène, celui qui a le point marque **une boule par boule plus proche que la meilleure des autres**, et commence la mène suivante. **Premier à 7 points.**
 
 ## Billard

@@ -97,22 +97,28 @@ func TestPetanqueShootOut(t *testing.T) {
 	}
 }
 
-func TestPetanqueJackOutReplays(t *testing.T) {
+func TestPetanqueNothingLeaves(t *testing.T) {
 	g, a, _ := pitch2(t)
 	g.Turn = a.ID
-	mene := g.Mene
-	g.Jack.X = PW - 10
-	g.Jack.launch(0, 500) // le cochonnet sort
+	g.Jack.X = PW - 30
+	g.Jack.launch(0, 600)                         // le cochonnet file vers le bord
+	for _, ang := range []float64{0, -1.2, 1.2} { // et trois boules à pleine puissance vers les bords
+		b := &Boule{Body: Body{X: CircleX, Y: CircleY, r: BouleR, m: 1, drag: BouleDrag}, Owner: a.ID}
+		b.launch(ang, ThrowMax)
+		g.Boules = append(g.Boules, b)
+	}
 	g.Phase = "roll"
 	settlePet(g)
-	if g.Phase != "mene" {
-		t.Fatalf("cochonnet sorti : mène rejouée, obtenu %s", g.Phase)
+	if len(g.Boules) != 3 {
+		t.Fatalf("aucune boule ne doit disparaître, il en reste %d", len(g.Boules))
 	}
-	for g.Phase != "aim" {
-		g.step(0.1)
+	for _, b := range append([]*Boule{g.Jack}, g.Boules...) {
+		if b.X < b.r || b.X > PW-b.r || b.Y < b.r || b.Y > PH-b.r {
+			t.Fatalf("pièce hors du terrain : %+v", b.Body)
+		}
 	}
-	if g.Mene != mene+1 || a.Left != BoulesEach {
-		t.Fatal("nouvelle mène attendue, boules remises")
+	if g.Phase != "aim" {
+		t.Fatalf("la partie continue normalement (pas de mène rejouée), obtenu %s", g.Phase)
 	}
 }
 

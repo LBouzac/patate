@@ -168,8 +168,7 @@ function onEvent(e) {
   switch (e.kind) {
     case 'throw': tone(200, 0.12, 'triangle', 0.1, 120); break;
     case 'clack': tone(1800, 0.05, 'square', Math.min(e.a / 6000, 0.12), 900); burst(e.x, e.y, 6, '#e2e8f0', 100, 0.25); break;
-    case 'out': tone(180, 0.2, 'sine', 0.08, 90); break;
-    case 'jackout': tone(300, 0.3, 'sawtooth', 0.06, 100); lastPoint = 'Cochonnet sorti : mène rejouée'; break;
+    case 'board': tone(140, 0.08, 'triangle', Math.min(e.a / 8000, 0.1), 90); break;
     case 'point': lastPoint = e.b ? e.text + ' marque ' + e.b + ' point' + (e.b > 1 ? 's' : '') : 'Mène nulle';
       [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', 0.12, 0, i * 0.09)); burst(e.x, e.y, 30, '#fde047', 160, 0.7); break;
     case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.4 + i * 0.12)); break;
@@ -200,7 +199,7 @@ function draw(now) {
   const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
   if (!st) return;
   ctx.drawImage(gravel, 0, 0);
-  ctx.strokeStyle = '#ffffff60'; ctx.lineWidth = 3; ctx.strokeRect(2, 2, W - 4, H - 4);
+  ctx.strokeStyle = '#7a4d26'; ctx.lineWidth = 8; ctx.strokeRect(4, 4, W - 8, H - 8); // planches du bord
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(CX, CY, 24, 0, 7); ctx.stroke(); // cercle de lancer
   const { jack, boules } = lerpAll(now);
   if (jack) {
