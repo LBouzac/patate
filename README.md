@@ -110,7 +110,7 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 ## Interface
 
-Tous les jeux ont le même accueil : un lien « Tous les jeux » vers le menu, une **barre pour passer d'un jeu à l'autre**, le pseudo (gardé d'un jeu à l'autre), un bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron) et une ligne « code + Rejoindre ». En partie, un bouton **Quitter** ramène à l'accueil. Ces deux éléments viennent de `common.js`.
+Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
 
 L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 

@@ -9,100 +9,81 @@
 <body class="h-full text-slate-100 antialiased">
 
 <!-- Accueil -->
-<main id="home" class="grid min-h-full place-items-center p-4">
-  <div aria-hidden="true" class="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-linear-to-b from-orange-500/20 to-transparent"></div>
-  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900/90 p-6 shadow-2xl ring-1 ring-white/10 sm:p-7">
-    <nav id="games" aria-label="Jeux"></nav>
-
-    <div>
-      <h1 class="text-3xl font-black tracking-tight">Patate</h1>
-      <p class="mt-1 text-sm text-slate-400">Passe la bombe avant qu'elle n'explose. De 2 à 10&nbsp;joueurs.</p>
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-orange-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-orange-500"><i data-icon="fire" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Patate</h1>
     </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">Passe la bombe avant qu'elle n'explose. De 2 à 10 joueurs.</p>
 
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
     <label class="block">
-      <span class="mb-1.5 block text-sm font-medium text-slate-300">Pseudo</span>
-      <span class="relative block">
-        <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
-        <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-orange-400 focus:outline-none">
-      </span>
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-orange-400">
     </label>
 
-    <fieldset>
-      <legend class="mb-1.5 text-sm font-medium text-slate-300">Mode de jeu</legend>
-      <div class="grid grid-cols-3 gap-2">
-        <label class="cursor-pointer">
-          <input type="radio" name="mode" value="classic" checked class="peer sr-only">
-          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
-            <i data-icon="fire" class="size-5"></i>Classique
-          </span>
-        </label>
-        <label class="cursor-pointer">
-          <input type="radio" name="mode" value="hot" class="peer sr-only">
-          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
-            <i data-icon="arrow-path" class="size-5"></i>Patate chaude
-          </span>
-        </label>
-        <label class="cursor-pointer">
-          <input type="radio" name="mode" value="teams" class="peer sr-only">
-          <span class="flex flex-col items-center gap-1 rounded-lg bg-slate-800 px-1 py-2.5 text-xs font-medium text-slate-400 ring-1 ring-white/10 transition peer-checked:bg-orange-500/15 peer-checked:text-orange-300 peer-checked:ring-orange-500/50 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
-            <i data-icon="users" class="size-5"></i>Équipes
-          </span>
-        </label>
-      </div>
-      <p id="modeHelp" class="mt-2 min-h-8 text-xs text-slate-500"></p>
-    </fieldset>
+  <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Mode de jeu</h2>
+  <fieldset class="grid grid-cols-3 rounded-[9px] bg-white/10 p-0.5">
+    <legend class="sr-only">Mode de jeu</legend>
+    <label class="cursor-pointer"><input type="radio" name="mode" value="classic" checked class="peer sr-only">
+      <span class="block rounded-[7px] py-1.5 text-center text-[13px] font-medium text-slate-300 transition peer-checked:bg-slate-600 peer-checked:font-semibold peer-checked:text-white peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">Classique</span></label>
+    <label class="cursor-pointer"><input type="radio" name="mode" value="hot" class="peer sr-only">
+      <span class="block rounded-[7px] py-1.5 text-center text-[13px] font-medium text-slate-300 transition peer-checked:bg-slate-600 peer-checked:font-semibold peer-checked:text-white peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">Patate chaude</span></label>
+    <label class="cursor-pointer"><input type="radio" name="mode" value="teams" class="peer sr-only">
+      <span class="block rounded-[7px] py-1.5 text-center text-[13px] font-medium text-slate-300 transition peer-checked:bg-slate-600 peer-checked:font-semibold peer-checked:text-white peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">Équipes</span></label>
+  </fieldset>
+  <p id="modeHelp" class="mt-2 px-4 text-[13px] leading-snug text-slate-400 min-h-9"></p>
 
-    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-400 shadow-orange-500/25 px-4 py-3 font-bold text-slate-950 shadow-lg transition active:scale-[0.97]">
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
       <i data-icon="plus-circle" class="size-5"></i> Créer une partie
     </button>
 
-    <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
-      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre avec un code <span class="h-px flex-1 bg-white/10"></span>
-    </div>
-
-    <div class="flex gap-2">
-      <label class="relative block min-w-0 flex-1">
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
         <span class="sr-only">Code de la partie</span>
-        <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
-        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-orange-400 focus:outline-none">
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
       </label>
-      <button id="join" class="flex items-center gap-2 rounded-lg bg-white/10 px-4 font-semibold text-slate-100 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.97]">
-        <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
-      </button>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-orange-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
     </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
 
-    <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
       <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
     </p>
   </form>
 </main>
+<nav id="games" aria-label="Jeux"></nav>
 
 <!-- Partie -->
 <main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
   <header class="flex flex-wrap items-center justify-between gap-2">
     <div class="flex flex-wrap items-center gap-2">
       <button id="copy" title="Copier le lien d'invitation"
-        class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+        class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
         <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
         <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
       </button>
-      <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm ring-1 ring-white/10">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm">
         <i data-icon="star" class="size-4 text-amber-300"></i><span id="score" class="font-bold tabular-nums">0</span> pts
       </span>
-      <span id="modeChip" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10"></span>
-      <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10">
+      <span id="modeChip" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-slate-300"></span>
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-slate-300">
         <i data-icon="map" class="size-4 text-slate-400"></i><span id="arena"></span>
       </span>
       <span id="teamChip" hidden class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1"></span>
     </div>
     <div class="flex items-center gap-2">
-      <div id="timer" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold tabular-nums ring-1 ring-white/10">
+      <div id="timer" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold tabular-nums">
         <i data-icon="clock" class="size-5"></i><span id="fuse"></span>
       </div>
       <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
-        class="grid size-10 place-items-center rounded-lg bg-slate-800 text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+        class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
         <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
       </button>
     </div>
@@ -129,10 +110,10 @@
 
   <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
     <div class="flex items-center gap-2">
-      <button data-bot="1" title="Ajouter un bot (B)" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <button data-bot="1" title="Ajouter un bot (B)" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15">
         <i data-icon="user-plus" class="size-4"></i> Bot
       </button>
-      <button data-bot="-1" title="Retirer un bot (N)" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <button data-bot="-1" title="Retirer un bot (N)" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15">
         <i data-icon="user-minus" class="size-4"></i> Bot
       </button>
       <span class="tabular-nums"><span id="count">0</span>/10</span>

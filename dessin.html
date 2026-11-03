@@ -9,67 +9,61 @@
 <body class="h-full text-slate-100 antialiased">
 
 <!-- Accueil -->
-<main id="home" class="grid min-h-full place-items-center p-4">
-  <div aria-hidden="true" class="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-linear-to-b from-pink-500/20 to-transparent"></div>
-  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900/90 p-6 shadow-2xl ring-1 ring-white/10 sm:p-7">
-    <nav id="games" aria-label="Jeux"></nav>
-
-    <div>
-      <h1 class="text-3xl font-black tracking-tight">Dessine</h1>
-      <p class="mt-1 text-sm text-slate-400">Envoie une photo, quelqu'un la dessine en 30&nbsp;s, les autres devinent.</p>
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-pink-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-pink-500"><i data-icon="sparkles" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Dessine</h1>
     </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">Envoie une photo, quelqu'un la dessine en 30 s, les autres devinent.</p>
 
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
     <label class="block">
-      <span class="mb-1.5 block text-sm font-medium text-slate-300">Pseudo</span>
-      <span class="relative block">
-        <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
-        <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-pink-400 focus:outline-none">
-      </span>
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-pink-400">
     </label>
 
-    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-pink-400 hover:bg-pink-300 shadow-pink-400/25 px-4 py-3 font-bold text-slate-950 shadow-lg transition active:scale-[0.97]">
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-pink-400 hover:bg-pink-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
       <i data-icon="plus-circle" class="size-5"></i> Créer une partie
     </button>
 
-    <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
-      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre avec un code <span class="h-px flex-1 bg-white/10"></span>
-    </div>
-
-    <div class="flex gap-2">
-      <label class="relative block min-w-0 flex-1">
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
         <span class="sr-only">Code de la partie</span>
-        <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
-        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
-          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-pink-400 focus:outline-none">
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
       </label>
-      <button id="join" class="flex items-center gap-2 rounded-lg bg-white/10 px-4 font-semibold text-slate-100 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.97]">
-        <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
-      </button>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-pink-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
     </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
 
-    <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
       <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
     </p>
   </form>
 </main>
+<nav id="games" aria-label="Jeux"></nav>
 
 <!-- Partie -->
 <main id="game" hidden class="mx-auto flex min-h-full max-w-5xl flex-col justify-center gap-3 p-4">
   <header class="flex items-center justify-between gap-2">
     <button id="copy" title="Copier le lien d'invitation"
-      class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
       <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
       <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
     </button>
     <span class="flex items-center gap-2">
-      <span id="round" class="rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 ring-1 ring-white/10"></span>
-      <span id="timer" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono font-bold text-amber-300 tabular-nums ring-1 ring-white/10">
+      <span id="round" class="rounded-full bg-white/10 px-3 py-1.5 text-sm text-slate-300"></span>
+      <span id="timer" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono font-bold text-amber-300 tabular-nums">
         <i data-icon="clock" class="size-4"></i><span id="timerTxt"></span>
       </span>
     </span>
     <button id="mute" title="Couper / remettre le son" aria-label="Son"
-      class="grid size-10 place-items-center rounded-lg bg-slate-800 text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
       <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
     </button>
   </header>
@@ -85,15 +79,15 @@
       </div>
 
       <div id="tools" hidden class="flex justify-end">
-        <button id="clear" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700">
+        <button id="clear" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15">
           <i data-icon="arrow-path" class="size-4"></i> Tout effacer
         </button>
       </div>
 
       <form id="guessForm" hidden class="flex gap-2">
         <input id="guess" maxlength="40" autocomplete="off" placeholder="C'est quoi ?"
-          class="min-w-0 flex-1 rounded-lg bg-slate-800 px-3 py-2.5 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-pink-400 focus:outline-none">
-        <button class="rounded-lg bg-pink-400 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-pink-300">Proposer</button>
+          class="h-11 min-w-0 flex-1 rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus:ring-2 focus:ring-pink-400 focus:outline-none">
+        <button class="h-11 rounded-xl bg-pink-400 px-4 font-semibold text-slate-950 transition hover:bg-pink-300 active:scale-[0.98]">Proposer</button>
       </form>
     </div>
 
@@ -206,7 +200,7 @@ function overlay(key, build) {
 
 function ranking() {
   return el('ol', 'w-full max-w-xs space-y-1', ...[...st.players].sort((a, b) => b.score - a.score).map((p, i) =>
-    el('li', 'flex justify-between rounded-lg bg-slate-800 px-3 py-1.5' + (i === 0 ? ' text-amber-300 font-bold' : ''),
+    el('li', 'flex justify-between rounded-full bg-white/10 px-3 py-1.5' + (i === 0 ? ' text-amber-300 font-bold' : ''),
       (i + 1) + '. ' + p.name, el('span', 'font-mono', p.score + ' pts'))));
 }
 
