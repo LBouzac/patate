@@ -5,6 +5,7 @@ Deux jeux multijoueurs dans le navigateur, servis par un seul petit serveur Go (
 - **Patate** (`/`) : de 2 à 10 joueurs, une bombe à se passer avant qu'elle n'explose.
 - **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
 - **Dessine** (`/dessin.html`) : de 3 à 10 joueurs. Chacun son tour envoie une photo, un joueur tiré au sort la dessine en 30 s et les autres devinent.
+- **Foot** (`/foot.html`) : foot de pions à 2 joueurs (ou contre un bot), chacun son tour, premier à 3 buts.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.
 
 
@@ -47,6 +48,15 @@ De 3 à 10 joueurs. On crée une partie et on partage le code, puis n'importe qu
 - **Points** : de 100 points pour une proposition envoyée tout de suite à 10 points à la fin du chrono (le compte se fait au moment de l'envoi). Le dessinateur gagne +25 par joueur qui trouve.
 - Les joueurs qui devinent ne voient pas les bonnes réponses des autres avant la révélation.
 - Si l'auteur de la photo ou le dessinateur quitte la partie, la manche est annulée. Le classement s'affiche quand tout le monde a envoyé sa photo.
+
+## Foot
+
+À 2 joueurs, ou seul contre un **bot** (bouton « Jouer contre un bot »). Si un ami rejoint ensuite, il prend la place du bot.
+
+- Chaque équipe a **6 pions** (orange contre cyan) et il y a un ballon. Avant chaque coup d'envoi, chacun choisit sa **disposition** : Défense (1 gardien, 4 derrière, 1 devant), Équilibrée (3-2-1) ou Attaque (2 derrière, 4 devant). Sans choix au bout de 10 s, c'est Équilibrée.
+- **Chacun son tour** : attrape un de tes pions, tire en arrière comme au golf puis relâche. Le pion pousse le ballon et cogne les autres pions. **Un seul coup par tour**, et 15 s pour le jouer.
+- Les pions sont plus lourds que le ballon et ne peuvent pas entrer dans les buts. Les poteaux renvoient le ballon.
+- **But** quand le ballon franchit la ligne entre les poteaux. On se replace, l'équipe qui a encaissé engage. **Premier à 3 buts**, puis revanche automatique.
 
 ## Golf
 

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foot</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="grid min-h-full place-items-center p-4">
+  <div aria-hidden="true" class="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-linear-to-b from-lime-500/20 to-transparent"></div>
+  <form class="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900/90 p-6 shadow-2xl ring-1 ring-white/10 sm:p-7">
+    <nav id="games" aria-label="Jeux"></nav>
+
+    <div>
+      <h1 class="text-3xl font-black tracking-tight">Foot</h1>
+      <p class="mt-1 text-sm text-slate-400">Foot de pions à deux, chacun son tour. Premier à 3 buts.</p>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-slate-300">Pseudo</span>
+      <span class="relative block">
+        <i data-icon="user" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-lime-400 focus:outline-none">
+      </span>
+    </label>
+
+    <button id="create" class="flex w-full items-center justify-center gap-2 rounded-lg bg-lime-400 hover:bg-lime-300 shadow-lime-400/25 px-4 py-3 font-bold text-slate-950 shadow-lg transition active:scale-[0.97]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer un match
+    </button>
+
+    <div class="flex items-center gap-3 text-xs font-medium tracking-wider text-slate-500 uppercase">
+      <span class="h-px flex-1 bg-white/10"></span> ou rejoindre avec un code <span class="h-px flex-1 bg-white/10"></span>
+    </div>
+
+    <div class="flex gap-2">
+      <label class="relative block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <i data-icon="hashtag" class="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-slate-500"></i>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234"
+          class="w-full rounded-lg bg-slate-800 py-2.5 pr-3 pl-10 font-mono text-lg tracking-[0.4em] ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-2 focus:ring-lime-400 focus:outline-none">
+      </label>
+      <button id="join" class="flex items-center gap-2 rounded-lg bg-white/10 px-4 font-semibold text-slate-100 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.97]">
+        <i data-icon="arrow-right-end-on-rectangle" class="size-5"></i> Rejoindre
+      </button>
+    </div>
+
+    <p id="errBox" role="alert" class="flex min-h-5 items-center justify-center gap-2 text-sm text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+
+<!-- Match -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[912px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span id="turn" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold ring-1 ring-white/10">
+      <i data-icon="clock" class="size-4 text-slate-400"></i><span id="turnTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-lg bg-slate-800 text-slate-300 ring-1 ring-white/10 transition hover:bg-slate-700">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <!-- tableau des scores : gauche orange, droite cyan -->
+  <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+    <div class="flex items-center gap-3 rounded-xl bg-orange-500/10 px-4 py-2 ring-1 ring-orange-400/30">
+      <span id="score0" class="font-mono text-4xl font-black text-orange-300 tabular-nums">0</span>
+      <span class="min-w-0"><span id="name0" class="block truncate font-semibold"></span><span id="tag0" class="block text-xs text-slate-400"></span></span>
+    </div>
+    <span class="text-xs font-bold text-slate-500">1er à 3</span>
+    <div class="flex flex-row-reverse items-center gap-3 rounded-xl bg-cyan-500/10 px-4 py-2 text-right ring-1 ring-cyan-400/30">
+      <span id="score1" class="font-mono text-4xl font-black text-cyan-300 tabular-nums">0</span>
+      <span class="min-w-0"><span id="name1" class="block truncate font-semibold"></span><span id="tag1" class="block text-xs text-slate-400"></span></span>
+    </div>
+  </div>
+
+  <div class="relative">
+    <canvas id="c" width="880" height="540" aria-label="Terrain de foot : à ton tour, attrape un de tes pions, tire en arrière puis relâche"
+      class="block w-full touch-none rounded-xl ring-1 ring-white/10"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Jouer contre un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-slate-200 ring-1 ring-white/10 transition hover:bg-slate-700 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer
+      </button>
+    </div>
+    <span class="text-xs">À ton tour : attrape un de tes pions, tire en arrière puis relâche. Un seul coup par tour.</span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const FW = 800, FH = 500, OX = 40, OY = 20, MOUTH = 150, DISC_R = 22, BALL_R = 12, MAX_DRAG = 170, TICK_MS = 1000 / 60;
+const TEAM = [{ fill: '#fb923c', dark: '#c2410c', name: 'orange' }, { fill: '#67e8f9', dark: '#0e7490', name: 'cyan' }];
+const FORMS = [['defense', 'Défense', '1 gardien, 4 derrière, 1 devant'], ['balanced', 'Équilibrée', '3 derrière, 2 au milieu, 1 devant'], ['attack', 'Attaque', '2 derrière, 4 devant']];
+
+let st = null, prev = null, tRecv = 0;
+
+function start(pin) {
+  connect('/ws/foot', pin, '', m => {
+    if (!m) { st = prev = null; return; }
+    prev = st; st = m; tRecv = performance.now();
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+addEventListener('keydown', e => { if (!$('game').hidden && e.code === 'KeyM' && !e.repeat) setMuted(!muted); });
+
+const myTeam = () => st ? st.players.findIndex(p => p && p.id === me) : -1;
+const myTurn = () => st && st.phase === 'aim' && st.turn === myTeam();
+
+// ---------- Visée : on attrape un de ses pions et on tire en arrière comme un lance-pierre ----------
+let drag = null; // {d: index du pion, x, y} en coordonnées du terrain
+function toField(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * cv.width / r.width - OX, y: (e.clientY - r.top) * cv.height / r.height - OY };
+}
+function aim() {
+  const d = st.discs[drag.d], dx = d.x - drag.x, dy = d.y - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => {
+  if (!myTurn()) return;
+  const p = toField(e);
+  let best = -1, bd = DISC_R + 16; // on attrape le pion le plus proche du doigt
+  st.discs.forEach((d, i) => { const k = Math.hypot(d.x - p.x, d.y - p.y); if (d.team === myTeam() && k < bd) { best = i; bd = k; } });
+  if (best < 0) return;
+  drag = { d: best, ...p };
+  cv.setPointerCapture(e.pointerId);
+};
+cv.onpointermove = e => { if (drag) Object.assign(drag, toField(e)); };
+cv.onpointerup = () => {
+  if (!drag) return;
+  if (myTurn()) { const s = aim(); if (s.p > 0.04) send({ d: drag.d, ...s }); }
+  drag = null;
+};
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) {
+  if (key === overlayKey) return;
+  overlayKey = key;
+  $('overlay').replaceChildren(...(build ? [build()] : []));
+}
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-3 rounded-2xl bg-slate-950/80 px-6 py-5 text-center ring-1 ring-white/10 backdrop-blur', ...c);
+
+function formationPicker() {
+  return bubble(
+    el('div', 'text-lg font-bold', 'Choisis ta disposition'),
+    el('div', 'grid gap-2 sm:grid-cols-3', ...FORMS.map(([id, name, desc]) => {
+      const b = el('button', 'flex flex-col items-center gap-1 rounded-xl bg-slate-800 px-4 py-3 ring-1 ring-white/10 transition hover:bg-slate-700 hover:ring-lime-400/50 active:scale-95',
+        el('span', 'font-bold text-lime-300', name), el('span', 'text-xs text-slate-400', desc));
+      b.onclick = () => send({ formation: id });
+      return b;
+    })),
+    el('div', 'text-xs text-slate-400', 'Sinon : Équilibrée au bout du temps'));
+}
+
+function hud() {
+  if (!st) return;
+  const mine = myTeam(), other = st.players[1 - mine];
+  set($('pinTxt'), st.pin);
+  st.players.forEach((p, i) => {
+    set($('score' + i), p ? p.score : 0);
+    set($('name' + i), p ? p.name : 'En attente…');
+    set($('tag' + i), !p ? '' : p.id === me ? 'Toi' : p.bot ? 'Bot' : 'Adversaire');
+  });
+  const secs = Math.max(0, Math.ceil(st.wait));
+  set($('turnTxt'), {
+    wait: 'En attente',
+    setup: 'Dispositions · ' + secs + ' s',
+    aim: (st.turn === mine ? 'À toi de jouer' : 'Au tour de ' + (st.players[st.turn]?.name || '?')) + ' · ' + secs + ' s',
+    roll: 'Ça roule…',
+    goal: 'But !',
+    end: 'Fin du match',
+  }[st.phase]);
+  $('turn').classList.toggle('text-lime-300', st.phase === 'aim' && st.turn === mine);
+
+  if (st.phase === 'wait') overlay('wait', () => bubble(
+    el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-lime-300'), 'En attente d\'un adversaire'),
+    el('div', 'text-sm text-slate-400', 'Donne-lui le code ', el('b', 'font-mono text-amber-300', st.pin), ' ou joue contre un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-lg bg-lime-400 px-4 py-2 font-bold text-slate-950 transition hover:bg-lime-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Jouer contre un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'setup' && !st.players[mine]?.formation) overlay('pick', formationPicker);
+  else if (st.phase === 'setup') overlay('picked', () => bubble(el('div', 'text-slate-300', (other?.name || 'L\'adversaire') + ' choisit sa disposition…')));
+  else if (st.phase === 'goal') overlay('goal' + st.players.map(p => p?.score).join(), () => bubble(
+    el('div', 'text-4xl font-black text-lime-300', 'BUT !'), el('div', 'text-sm text-slate-300', 'Replacement, puis nouvelles dispositions')));
+  else if (st.phase === 'end') overlay('end', () => bubble(
+    el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'flex items-center gap-2 text-sm text-slate-400', icon('arrow-path', 'size-4'), 'Revanche dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+let particles = [], flash = null;
+function burst(x, y, n, color, speed, life) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random());
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, max: life, size: 1.5 + Math.random() * 2.5, color });
+  }
+}
+function onEvent(e) {
+  switch (e.kind) {
+    case 'kick': tone(160, 0.09, 'triangle', 0.16, 80); noise(0.05, 0.08); break;
+    case 'hit': if (e.a > 80) tone(500 + Math.min(e.a, 1200) / 2, 0.04, 'square', Math.min(e.a / 8000, 0.1)); break;
+    case 'wall': tone(260, 0.04, 'triangle', 0.05); break;
+    case 'post': tone(1400, 0.15, 'sine', 0.12, 900); break;
+    case 'goal': {
+      const t = TEAM[e.a];
+      noise(1.2, 0.2);
+      [392, 523, 659, 784].forEach((f, i) => tone(f, 0.25, 'triangle', 0.12, 0, i * 0.1));
+      burst(Math.min(Math.max(e.x, 0), FW), e.y, 60, t.fill, 320, 0.9);
+      flash = { color: t.dark, life: 0.4 };
+      break;
+    }
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.5 + i * 0.12)); break;
+  }
+}
+
+// ---------- Terrain (canvas) ----------
+function lerp(now) { // mouvements fluides entre les deux derniers états
+  const a = Math.min((now - tRecv) / TICK_MS, 1), L = (p, q) => p && Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
+  return { discs: st.discs.map((d, i) => L(prev?.discs[i], d)), ball: L(prev?.ball, st.ball) };
+}
+
+function field() {
+  ctx.fillStyle = '#14532d'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.save(); ctx.translate(OX, OY);
+  for (let x = 0; x < FW; x += 80) { ctx.fillStyle = (x / 80) % 2 ? '#2f8a46' : '#348f4b'; ctx.fillRect(x, 0, 80, FH); }
+  ctx.strokeStyle = '#ffffffb0'; ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, FW, FH);
+  ctx.beginPath(); ctx.moveTo(FW / 2, 0); ctx.lineTo(FW / 2, FH); ctx.stroke();
+  ctx.beginPath(); ctx.arc(FW / 2, FH / 2, 70, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(FW / 2, FH / 2, 4, 0, 7); ctx.fillStyle = '#ffffffb0'; ctx.fill();
+  for (const s of [0, 1]) { // surfaces de réparation
+    const x = s ? FW - 110 : 0;
+    ctx.strokeRect(x, FH / 2 - 130, 110, 260);
+    ctx.strokeRect(s ? FW - 40 : 0, FH / 2 - 80, 40, 160);
+  }
+  for (const s of [0, 1]) { // buts : filet dans la marge, poteaux blancs
+    const x = s ? FW : -32;
+    ctx.fillStyle = '#00000040'; ctx.fillRect(x, FH / 2 - MOUTH / 2, 32, MOUTH);
+    ctx.strokeStyle = '#ffffff30'; ctx.lineWidth = 1;
+    for (let i = 4; i < 32; i += 7) { ctx.beginPath(); ctx.moveTo(x + i, FH / 2 - MOUTH / 2); ctx.lineTo(x + i, FH / 2 + MOUTH / 2); ctx.stroke(); }
+    for (let j = 8; j < MOUTH; j += 8) { ctx.beginPath(); ctx.moveTo(x, FH / 2 - MOUTH / 2 + j); ctx.lineTo(x + 32, FH / 2 - MOUTH / 2 + j); ctx.stroke(); }
+    ctx.strokeStyle = TEAM[s].fill; ctx.lineWidth = 4;
+    ctx.strokeRect(x, FH / 2 - MOUTH / 2, 32, MOUTH);
+    for (const y of [FH / 2 - MOUTH / 2, FH / 2 + MOUTH / 2]) { ctx.beginPath(); ctx.arc(s ? FW : 0, y, 5, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
+  if (!st) return;
+  field();
+  ctx.save(); ctx.translate(OX, OY);
+  const { discs, ball } = lerp(now), mine = myTeam(), turn = myTurn();
+
+  // visée : direction et puissance (vert → rouge)
+  if (drag && turn) {
+    const d = discs[drag.d], { a, p } = aim(), len = 40 + p * 200;
+    ctx.setLineDash([8, 8]); ctx.lineWidth = 4; ctx.strokeStyle = `hsl(${120 - p * 120} 90% 60%)`;
+    ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + Math.cos(a) * len, d.y + Math.sin(a) * len); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(d.x, d.y, DISC_R + 7, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
+  }
+
+  // pions : ombre, couleur de l'équipe, anneau blanc ; mes pions pulsent quand c'est mon tour
+  discs.forEach((d, i) => {
+    const t = TEAM[d.team];
+    ctx.fillStyle = '#00000050'; ctx.beginPath(); ctx.arc(d.x + 3, d.y + 4, DISC_R, 0, 7); ctx.fill();
+    ctx.fillStyle = t.dark; ctx.beginPath(); ctx.arc(d.x, d.y, DISC_R, 0, 7); ctx.fill();
+    ctx.fillStyle = t.fill; ctx.beginPath(); ctx.arc(d.x, d.y - 2, DISC_R - 3, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(d.x, d.y - 2, DISC_R - 9, 0, 7); ctx.stroke();
+    if (turn && d.team === mine && (!drag || drag.d === i)) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(d.x, d.y, DISC_R + 4 + Math.sin(now / 180) * 2, 0, 7); ctx.stroke();
+    }
+  });
+
+  // ballon
+  ctx.fillStyle = '#00000050'; ctx.beginPath(); ctx.arc(ball.x + 2, ball.y + 3, BALL_R, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(ball.x, ball.y, 4, 0, 7); ctx.fill();
+  for (let k = 0; k < 5; k++) { const a = k * 1.2566; ctx.beginPath(); ctx.arc(ball.x + Math.cos(a) * 8.5, ball.y + Math.sin(a) * 8.5, 2.2, 0, 7); ctx.fill(); }
+
+  // effets
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.93; p.vy *= 0.93;
+    ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (flash && (flash.life -= dt) > 0) { ctx.fillStyle = flash.color + Math.round(flash.life * 150).toString(16).padStart(2, '0'); ctx.fillRect(0, 0, cv.width, cv.height); }
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

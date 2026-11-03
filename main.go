@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-//go:embed index.html ricochet.html dessin.html golf.html admin.html common.js style.css
+//go:embed index.html ricochet.html dessin.html golf.html foot.html admin.html common.js style.css
 var files embed.FS
 
 const (
@@ -696,6 +696,7 @@ func main() {
 	http.HandleFunc("/ws/ricochet", serveDuel)
 	http.HandleFunc("/ws/golf", serveGolf)
 	http.HandleFunc("/ws/dessin", serveSketch)
+	http.HandleFunc("/ws/foot", serveFoot)
 	http.HandleFunc("/admin/update", serveUpdate)
 	http.HandleFunc("/admin/version", serveVersion)
 	http.Handle("/", http.FileServerFS(files))
