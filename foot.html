@@ -70,7 +70,8 @@
       <span id="score0" class="font-mono text-4xl font-black text-orange-300 tabular-nums">0</span>
       <span class="min-w-0"><span id="name0" class="block truncate font-semibold"></span><span id="tag0" class="block text-xs text-slate-400"></span></span>
     </div>
-    <span class="text-xs font-bold text-slate-500">1er à 3</span>
+    <select id="goals" title="Score à atteindre" aria-label="Score à atteindre"
+      class="rounded-full bg-white/10 px-2 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/15"></select>
     <div class="flex flex-row-reverse items-center gap-3 rounded-xl bg-cyan-500/10 px-4 py-2 text-right ring-1 ring-cyan-400/30">
       <span id="score1" class="font-mono text-4xl font-black text-cyan-300 tabular-nums">0</span>
       <span class="min-w-0"><span id="name1" class="block truncate font-semibold"></span><span id="tag1" class="block text-xs text-slate-400"></span></span>
@@ -103,12 +104,21 @@ const FW = 800, FH = 500, OX = 40, OY = 20, MOUTH = 150, DISC_R = 22, BALL_R = 1
 const TEAM = [{ fill: '#fb923c', dark: '#c2410c', name: 'orange' }, { fill: '#67e8f9', dark: '#0e7490', name: 'cyan' }];
 const FORMS = [['defense', 'Défense', '1 gardien, 4 derrière, 1 devant'], ['balanced', 'Équilibrée', '3 derrière, 2 au milieu, 1 devant'], ['attack', 'Attaque', '2 derrière, 4 devant']];
 
-let st = null, prev = null, tRecv = 0;
+// états reçus, chacun daté sur une horloge régulière (un tous les TICK_MS) qui suit doucement l'arrivée réelle :
+// les à-coups du réseau sont absorbés, l'affichage a 2,5 états de retard pour toujours avoir de quoi interpoler
+let st = null, snaps = [];
+const DELAY = TICK_MS * 2.5;
 
 function start(pin) {
   connect('/ws/foot', pin, '', m => {
-    if (!m) { st = prev = null; return; }
-    prev = st; st = m; tRecv = performance.now();
+    if (!m) { st = null; snaps = []; return; }
+    const now = performance.now(), last = snaps.at(-1);
+    let t = last ? last.t + TICK_MS : now;
+    t += (now - t) * 0.1; // rattrape la dérive sans saccade
+    if (Math.abs(now - t) > 250) t = now; // longue coupure : on repart de zéro
+    snaps.push({ t, s: m });
+    while (snaps.length > 2 && snaps[1].t < now - DELAY - TICK_MS) snaps.shift();
+    st = m;
     for (const ev of m.events || []) onEvent(ev);
     hud();
   });
@@ -171,8 +181,15 @@ function formationPicker() {
     el('div', 'text-xs text-slate-400', 'Sinon : Équilibrée au bout du temps'));
 }
 
+for (const n of [1, 2, 3, 5, 7, 10]) $('goals').append(new Option('1er à ' + n, n));
+$('goals').onchange = () => { send({ goals: +$('goals').value }); $('goals').blur(); };
+
 function hud() {
   if (!st) return;
+  if (document.activeElement !== $('goals')) $('goals').value = st.goals;
+  // impossible de viser sous le score actuel : le serveur refuserait
+  const top = Math.max(...st.players.map(p => p?.score || 0));
+  for (const o of $('goals').options) o.disabled = +o.value <= top || st.phase === 'end';
   const mine = myTeam(), other = st.players[1 - mine];
   set($('pinTxt'), st.pin);
   st.players.forEach((p, i) => {
@@ -233,9 +250,16 @@ function onEvent(e) {
 }
 
 // ---------- Terrain (canvas) ----------
-function lerp(now) { // mouvements fluides entre les deux derniers états
-  const a = Math.min((now - tRecv) / TICK_MS, 1), L = (p, q) => p && Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
-  return { discs: st.discs.map((d, i) => L(prev?.discs[i], d)), ball: L(prev?.ball, st.ball) };
+function lerp(now) { // positions à l'instant now - DELAY, entre les deux états qui l'encadrent
+  const rt = now - DELAY;
+  let i = 0;
+  while (i < snaps.length - 2 && snaps[i + 1].t <= rt) i++;
+  const A = snaps[i].s, B = snaps[i + 1]?.s;
+  if (!B || A.discs.length !== B.discs.length) return { discs: (B || A).discs, ball: (B || A).ball };
+  const a = Math.min(Math.max((rt - snaps[i].t) / (snaps[i + 1].t - snaps[i].t), 0), 1);
+  // grand saut (replacement après un but) : pas d'interpolation, on y va directement
+  const L = (p, q) => Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
+  return { discs: B.discs.map((d, k) => L(A.discs[k], d)), ball: L(A.ball, B.ball) };
 }
 
 function field() {

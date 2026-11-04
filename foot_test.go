@@ -85,7 +85,13 @@ func TestFootHeavyDisc(t *testing.T) {
 
 func TestFootGoalAndWin(t *testing.T) {
 	m, a, _ := match2(t)
-	for i := 1; i <= FootWin; i++ {
+	m.setGoals(0)  // hors limites : ignoré
+	m.setGoals(11) // idem
+	m.setGoals(2)
+	if m.Goals != 2 {
+		t.Fatalf("score à atteindre réglé à 2 attendu, obtenu %d", m.Goals)
+	}
+	for i := 1; i <= m.Goals; i++ {
 		for m.Phase != "aim" {
 			m.step(0.1)
 		}
@@ -101,7 +107,13 @@ func TestFootGoalAndWin(t *testing.T) {
 		if a.Score != i {
 			t.Fatalf("but %d attendu pour A, score %d (phase %s, ballon %.0f,%.0f)", i, a.Score, m.Phase, m.Ball.X, m.Ball.Y)
 		}
-		if i < FootWin && (m.Phase != "goal" || m.Kick != 1) {
+		if i == 1 {
+			m.setGoals(1) // déjà atteint par A : refusé, sinon le match finirait sans but
+			if m.Goals != 2 {
+				t.Fatalf("score à atteindre sous le score actuel : refus attendu, obtenu %d", m.Goals)
+			}
+		}
+		if i < m.Goals && (m.Phase != "goal" || m.Kick != 1) {
 			t.Fatalf("pause puis engagement de B attendus, obtenu %s / %d", m.Phase, m.Kick)
 		}
 	}

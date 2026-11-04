@@ -1,6 +1,6 @@
 // Foot : foot de pions au tour par tour pour 2 joueurs (ou contre un bot). Chaque équipe a 6 pions ;
 // à son tour on lance un pion comme au golf (lance-pierre), il pousse le ballon et les autres pions.
-// Un seul coup par tour, premier à 3 buts.
+// Un seul coup par tour, premier à 3 buts (réglable de 1 à 10).
 package main
 
 import (
@@ -14,20 +14,24 @@ import (
 )
 
 const (
-	FW, FH      = 800.0, 500.0
-	MouthH      = 150.0 // ouverture des buts
-	DiscR       = 22.0
-	FBallR      = 12.0
-	DiscMass    = 3.0 // plus lourd que le ballon : un pion envoie le ballon loin
-	FBallMass   = 1.0
-	KickMax     = 1100.0 // vitesse d'un pion lancé à pleine puissance (px/s)
-	DiscRoll    = 300.0  // décélération (px/s²)
-	FBallRoll   = 220.0
+	FW, FH    = 800.0, 500.0
+	MouthH    = 150.0 // ouverture des buts
+	DiscR     = 22.0
+	FBallR    = 12.0
+	DiscMass  = 3.0 // plus lourd que le ballon : un pion envoie le ballon loin
+	FBallMass = 1.0
+	KickMax   = 1100.0 // vitesse d'un pion lancé à pleine puissance (px/s)
+	// frottement : une part fixe (px/s²) plus une part proportionnelle à la vitesse (/s). Les pièces filent vite puis
+	// ralentissent en douceur, au lieu de freiner pareil jusqu'au bout et de s'arrêter net.
+	DiscRoll    = 120.0
+	FBallRoll   = 90.0
+	RollDrag    = 0.3
 	FBounce     = 0.8  // rebond sur les bords
 	Restitute   = 0.9  // chocs entre pièces
 	TurnTime    = 15.0 // pour jouer son coup
 	SetupTime   = 10.0 // pour choisir sa disposition
-	FootWin     = 3
+	FootWin     = 3    // score à atteindre par défaut
+	FootWinMax  = 10
 	FootTick    = time.Second / 60
 	FootSub     = 4 // sous-pas par image : aucune pièce ne traverse une autre
 	FootRooms   = 1000
@@ -83,12 +87,13 @@ type Match struct {
 	Turn    int        `json:"turn"` // équipe qui joue
 	Kick    int        `json:"kick"` // équipe qui engage
 	Winner  string     `json:"winner"`
+	Goals   int        `json:"goals"` // premier à ce score
 	Events  []Event    `json:"events"`
 	nextID  int
 }
 
 func newMatch(pin string) *Match {
-	m := &Match{Pin: pin}
+	m := &Match{Pin: pin, Goals: FootWin}
 	m.reset()
 	return m
 }
@@ -150,6 +155,19 @@ func (m *Match) choose(p *Footer, f string) {
 	if m.Players[0].Formation != "" && m.Players[1].Formation != "" {
 		m.kickoff()
 	}
+}
+
+// setGoals change le score à atteindre, à tout moment tant qu'il reste au-dessus des scores actuels.
+func (m *Match) setGoals(n int) {
+	if n < 1 || n > FootWinMax || m.Phase == "end" {
+		return
+	}
+	for _, p := range m.Players {
+		if p != nil && p.Score >= n {
+			return
+		}
+	}
+	m.Goals = n
 }
 
 func (m *Match) kickoff() {
@@ -282,9 +300,9 @@ func (m *Match) physics(dt float64) bool {
 		if sp == 0 {
 			continue
 		}
-		dec := DiscRoll
+		dec := DiscRoll + RollDrag*sp
 		if p.Team < 0 {
-			dec = FBallRoll
+			dec = FBallRoll + RollDrag*sp
 		}
 		if ns := sp - dec*dt; ns > 0 {
 			p.vx, p.vy = p.vx*ns/sp, p.vy*ns/sp
@@ -370,7 +388,7 @@ func (m *Match) goal(team int) {
 	for _, d := range m.pieces() {
 		d.vx, d.vy = 0, 0
 	}
-	if p.Score >= FootWin {
+	if p.Score >= m.Goals {
 		m.Phase, m.Wait, m.Winner = "end", 6, p.Name
 		m.event(Event{Kind: "win", A: team, Text: p.Name})
 		return
@@ -492,7 +510,8 @@ func serveFoot(w http.ResponseWriter, r *http.Request) {
 				var msg struct {
 					Bot       int     `json:"bot"` // +1 : jouer contre un bot, -1 : le retirer
 					Formation string  `json:"formation"`
-					D         *int    `json:"d"` // pion lancé
+					Goals     int     `json:"goals"` // premier à ce score
+					D         *int    `json:"d"`     // pion lancé
 					A         float64 `json:"a"`
 					P         float64 `json:"p"`
 				}
@@ -506,6 +525,8 @@ func serveFoot(w http.ResponseWriter, r *http.Request) {
 					m.join("Bot", true)
 				case msg.Bot == -1:
 					m.removeBot()
+				case msg.Goals != 0:
+					m.setGoals(msg.Goals)
 				case msg.Formation != "":
 					m.choose(p, msg.Formation)
 				case msg.D != nil:
