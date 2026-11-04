@@ -23,9 +23,9 @@ const (
 	KickMax   = 1100.0 // vitesse d'un pion lancé à pleine puissance (px/s)
 	// frottement : une part fixe (px/s²) plus une part proportionnelle à la vitesse (/s). Les pièces filent vite puis
 	// ralentissent en douceur, au lieu de freiner pareil jusqu'au bout et de s'arrêter net.
-	DiscRoll    = 120.0
-	FBallRoll   = 90.0
-	RollDrag    = 0.3
+	DiscRoll    = 220.0
+	FBallRoll   = 160.0
+	RollDrag    = 0.6
 	FBounce     = 0.8  // rebond sur les bords
 	Restitute   = 0.9  // chocs entre pièces
 	TurnTime    = 15.0 // pour jouer son coup
