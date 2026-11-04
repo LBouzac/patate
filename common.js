@@ -82,6 +82,8 @@ function menuRow(href, g) {
   a.append(tile, body);
   return a;
 }
+if ($('salonList')) $('salonList').append(menuRow('/salon.html',
+  { name: 'Ouvrir un salon', icon: 'users', tile: 'bg-amber-500', tag: 'Retrouvez-vous, puis le chef choisit le jeu.' }));
 if ($('tvList')) {
   $('tvList').append(
     menuRow('/tele.html', { name: 'Ouvrir l\'écran télé', icon: 'tv', tile: 'bg-slate-600', tag: 'Sur la télé ou l\'ordinateur branché dessus\u00a0: un QR code s\'affiche.' }),
@@ -137,13 +139,14 @@ if ($('copy')) {
   const copy = $('copy');
   copy.replaceWith(wrap);
   wrap.append(q, copy);
-  // changer de jeu : tout le salon part ensemble (le serveur garde le groupe), personne à ré-inviter
-  const sw = document.createElement('select');
-  sw.title = sw.ariaLabel = 'Changer de jeu pour tout le groupe';
-  sw.className = 'rounded-full py-1.5 bg-white/10 px-3 text-sm font-semibold text-slate-200 transition hover:bg-white/15';
-  sw.append(new Option('Changer de jeu…', ''), ...GAMES.filter(g => g.href !== location.pathname).map(g => new Option(g.name, g.href)));
-  sw.onchange = () => { if (sw.value) send({ go: sw.value }); sw.value = ''; };
-  wrap.append(sw);
+  if (location.pathname !== '/salon.html') { // en partie : tout le monde retourne au salon choisir un autre jeu, sans se ré-inviter
+    const back = document.createElement('button');
+    back.title = 'Retourner au salon avec tout le monde pour choisir un autre jeu';
+    back.className = 'inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:bg-white/15';
+    back.append(icon('users', 'size-4'), 'Salon');
+    back.onclick = () => send({ go: '/salon.html' });
+    wrap.append(back);
+  }
 }
 const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
 if ($('name')) { // pages de jeu seulement (pas le menu)

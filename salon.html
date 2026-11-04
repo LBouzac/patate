@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salon</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-10">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-amber-500"><i data-icon="users" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Salon</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">Retrouvez-vous d'abord, puis le chef choisit le jeu : tout le monde y part ensemble, et revient au salon pour changer de jeu.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-amber-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer un salon
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre un salon</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code du salon</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-amber-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé le salon te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+
+<main id="game" hidden class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+  </header>
+
+  <h2 class="mt-6 mb-2 px-4 text-[13px] text-slate-400 uppercase">Dans le salon</h2>
+  <ul id="members" aria-live="polite" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></ul>
+  <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Invite les autres avec le code ou le lien, en haut.</p>
+
+  <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Le jeu</h2>
+  <p id="who" class="mb-2 flex items-center gap-1.5 px-4 text-[15px] text-slate-300"></p>
+  <nav id="pick" aria-label="Choisir le jeu" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+</main>
+
+<script src="/common.js"></script>
+<script>
+let st = null;
+function start(pin) {
+  connect('/ws/salon', pin, '', m => { st = m; if (m) draw(); });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+
+// la liste des jeux, une fois : le chef touche un jeu, les autres la voient grisée
+const rows = GAMES.map(g => {
+  const b = document.createElement('button');
+  b.className = 'group flex w-full items-center gap-3 pl-4 text-left transition-colors hover:bg-white/5 active:bg-white/10 disabled:opacity-40';
+  b.append(...menuRow(g.href, g).childNodes); // même ligne que le menu du site, dans un bouton
+  b.onclick = () => send({ pick: g.href });
+  $('pick').append(b);
+  return b;
+});
+
+function draw() {
+  const chef = st.members[0]?.id, mine = chef === me; // le premier arrivé encore là est le chef
+  $('pinTxt').textContent = st.pin;
+  $('members').replaceChildren(...st.members.map(m => {
+    const li = document.createElement('li'), name = document.createElement('span');
+    li.className = 'flex items-center gap-3 border-b border-white/10 px-4 py-3 last:border-0';
+    name.className = 'min-w-0 flex-1 truncate text-[17px]' + (m.id === me ? ' text-amber-300' : '');
+    name.textContent = m.name + (m.id === me ? ' (toi)' : '');
+    li.append(icon('user', 'size-5 text-slate-500'), name);
+    if (m.id === chef) {
+      const c = icon('crown', 'size-5 text-amber-300');
+      c.setAttribute('aria-label', 'Chef'); c.removeAttribute('aria-hidden');
+      li.append(c);
+    }
+    return li;
+  }));
+  $('who').replaceChildren(icon('crown', 'size-4 text-amber-300'),
+    mine ? 'Tu es le chef : choisis le jeu, tout le monde y part.' : (st.members[0]?.name || '?') + ' choisit le jeu…');
+  for (const b of rows) b.disabled = !mine;
+}
+</script>
+</body>
+</html>

@@ -4,14 +4,14 @@ Deux jeux multijoueurs dans le navigateur, servis par un seul petit serveur Go (
 
 L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'invitation `/?pin=1234` mènent toujours à la partie de Patate.
 
-En partie, le menu **Changer de jeu** emmène tout le salon vers un autre jeu : chacun arrive directement dans le même nouveau salon, sans code ni nouvelle invitation. Si le jeu a moins de places que le groupe (Foot, Billard…), les suivants ouvrent un deuxième salon ensemble.
+**Jouer en groupe** (`/salon.html`) : on se retrouve dans un salon avec un seul code, comme en mode télé. Le chef (le premier arrivé, couronne) choisit le jeu et tout le monde y part directement, sans code ni nouvelle invitation. En partie, le bouton **Salon** ramène tout le groupe au salon pour choisir un autre jeu. Si le jeu a moins de places que le groupe (Foot, Billard…), les suivants ouvrent un deuxième salon ensemble.
 
 - **Patate** (`/patate.html`) : de 2 à 10 joueurs, une bombe à se passer avant qu'elle n'explose.
 - **Ricochet** (`/ricochet.html`) : un duel de raquettes en 1 contre 1, ou contre un bot.
 - **Dessine** (`/dessin.html`) : de 3 à 10 joueurs. Chacun son tour envoie une photo, un joueur tiré au sort la dessine en 30 s et les autres devinent.
 - **Foot** (`/foot.html`) : foot de pions à 2 joueurs (ou contre un bot), chacun son tour, premier à 3 buts (réglable de 1 à 10).
 - **Pétanque** (`/petanque.html`) : de 2 à 6 joueurs (bots possibles), chacun ses 3 boules, premier à 7.
-- **Billard** (`/billard.html`) : jaunes contre rouges à 2 (ou contre un bot), la noire pour finir.
+- **Billard** (`/billard.html`) : jaunes contre rouges à 2 (ou contre un bot), la noire pour finir. En visant, une bille fantôme montre où la blanche touchera et où partira la bille touchée.
 - **Artillerie** (`/artillerie.html`) : de 2 à 4 chars (bots possibles), vent et cratères, le dernier debout gagne.
 - **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.

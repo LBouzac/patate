@@ -52,8 +52,8 @@ var (
 // sa création : celui des joueurs qui arrivent d'un autre jeu, sinon un nouveau.
 var groupJoin sync.Mutex // une arrivée groupée à la fois : deux joueurs du groupe ne créent pas chacun leur salon
 
-// gamePages : les jeux vers lesquels un groupe peut partir.
-var gamePages = map[string]bool{"/patate.html": true, "/ricochet.html": true, "/golf.html": true, "/dessin.html": true,
+// gamePages : les pages vers lesquelles un groupe peut partir (le salon et les jeux).
+var gamePages = map[string]bool{"/salon.html": true, "/patate.html": true, "/ricochet.html": true, "/golf.html": true, "/dessin.html": true,
 	"/foot.html": true, "/petanque.html": true, "/billard.html": true, "/artillerie.html": true, "/motos.html": true}
 
 // chatJoin inscrit la place au salon et rend le groupe du salon (group, ou un nouveau si vide, pour un salon neuf).
