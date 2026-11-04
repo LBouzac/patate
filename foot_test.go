@@ -122,16 +122,28 @@ func TestFootGoalAndWin(t *testing.T) {
 	}
 }
 
-func TestFootDiscStaysOutOfGoal(t *testing.T) {
+func TestFootDiscEntersGoal(t *testing.T) {
 	m, _, _ := match2(t)
 	m.Turn = 0
 	d := m.Discs[0]
 	d.X, d.Y = 60, FH/2
 	m.Ball.X, m.Ball.Y = FW/2, 40
-	m.shoot(0, 0, math.Pi, 1) // droit dans son propre but
+	m.shoot(0, 0, math.Pi, 1) // droit dans son propre but, à pleine puissance
 	settleFoot(m)
-	if d.X < DiscR-0.01 {
-		t.Fatalf("un pion ne doit pas entrer dans le but : x=%.1f", d.X)
+	if d.X >= 0 || d.X < DiscR-CageD-0.01 || !inMouth(d.Y) {
+		t.Fatalf("le pion doit finir dans la cage, retenu par le filet : %.1f,%.1f", d.X, d.Y)
+	}
+}
+
+func TestFootCageSideNet(t *testing.T) {
+	m, _, _ := match2(t)
+	d := m.Discs[0]
+	d.X, d.Y, d.vx, d.vy = -25, FH/2, 0, -900 // dans la cage, lancé vers le filet du côté
+	for range 200 {
+		m.physics(1.0 / 240)
+		if math.Abs(d.Y-FH/2) > MouthH/2-DiscR+0.01 || d.X >= 0 && !inMouth(d.Y) {
+			t.Fatalf("le pion doit rester dans la cage : %.1f,%.1f", d.X, d.Y)
+		}
 	}
 }
 

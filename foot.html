@@ -79,7 +79,7 @@
   </div>
 
   <div class="relative">
-    <canvas id="c" width="880" height="540" aria-label="Terrain de foot : à ton tour, attrape un de tes pions, tire en arrière puis relâche"
+    <canvas id="c" width="920" height="540" aria-label="Terrain de foot : à ton tour, attrape un de tes pions, tire en arrière puis relâche"
       class="block w-full touch-none rounded-[14px]"></canvas>
     <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
   </div>
@@ -100,7 +100,7 @@
 <script src="/common.js"></script>
 <script>
 const cv = $('c'), ctx = cv.getContext('2d');
-const FW = 800, FH = 500, OX = 40, OY = 20, MOUTH = 150, DISC_R = 22, BALL_R = 12, MAX_DRAG = 170, TICK_MS = 1000 / 30;
+const FW = 800, FH = 500, OX = 60, CAGE = 50, OY = 20, MOUTH = 150, DISC_R = 22, BALL_R = 12, MAX_DRAG = 170, TICK_MS = 1000 / 30;
 const TEAM = [{ fill: '#fb923c', dark: '#c2410c', name: 'orange' }, { fill: '#67e8f9', dark: '#0e7490', name: 'cyan' }];
 const FORMS = [['defense', 'Défense', '1 gardien, 4 derrière, 1 devant'], ['balanced', 'Équilibrée', '3 derrière, 2 au milieu, 1 devant'], ['attack', 'Attaque', '2 derrière, 4 devant']];
 
@@ -264,13 +264,13 @@ function field() {
     ctx.strokeRect(s ? FW - 40 : 0, FH / 2 - 80, 40, 160);
   }
   for (const s of [0, 1]) { // buts : filet dans la marge, poteaux blancs
-    const x = s ? FW : -32;
-    ctx.fillStyle = '#00000040'; ctx.fillRect(x, FH / 2 - MOUTH / 2, 32, MOUTH);
+    const x = s ? FW : -CAGE;
+    ctx.fillStyle = '#00000040'; ctx.fillRect(x, FH / 2 - MOUTH / 2, CAGE, MOUTH);
     ctx.strokeStyle = '#ffffff30'; ctx.lineWidth = 1;
-    for (let i = 4; i < 32; i += 7) { ctx.beginPath(); ctx.moveTo(x + i, FH / 2 - MOUTH / 2); ctx.lineTo(x + i, FH / 2 + MOUTH / 2); ctx.stroke(); }
-    for (let j = 8; j < MOUTH; j += 8) { ctx.beginPath(); ctx.moveTo(x, FH / 2 - MOUTH / 2 + j); ctx.lineTo(x + 32, FH / 2 - MOUTH / 2 + j); ctx.stroke(); }
+    for (let i = 4; i < CAGE; i += 7) { ctx.beginPath(); ctx.moveTo(x + i, FH / 2 - MOUTH / 2); ctx.lineTo(x + i, FH / 2 + MOUTH / 2); ctx.stroke(); }
+    for (let j = 8; j < MOUTH; j += 8) { ctx.beginPath(); ctx.moveTo(x, FH / 2 - MOUTH / 2 + j); ctx.lineTo(x + CAGE, FH / 2 - MOUTH / 2 + j); ctx.stroke(); }
     ctx.strokeStyle = TEAM[s].fill; ctx.lineWidth = 4;
-    ctx.strokeRect(x, FH / 2 - MOUTH / 2, 32, MOUTH);
+    ctx.strokeRect(x, FH / 2 - MOUTH / 2, CAGE, MOUTH);
     for (const y of [FH / 2 - MOUTH / 2, FH / 2 + MOUTH / 2]) { ctx.beginPath(); ctx.arc(s ? FW : 0, y, 5, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); }
   }
   ctx.restore();

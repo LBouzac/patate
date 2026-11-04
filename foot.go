@@ -16,6 +16,7 @@ import (
 const (
 	FW, FH    = 800.0, 500.0
 	MouthH    = 150.0 // ouverture des buts
+	CageD     = 50.0  // profondeur des cages : un pion (44 de large) y tient en entier
 	DiscR     = 22.0
 	FBallR    = 12.0
 	DiscMass  = 3.0 // plus lourd que le ballon : un pion envoie le ballon loin
@@ -27,6 +28,7 @@ const (
 	FBallRoll   = 160.0
 	RollDrag    = 0.6
 	FBounce     = 0.8  // rebond sur les bords
+	NetBounce   = 0.1  // le filet amortit : un pion qui entre dans la cage y reste
 	Restitute   = 0.9  // chocs entre pièces
 	TurnTime    = 15.0 // pour jouer son coup
 	SetupTime   = 10.0 // pour choisir sa disposition
@@ -331,7 +333,8 @@ func (m *Match) physics(dt float64) bool {
 
 func inMouth(y float64) bool { return math.Abs(y-FH/2) < MouthH/2 }
 
-// walls : rebond sur les bords. Seul le ballon passe par l'ouverture des buts ; les poteaux sont des points durs.
+// walls : rebond sur les bords. Pions et ballon passent entre les poteaux (des points durs) et entrent dans la cage,
+// fermée par le filet au fond et sur les côtés.
 func (m *Match) walls(p *Piece) {
 	r := p.r()
 	if p.Y < r || p.Y > FH-r {
@@ -339,22 +342,29 @@ func (m *Match) walls(p *Piece) {
 		p.Y, p.vy = 2*lim-p.Y, -p.vy*FBounce
 		m.event(Event{Kind: "wall", X: p.X, Y: lim})
 	}
-	open := p.Team < 0 && inMouth(p.Y)
-	if !open && (p.X < r || p.X > FW-r) {
+	if !inMouth(p.Y) && (p.X < r || p.X > FW-r) {
 		lim := min(max(p.X, r), FW-r)
 		p.X, p.vx = 2*lim-p.X, -p.vx*FBounce
 		m.event(Event{Kind: "wall", X: lim, Y: p.Y})
 	}
-	if p.Team < 0 {
-		for _, post := range [][2]float64{{0, FH/2 - MouthH/2}, {0, FH/2 + MouthH/2}, {FW, FH/2 - MouthH/2}, {FW, FH/2 + MouthH/2}} {
-			dx, dy := p.X-post[0], p.Y-post[1]
-			if d := math.Hypot(dx, dy); d < r && d > 0 {
-				nx, ny := dx/d, dy/d
-				p.X, p.Y = post[0]+nx*r, post[1]+ny*r
-				if vn := p.vx*nx + p.vy*ny; vn < 0 {
-					p.vx, p.vy = p.vx-(1+FBounce)*vn*nx, p.vy-(1+FBounce)*vn*ny
-					m.event(Event{Kind: "post", X: post[0], Y: post[1]})
-				}
+	if p.X < 0 || p.X > FW { // dans une cage
+		if lo, hi := FH/2-MouthH/2+r, FH/2+MouthH/2-r; p.Y < lo || p.Y > hi {
+			lim := min(max(p.Y, lo), hi)
+			p.Y, p.vy = lim, -p.vy*NetBounce
+		}
+		if lim := min(max(p.X, r-CageD), FW+CageD-r); lim != p.X {
+			p.X, p.vx = lim, -p.vx*NetBounce
+			m.event(Event{Kind: "wall", X: lim, Y: p.Y})
+		}
+	}
+	for _, post := range [][2]float64{{0, FH/2 - MouthH/2}, {0, FH/2 + MouthH/2}, {FW, FH/2 - MouthH/2}, {FW, FH/2 + MouthH/2}} {
+		dx, dy := p.X-post[0], p.Y-post[1]
+		if d := math.Hypot(dx, dy); d < r && d > 0 {
+			nx, ny := dx/d, dy/d
+			p.X, p.Y = post[0]+nx*r, post[1]+ny*r
+			if vn := p.vx*nx + p.vy*ny; vn < 0 {
+				p.vx, p.vy = p.vx-(1+FBounce)*vn*nx, p.vy-(1+FBounce)*vn*ny
+				m.event(Event{Kind: "post", X: post[0], Y: post[1]})
 			}
 		}
 	}
