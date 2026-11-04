@@ -19,7 +19,8 @@ const (
 	PoolR       = 11.0
 	PocketR     = 22.0 // centre de la bille à moins de ça d'une poche : elle tombe
 	CueMax      = 1300.0
-	PoolDrag    = 110.0
+	PoolDrag    = 50.0 // frottement fixe, plus PoolFluid × vitesse : même durée qu'avant, mais l'arrêt est doux
+	PoolFluid   = 0.12
 	Cushion     = 0.8
 	PoolRestit  = 0.95
 	PoolTick    = time.Second / 60
@@ -79,7 +80,7 @@ func newTable(pin string) *Table {
 func (t *Table) event(e Event) { t.Events = append(t.Events, e) }
 
 func ball(kind int, x, y float64) *PoolBall {
-	return &PoolBall{Body: Body{X: x, Y: y, r: PoolR, m: 1, drag: PoolDrag}, Kind: kind}
+	return &PoolBall{Body: Body{X: x, Y: y, r: PoolR, m: 1, drag: PoolDrag, fluid: PoolFluid}, Kind: kind}
 }
 
 // rack : triangle de 15 billes, la noire au milieu de la 3e rangée, jaunes et rouges mélangées.

@@ -104,20 +104,13 @@ const FW = 800, FH = 500, OX = 40, OY = 20, MOUTH = 150, DISC_R = 22, BALL_R = 1
 const TEAM = [{ fill: '#fb923c', dark: '#c2410c', name: 'orange' }, { fill: '#67e8f9', dark: '#0e7490', name: 'cyan' }];
 const FORMS = [['defense', 'Défense', '1 gardien, 4 derrière, 1 devant'], ['balanced', 'Équilibrée', '3 derrière, 2 au milieu, 1 devant'], ['attack', 'Attaque', '2 derrière, 4 devant']];
 
-// états reçus, chacun daté sur une horloge régulière (un tous les TICK_MS) qui suit doucement l'arrivée réelle :
-// les à-coups du réseau sont absorbés, l'affichage a 2,5 états de retard pour toujours avoir de quoi interpoler
-let st = null, snaps = [];
-const DELAY = TICK_MS * 2.5;
+let st = null;
+const snaps = snapBuffer(TICK_MS);
 
 function start(pin) {
   connect('/ws/foot', pin, '', m => {
-    if (!m) { st = null; snaps = []; return; }
-    const now = performance.now(), last = snaps.at(-1);
-    let t = last ? last.t + TICK_MS : now;
-    t += (now - t) * 0.1; // rattrape la dérive sans saccade
-    if (Math.abs(now - t) > 250) t = now; // longue coupure : on repart de zéro
-    snaps.push({ t, s: m });
-    while (snaps.length > 2 && snaps[1].t < now - DELAY - TICK_MS) snaps.shift();
+    if (!m) { st = null; snaps.clear(); return; }
+    snaps.push(m);
     st = m;
     for (const ev of m.events || []) onEvent(ev);
     hud();
@@ -250,16 +243,10 @@ function onEvent(e) {
 }
 
 // ---------- Terrain (canvas) ----------
-function lerp(now) { // positions à l'instant now - DELAY, entre les deux états qui l'encadrent
-  const rt = now - DELAY;
-  let i = 0;
-  while (i < snaps.length - 2 && snaps[i + 1].t <= rt) i++;
-  const A = snaps[i].s, B = snaps[i + 1]?.s;
-  if (!B || A.discs.length !== B.discs.length) return { discs: (B || A).discs, ball: (B || A).ball };
-  const a = Math.min(Math.max((rt - snaps[i].t) / (snaps[i + 1].t - snaps[i].t), 0), 1);
-  // grand saut (replacement après un but) : pas d'interpolation, on y va directement
-  const L = (p, q) => Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
-  return { discs: B.discs.map((d, k) => L(A.discs[k], d)), ball: L(A.ball, B.ball) };
+function lerp(now) { // positions affichées, glissées entre deux états
+  const { A, B, a } = snaps.at(now);
+  if (A.discs.length !== B.discs.length) return B;
+  return { discs: B.discs.map((d, k) => glide(A.discs[k], d, a)), ball: glide(A.ball, B.ball, a) };
 }
 
 function field() {

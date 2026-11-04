@@ -9,7 +9,8 @@ type Body struct {
 	Y      float64 `json:"y"`
 	vx, vy float64
 	r, m   float64
-	drag   float64 // décélération (px/s²)
+	drag   float64 // décélération fixe (px/s²)
+	fluid  float64 // plus une part proportionnelle à la vitesse (/s) : ralentit en douceur au lieu de s'arrêter net
 }
 
 func (b *Body) moving() bool { return b.vx != 0 || b.vy != 0 }
@@ -28,7 +29,7 @@ func (b *Body) roll(dt float64) {
 	if sp == 0 {
 		return
 	}
-	if ns := sp - b.drag*dt; ns > 0 {
+	if ns := sp - (b.drag+b.fluid*sp)*dt; ns > 0 {
 		b.vx, b.vy = b.vx*ns/sp, b.vy*ns/sp
 	} else {
 		b.stop()

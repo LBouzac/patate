@@ -268,6 +268,35 @@ function chatShow(c) {
 }
 function chatClear() { if (chatUI) { chatUI.list.replaceChildren(); unread = 0; chatUI.paint(); } }
 
+// ---------- Mouvements fluides (foot, billard) ----------
+// Chaque état reçu est daté sur une horloge régulière (un tous les tickMs) qui suit doucement l'arrivée réelle :
+// les à-coups du réseau sont absorbés. L'affichage a 2,5 états de retard pour toujours avoir de quoi interpoler.
+function snapBuffer(tickMs) {
+  const delay = tickMs * 2.5;
+  let snaps = [];
+  return {
+    clear() { snaps = []; },
+    push(s) {
+      const now = performance.now(), last = snaps.at(-1);
+      let t = last ? last.t + tickMs : now;
+      t += (now - t) * 0.1; // rattrape la dérive sans saccade
+      if (Math.abs(now - t) > 250) t = now; // longue coupure : on repart de zéro
+      snaps.push({ t, s });
+      while (snaps.length > 2 && snaps[1].t < now - delay - tickMs) snaps.shift();
+    },
+    // les deux états autour de l'instant affiché, et où on en est de l'un à l'autre (0 à 1)
+    at(now) {
+      const rt = now - delay;
+      let i = 0;
+      while (i < snaps.length - 2 && snaps[i + 1].t <= rt) i++;
+      const a = snaps[i], b = snaps[i + 1] || a;
+      return { A: a.s, B: b.s, a: b === a ? 1 : Math.min(Math.max((rt - a.t) / (b.t - a.t), 0), 1) };
+    },
+  };
+}
+// position de q, glissée depuis p ; grand saut (replacement, remise en jeu) : on y va directement
+const glide = (p, q, a) => p && Math.hypot(q.x - p.x, q.y - p.y) < 60 ? { ...q, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a } : q;
+
 let banner = null;
 function reconnecting(on) {
   if (on && !banner) {
