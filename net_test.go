@@ -230,10 +230,71 @@ func TestChat(t *testing.T) {
 
 func TestChatPaused(t *testing.T) {
 	s := &Seat{ID: 1, Send: make(chan []byte, 2), name: "A", CanChat: func() bool { return false }}
-	chatJoin("test", s)
+	chatJoin("test", s, "")
 	defer chatLeave("test", s)
 	chatSay("test", s, "la réponse c'est chat")
 	if b := string(<-s.Send); !strings.Contains(b, "pause") || strings.Contains(b, "réponse") {
 		t.Fatalf("chat en pause : seul l'auteur est prévenu, le message ne part pas : %s", b)
+	}
+}
+
+// Changer de jeu : tout le salon reçoit l'ordre, puis se retrouve dans un même salon du nouveau jeu, sans code.
+// Le salon est plein (Foot : 2) : le suivant du groupe en ouvre un autre.
+func TestGroupSwitchGame(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", serveWS)
+	mux.HandleFunc("/ws/foot", serveFoot)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	dial := func(path, q string) (*websocket.Conn, map[string]any) {
+		c, _, err := websocket.Dial(ctx, "ws"+srv.URL[4:]+path+"?"+q, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var hello map[string]any
+		if err := wsjson.Read(ctx, c, &hello); err != nil {
+			t.Fatal(err)
+		}
+		return c, hello
+	}
+	until := func(c *websocket.Conn, key string) map[string]any { // saute les états jusqu'au message voulu
+		for {
+			var m map[string]any
+			if err := wsjson.Read(ctx, c, &m); err != nil {
+				t.Fatal(err)
+			}
+			if m[key] != nil {
+				return m
+			}
+		}
+	}
+	a, _ := dial("/ws", "name=A&pin=")
+	pin := until(a, "pin")["pin"].(string)
+	b, _ := dial("/ws", "name=B&pin="+pin)
+	wsjson.Write(ctx, a, map[string]string{"go": "/admin.html"}) // pas un jeu : ignoré
+	wsjson.Write(ctx, a, map[string]string{"go": "/foot.html"})
+	ga, gb := until(a, "go"), until(b, "go")
+	group, _ := ga["group"].(string)
+	if ga["go"] != "/foot.html" || group == "" || gb["group"] != group {
+		t.Fatalf("même ordre et même groupe attendus pour tout le salon : %v / %v", ga, gb)
+	}
+	a.Close(websocket.StatusNormalClosure, "")
+	b.Close(websocket.StatusNormalClosure, "")
+
+	q := "&pin=&group=" + url.QueryEscape(group)
+	fa, ha := dial("/ws/foot", "name=A"+q)
+	defer fa.CloseNow()
+	fb, hb := dial("/ws/foot", "name=B"+q)
+	defer fb.CloseNow()
+	pa, pb := until(fa, "pin")["pin"], until(fb, "pin")["pin"]
+	if pa != pb || ha["group"] != group || hb["group"] != group {
+		t.Fatalf("le groupe doit se retrouver dans le même salon : %v / %v", pa, pb)
+	}
+	fc, _ := dial("/ws/foot", "name=C"+q)
+	defer fc.CloseNow()
+	if pc := until(fc, "pin")["pin"]; pc == pa {
+		t.Fatal("salon plein : le suivant doit en ouvrir un autre")
 	}
 }

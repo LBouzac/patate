@@ -30,6 +30,7 @@ type Seat struct {
 	// facultatif : le chat est-il ouvert en ce moment ? (Dessine le coupe pendant le dessin)
 	CanChat  func() bool
 	name     string    // pseudo, pour signer les messages du chat
+	group    string    // groupe du salon, gardé pour la reconnexion
 	lastChat time.Time // anti-spam
 }
 
@@ -41,17 +42,35 @@ const (
 )
 
 var (
-	chatMu sync.Mutex
-	chats  = map[string]map[*Seat]bool{} // jeu + code du salon → places connectées
+	chatMu  sync.Mutex
+	chats   = map[string]map[*Seat]bool{} // jeu + code du salon → places connectées
+	groupOf = map[string]string{}         // jeu + code du salon → groupe
+	latest  = map[string]string{}         // groupe + jeu → dernier salon du groupe dans ce jeu
 )
 
-func chatJoin(key string, s *Seat) {
+// Groupe : les joueurs d'un salon, qui changent de jeu ensemble sans se ré-inviter. Un salon reçoit son groupe à
+// sa création : celui des joueurs qui arrivent d'un autre jeu, sinon un nouveau.
+var groupJoin sync.Mutex // une arrivée groupée à la fois : deux joueurs du groupe ne créent pas chacun leur salon
+
+// gamePages : les jeux vers lesquels un groupe peut partir.
+var gamePages = map[string]bool{"/patate.html": true, "/ricochet.html": true, "/golf.html": true, "/dessin.html": true,
+	"/foot.html": true, "/petanque.html": true, "/billard.html": true, "/artillerie.html": true, "/motos.html": true}
+
+// chatJoin inscrit la place au salon et rend le groupe du salon (group, ou un nouveau si vide, pour un salon neuf).
+func chatJoin(key string, s *Seat, group string) string {
 	chatMu.Lock()
 	defer chatMu.Unlock()
 	if chats[key] == nil {
 		chats[key] = map[*Seat]bool{}
 	}
 	chats[key][s] = true
+	if groupOf[key] == "" {
+		if group == "" {
+			group = newToken()
+		}
+		groupOf[key] = group
+	}
+	return groupOf[key]
 }
 
 func chatLeave(key string, s *Seat) {
@@ -60,6 +79,33 @@ func chatLeave(key string, s *Seat) {
 	delete(chats[key], s)
 	if len(chats[key]) == 0 {
 		delete(chats, key)
+		path, _, _ := strings.Cut(key, "|")
+		if gk := groupOf[key] + "|" + path; latest[gk] == key {
+			delete(latest, gk)
+		}
+		delete(groupOf, key)
+	}
+}
+
+// groupPin : le code du salon où retrouver son groupe dans ce jeu, "" s'il n'y en a plus.
+func groupPin(group, path string) string {
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	key := latest[group+"|"+path]
+	if key == "" || len(chats[key]) == 0 || groupOf[key] != group {
+		return ""
+	}
+	return strings.TrimPrefix(key, path+"|")
+}
+
+// groupGo envoie tout le salon vers un autre jeu.
+// shortcut: un client saturé rate l'ordre et reste sur place ; il peut toujours suivre avec le code
+func groupGo(key, page string) {
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	b, _ := json.Marshal(map[string]string{"go": page, "group": groupOf[key]})
+	for s := range chats[key] {
+		trySend(s, b)
 	}
 }
 
@@ -270,23 +316,51 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 	c.SetReadLimit(max(readLimit, 1024)) // au moins de quoi écrire un message de chat
 
 	token := q.Get("resume")
+	group := q.Get("group")
 	var s *Seat
+	var chatKey string
 	if token != "" { // reconnexion
 		if s = reclaim(token, r.URL.Path); s == nil {
 			c.Close(websocket.StatusPolicyViolation, "Connexion perdue trop longtemps : rejoins la partie avec le code")
 			return
 		}
+		chatKey = r.URL.Path + "|" + s.Room
+		group = chatJoin(chatKey, s, s.group)
 	} else {
 		var why string
-		if s, why = join(name, q); s == nil {
+		grouped := group != "" && q.Get("pin") == "" // arrivée d'un autre jeu avec son groupe
+		if grouped {
+			groupJoin.Lock()
+			if pin := groupPin(group, r.URL.Path); pin != "" {
+				q.Set("pin", pin)
+				s, why = join(name, q)
+			}
+			if s == nil { // pas encore de salon du groupe ici, ou plein : on en crée un
+				q.Del("pin")
+				s, why = join(name, q)
+			}
+		} else {
+			s, why = join(name, q)
+		}
+		if s != nil {
+			chatKey = r.URL.Path + "|" + s.Room
+			group = chatJoin(chatKey, s, group)
+			if grouped {
+				chatMu.Lock()
+				latest[group+"|"+r.URL.Path] = chatKey
+				chatMu.Unlock()
+			}
+		}
+		if grouped {
+			groupJoin.Unlock()
+		}
+		if s == nil {
 			c.Close(websocket.StatusPolicyViolation, why)
 			return
 		}
 		token = newToken()
-		s.name = name
+		s.name, s.group = name, group
 	}
-	chatKey := r.URL.Path + "|" + s.Room
-	chatJoin(chatKey, s)
 	defer chatLeave(chatKey, s)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -304,7 +378,7 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 	defer func() {        // une ligne par déconnexion : utile pour comprendre les coupures (journal du service)
 		log.Printf("déconnexion %s %q après %s : %v", r.URL.Path, name, time.Since(start).Round(time.Second), why2.Load())
 	}()
-	hello, _ := json.Marshal(map[string]any{"you": s.ID, "token": token})
+	hello, _ := json.Marshal(map[string]any{"you": s.ID, "token": token, "group": group})
 	if err := c.Write(ctx, websocket.MessageText, hello); err != nil {
 		why2.Store("bonjour : " + err.Error())
 		return
@@ -337,6 +411,13 @@ func session(w http.ResponseWriter, r *http.Request, readLimit int64, join func(
 			var m struct{ Chat string }
 			if json.Unmarshal(b, &m) == nil {
 				chatSay(chatKey, s, m.Chat)
+			}
+			continue
+		}
+		if bytes.HasPrefix(b, []byte(`{"go":`)) { // changement de jeu pour tout le salon
+			var m struct{ Go string }
+			if json.Unmarshal(b, &m) == nil && gamePages[m.Go] {
+				groupGo(chatKey, m.Go)
 			}
 			continue
 		}

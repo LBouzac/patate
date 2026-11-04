@@ -137,6 +137,13 @@ if ($('copy')) {
   const copy = $('copy');
   copy.replaceWith(wrap);
   wrap.append(q, copy);
+  // changer de jeu : tout le salon part ensemble (le serveur garde le groupe), personne à ré-inviter
+  const sw = document.createElement('select');
+  sw.title = sw.ariaLabel = 'Changer de jeu pour tout le groupe';
+  sw.className = 'rounded-full py-1.5 bg-white/10 px-3 text-sm font-semibold text-slate-200 transition hover:bg-white/15';
+  sw.append(new Option('Changer de jeu…', ''), ...GAMES.filter(g => g.href !== location.pathname).map(g => new Option(g.name, g.href)));
+  sw.onchange = () => { if (sw.value) send({ go: sw.value }); sw.value = ''; };
+  wrap.append(sw);
 }
 const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
 if ($('name')) { // pages de jeu seulement (pas le menu)
@@ -159,6 +166,9 @@ function screen(game) { if ($('home')) show($('home'), !game); if ($('game')) sh
 // Le serveur donne un jeton secret à l'arrivée et garde la place 20 s si la connexion lâche (réseau, écran
 // verrouillé…). On revient alors tout seul avec ce jeton : même joueur, même score, même tour.
 let ws = null, me = 0, token = '', link = null, lastMsg = 0, retries = 0;
+// groupe : arrivé d'un autre jeu avec ses amis (?group=…), on crée ou rejoint tout seul le salon du groupe
+let group = new URLSearchParams(location.search).get('group') || '';
+if (group && $('create')) addEventListener('DOMContentLoaded', () => $('create').click());
 const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
 
 // connect valide pseudo et code, ouvre le WebSocket et appelle onState(état) à chaque image, onState(null) à la déconnexion.
@@ -170,7 +180,7 @@ function connect(path, pin, extra, onState, fixedName) {
   if (!fixedName) localStorage.name = name;
   audio(); // le navigateur n'autorise le son qu'après un clic
   setErr('Connexion…', false);
-  link = { url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + path + '?name=' + encodeURIComponent(name) + '&pin=' + pin + extra, onState };
+  link = { url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + path + '?name=' + encodeURIComponent(name) + '&pin=' + pin + extra + (group ? '&group=' + encodeURIComponent(group) : ''), onState };
   token = '';
   dial();
 }
@@ -182,7 +192,8 @@ function dial() {
     if (sock !== ws) return;
     lastMsg = Date.now();
     const m = JSON.parse(e.data);
-    if (m.you) { me = m.you; token = m.token; retries = 0; reconnecting(false); screen(true); setErr(''); return; }
+    if (m.go) { ws = null; sock.close(1000); location.href = m.go + '?group=' + encodeURIComponent(m.group); return; }
+    if (m.you) { me = m.you; token = m.token; group = m.group || group; retries = 0; reconnecting(false); screen(true); setErr(''); return; }
     if (m.chat) return chatShow(m.chat);
     if (m.pin && location.search !== '?pin=' + m.pin) history.replaceState(null, '', '?pin=' + m.pin); // l'URL devient un lien d'invitation
     link.onState(m);
