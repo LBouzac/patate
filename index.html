@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Les jeux</title>
 <link rel="stylesheet" href="/style.css">
 <script>
@@ -11,13 +12,13 @@
 </script>
 </head>
 <body class="h-full text-slate-100 antialiased">
-<main class="mx-auto min-h-full max-w-xl px-4 pt-12 pb-10 sm:pt-20">
+<main class="wide mx-auto min-h-full max-w-xl px-4 pt-12 pb-10 sm:pt-20">
   <h1 class="px-1 text-[34px] leading-tight font-bold">Les jeux</h1>
   <p class="mt-1 px-1 text-[15px] text-slate-400">Des jeux à plusieurs, dans le navigateur. Rien à installer.</p>
 
   <div id="choix">
     <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Comment on joue ?</h2>
-    <nav id="modeList" aria-label="Choisir le mode" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <nav id="modeList" aria-label="Choisir le mode" style="--cols:2" class="cards overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
   </div>
 
   <div id="enligne" hidden>
@@ -29,7 +30,7 @@
     <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Un seul code pour tout le monde : tu vois qui est là, le chef choisit le jeu, on enchaîne sans se ré-inviter.</p>
 
     <h2 class="mt-9 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ou un seul jeu</h2>
-    <nav id="gameList" aria-label="Tous les jeux" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <nav id="gameList" aria-label="Tous les jeux" class="cards overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
     <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Crée une partie, puis envoie le code à 4 chiffres ou le lien à tes amis. Ton pseudo est gardé d'un jeu à l'autre.</p>
   </div>
 
@@ -38,9 +39,9 @@
       <i data-icon="chevron-left" class="size-5"></i>Retour
     </a>
     <h2 class="mt-4 mb-2 flex items-center gap-1.5 px-4 text-[13px] text-slate-400 uppercase"><i data-icon="tv" class="size-4"></i>Mode télé</h2>
-    <nav id="tvList" aria-label="Mode télé" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <nav id="tvList" aria-label="Mode télé" style="--cols:2" class="cards overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
     <h3 class="mt-5 mb-2 px-4 text-[13px] text-slate-400 uppercase">Jeux pour la télé</h3>
-    <nav id="tvGames" aria-label="Jeux du mode télé" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <nav id="tvGames" aria-label="Jeux du mode télé" class="cards overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
     <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Le jeu s'affiche sur la télé, ton téléphone sert de manette. La télé montre qui est connecté, le premier arrivé choisit le jeu, tout le monde suit.</p>
   </div>
 </main>

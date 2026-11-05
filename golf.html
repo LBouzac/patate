@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Golf</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -77,9 +78,10 @@
   <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
 
   <footer class="flex flex-wrap items-center gap-1 text-xs text-slate-400">
-    Clique n'importe où, tire en arrière puis relâche pour frapper (plus tu tires, plus c'est fort).
+    <span data-kbd>Clique n'importe où, tire en arrière puis relâche pour frapper (plus tu tires, plus c'est fort).</span>
+    <span data-touch>Pose le doigt n'importe où, tire en arrière puis relâche pour frapper (plus tu tires, plus c'est fort).</span>
     Le sable freine, l'eau coûte un coup.
-    <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son
+    <span data-kbd><kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son</span>
   </footer>
 </main>
 

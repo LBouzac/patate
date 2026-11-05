@@ -61,7 +61,7 @@ La télé reçoit l'état public du jeu, chaque téléphone seulement ce qu'il d
 
 Duel de raquettes à 2 joueurs, premier à **7 points**. On crée un duel et on partage le code, comme pour Patate, ou on joue contre un **bot** (touche **B**). Si un ami rejoint ensuite, il prend la place du bot.
 
-- **Commandes** : ↑ ↓ ou Z / S, **B** / **N** pour ajouter ou retirer le bot, **M** pour couper le son.
+- **Commandes** : ↑ ↓ ou Z / S, **B** / **N** pour ajouter ou retirer le bot, **M** pour couper le son. Au doigt (ou souris maintenue) : garde le doigt sur le terrain, ta raquette le suit.
 - La balle **accélère à chaque renvoi**, jusqu'à 950 px/s. Elle reste toujours renvoyée correctement, même à pleine vitesse, sans traverser la raquette.
 - L'**angle** de renvoi dépend de l'endroit où la balle touche la raquette : tout droit au centre, jusqu'à 60° aux extrémités.
 - Après chaque point, le service part vers celui qui vient de le perdre. Une revanche démarre automatiquement en fin de partie.
@@ -146,7 +146,7 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 | Touche | Action |
 |---|---|
-| Flèches, ZQSD (AZERTY) ou WASD (QWERTY) | se déplacer |
+| Flèches, ZQSD (AZERTY) ou WASD (QWERTY) | se déplacer (au doigt : pose le pouce sur le terrain et glisse) |
 | 1 2 3 4 | emotes 😂 😡 👋 💀 au-dessus de ton perso |
 | Tab (maintenu) | classement |
 | B / N | ajouter / retirer un bot (les bots partent quand il ne reste plus aucun humain) |
@@ -172,6 +172,19 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron, Pétanque jaune, Billard bleu ciel, Artillerie rouge, Motos violet) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
 
+**Sur ordinateur**, le menu et le salon passent en grille de cartes. Le salon s'affiche sur deux colonnes : à gauche l'invitation (gros code et QR code du lien, à scanner avec un téléphone) et la liste des présents avec leur initiale, à droite les jeux. Chaque jeu indique s'il faut plusieurs parties pour tout le groupe (« 3 parties, 2 places chacune ») ou s'il manque du monde. En partie, le terrain s'agrandit pour remplir l'écran (jusqu'à 1600 px de large).
+
+**Sur téléphone**, chaque jeu se joue au doigt :
+- le terrain prend toute la place disponible, et un message propose de tourner le téléphone quand le terrain est large ;
+- téléphone couché (ou fenêtre basse), le terrain occupe toute la hauteur à gauche et le reste (scores, boutons) passe dans une colonne à droite ;
+- un bouton **plein écran** apparaît quand le navigateur le permet (Android, iPad) et bascule le téléphone en paysage ;
+- les aides clavier sont remplacées par les gestes : joystick sous le pouce et boutons d'emotes et de classement dans Patate, raquette qui suit le doigt dans Ricochet, boutons ↺ ↻ dans Motos. Les autres jeux se jouaient déjà au doigt (tirer en arrière puis relâcher).
+
+**Trois styles au choix**, avec le bouton **Style** en haut à droite du menu et de chaque accueil. Le choix est gardé d'une page à l'autre, mode télé compris :
+- **Classique** : le style ci-dessus, sombre et sobre.
+- **Y2K** : fond bleu électrique quadrillé, titres chromés en italique, panneaux à cadre métallique, boutons « gel » brillants et icônes en orbes.
+- **Liquid Glass** : verre flou et translucide sur un fond coloré, boutons en capsule, barre des jeux qui flotte en bas. Avec le réglage système « Réduire la transparence », le verre devient presque opaque.
+
 L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 
 Si tu modifies des classes dans une page, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
@@ -179,6 +192,8 @@ Si tu modifies des classes dans une page, régénère le CSS avec le [binaire au
 ```sh
 tailwindcss -i app.css -o style.css --minify
 ```
+
+Quelques mises en page sont écrites en CSS classique à la fin d'`app.css` (grille de cartes sur grand écran, salon sur deux colonnes, terrain couché, joystick, styles Y2K et Liquid Glass) : Tailwind les recopie telles quelles dans `style.css`.
 
 ## Lancer en local
 

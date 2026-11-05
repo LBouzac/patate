@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Ricochet</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -50,7 +51,7 @@
 
 <!-- Duel -->
 <main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
-  <header class="flex items-center justify-between gap-2">
+  <header class="flex flex-wrap items-center justify-between gap-2">
     <button id="copy" title="Copier le lien d'invitation"
       class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
       <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
@@ -85,8 +86,8 @@
   </div>
 
   <div class="relative">
-    <canvas id="c" width="800" height="500" aria-label="Terrain de Ricochet"
-      class="block w-full rounded-xl bg-[#0a1020] ring-1 ring-white/10"></canvas>
+    <canvas id="c" width="800" height="500" aria-label="Terrain de Ricochet : flèches ou Z S pour bouger, ou garde le doigt sur le terrain"
+      class="block w-full touch-none rounded-xl bg-[#0a1020] ring-1 ring-white/10"></canvas>
     <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center"></div>
   </div>
 
@@ -99,7 +100,8 @@
         <i data-icon="user-minus" class="size-4"></i> Retirer
       </button>
     </div>
-    <div class="flex flex-wrap items-center gap-1 text-xs">
+    <span data-touch class="text-xs">Pose le doigt sur le terrain : ta raquette le suit.</span>
+    <div data-kbd class="flex flex-wrap items-center gap-1 text-xs">
       <kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">↑↓</kbd> ou
       <kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">Z</kbd><kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">S</kbd> bouger
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">B</kbd><kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">N</kbd> bot
@@ -132,9 +134,10 @@ $('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
 // e.code = touche physique : W/S en QWERTY = Z/S en AZERTY
 const map = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd' };
 const keys = { u: false, d: false };
-function setKey(k, v) {
-  if (keys[k] === v) return;
-  keys[k] = v;
+function setKey(k, v) { setKeys({ ...keys, [k]: v }); }
+function setKeys(next) {
+  if (keys.u === next.u && keys.d === next.d) return;
+  Object.assign(keys, next);
   send(keys);
 }
 addEventListener('keydown', e => {
@@ -147,6 +150,20 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (map[e.code]) setKey(map[e.code], false); });
 addEventListener('blur', () => Object.keys(keys).forEach(k => setKey(k, false)));
 document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+
+// ---------- Au doigt (ou souris maintenue) : la raquette monte ou descend vers le doigt ----------
+let finger = null; // hauteur visée, en coordonnées du terrain
+const fingerY = e => { const r = cv.getBoundingClientRect(); return (e.clientY - r.top) * H / r.height; };
+cv.onpointerdown = e => { finger = fingerY(e); cv.setPointerCapture(e.pointerId); };
+cv.onpointermove = e => { if (finger !== null) finger = fingerY(e); };
+cv.onpointerup = cv.onpointercancel = () => { finger = null; setKeys({ u: false, d: false }); };
+(function follow() {
+  requestAnimationFrame(follow);
+  const p = finger !== null && st?.pads.find(p => p && p.id === me);
+  if (!p) return;
+  const dy = finger - p.y; // marge de 10 px : la raquette s'arrête sous le doigt au lieu de trembler
+  setKeys({ u: dy < -10, d: dy > 10 });
+})();
 
 // ---------- Interface HTML ----------
 const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };

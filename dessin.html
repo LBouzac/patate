@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Dessine</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -50,7 +51,7 @@
 
 <!-- Partie -->
 <main id="game" hidden class="mx-auto flex min-h-full max-w-5xl flex-col justify-center gap-3 p-4">
-  <header class="flex items-center justify-between gap-2">
+  <header class="flex flex-wrap items-center justify-between gap-2">
     <button id="copy" title="Copier le lien d'invitation"
       class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
       <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>

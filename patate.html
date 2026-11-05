@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Patate</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -92,8 +93,8 @@
   <div id="status" aria-live="polite" class="flex min-h-9 items-center justify-center"></div>
 
   <div class="relative">
-    <canvas id="c" width="800" height="600" aria-label="Arène de jeu Patate"
-      class="block w-full rounded-xl bg-[#14231a] ring-1 ring-white/10"></canvas>
+    <canvas id="c" width="800" height="600" aria-label="Arène de jeu Patate : flèches ou ZQSD pour bouger, ou le pouce sur le terrain"
+      class="block w-full touch-none rounded-xl bg-[#14231a] ring-1 ring-white/10"></canvas>
     <ol id="feed" aria-live="polite" class="pointer-events-none absolute top-2 left-2 flex max-w-[60%] flex-col gap-1"></ol>
     <div id="board" hidden class="absolute inset-0 grid place-items-center overflow-y-auto rounded-xl bg-slate-950/60 p-2 backdrop-blur-sm">
       <div class="w-96 max-w-full rounded-2xl bg-slate-900/95 p-5 shadow-2xl ring-1 ring-white/10">
@@ -123,12 +124,25 @@
       <span class="inline-flex items-center gap-1"><i data-icon="shield-check" class="size-4 text-cyan-300"></i>Bouclier</span>
       <span class="inline-flex items-center gap-1"><i data-icon="pause-circle" class="size-4 text-sky-300"></i>Gèle les autres</span>
     </div>
-    <div class="flex flex-wrap items-center gap-1 text-xs">
+    <div data-kbd class="flex flex-wrap items-center gap-1 text-xs">
       <kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">ZQSD</kbd> bouger
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">1-4</kbd> 😂😡👋💀
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">Tab</kbd> scores
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">B</kbd><kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">N</kbd> bots
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son
+    </div>
+    <!-- au doigt : le pouce sur le terrain sert de joystick ; emotes et classement en boutons -->
+    <div data-touch class="flex w-full flex-wrap items-center justify-between gap-2">
+      <span class="text-xs">Pose le pouce sur le terrain et glisse pour bouger.</span>
+      <span class="flex items-center gap-1.5">
+        <button data-emote="1" aria-label="Emote rire" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">😂</button>
+        <button data-emote="2" aria-label="Emote colère" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">😡</button>
+        <button data-emote="3" aria-label="Emote salut" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">👋</button>
+        <button data-emote="4" aria-label="Emote mort" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">💀</button>
+        <button id="scoresBtn" aria-label="Classement" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95">
+          <i data-icon="chart-bar-square" class="size-5"></i>
+        </button>
+      </span>
     </div>
   </footer>
 </main>
@@ -240,9 +254,10 @@ function feed(iconName, cls, text) {
 // e.code = touche physique : WASD en QWERTY = ZQSD en AZERTY
 const map = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
 const keys = { u: false, d: false, l: false, r: false };
-function setKey(k, v) {
-  if (keys[k] === v) return;
-  keys[k] = v;
+function setKey(k, v) { setKeys({ ...keys, [k]: v }); }
+function setKeys(next) { // un seul envoi même si plusieurs directions changent (joystick en diagonale)
+  if (Object.keys(keys).every(k => keys[k] === next[k])) return;
+  Object.assign(keys, next);
   send(keys);
 }
 addEventListener('keydown', e => {
@@ -261,6 +276,38 @@ addEventListener('keyup', e => {
 });
 addEventListener('blur', () => { showScores = false; Object.keys(keys).forEach(k => setKey(k, false)); });
 document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+
+// ---------- Au doigt : un joystick apparaît là où le pouce se pose sur le terrain ----------
+const STICK_R = 50; // px à l'écran : au-delà, le joystick suit le pouce
+let stick = null;
+const stickEl = Object.assign(document.createElement('div'), { className: 'stick', hidden: true });
+stickEl.append(document.createElement('span'));
+cv.parentElement.append(stickEl);
+function stickAt(e) {
+  const r = cv.parentElement.getBoundingClientRect();
+  let dx = e.clientX - stick.x, dy = e.clientY - stick.y, k = Math.hypot(dx, dy);
+  if (k > STICK_R) { stick.x += dx * (1 - STICK_R / k); stick.y += dy * (1 - STICK_R / k); dx *= STICK_R / k; dy *= STICK_R / k; k = STICK_R; }
+  stickEl.style.left = stick.x - r.left + 'px'; stickEl.style.top = stick.y - r.top + 'px';
+  stickEl.firstChild.style.transform = `translate(${dx}px, ${dy}px)`;
+  // 8 directions : une composante compte au-delà de 22,5° de l'axe
+  const on = k > 12, ux = dx / (k || 1), uy = dy / (k || 1);
+  setKeys({ u: on && uy < -0.38, d: on && uy > 0.38, l: on && ux < -0.38, r: on && ux > 0.38 });
+}
+cv.onpointerdown = e => {
+  if (e.pointerType === 'mouse' || stick) return;
+  stick = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  cv.setPointerCapture(e.pointerId);
+  stickEl.hidden = false;
+  stickAt(e);
+};
+cv.onpointermove = e => { if (stick && e.pointerId === stick.id) stickAt(e); };
+cv.onpointerup = cv.onpointercancel = e => {
+  if (!stick || e.pointerId !== stick.id) return;
+  stick = null; stickEl.hidden = true;
+  setKeys({ u: false, d: false, l: false, r: false });
+};
+document.querySelectorAll('[data-emote]').forEach(b => b.onclick = () => send({ emote: +b.dataset.emote }));
+$('scoresBtn').onclick = () => { showScores = !showScores; hud(); };
 
 // ---------- Interface HTML (mise à jour à chaque état reçu) ----------
 const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };

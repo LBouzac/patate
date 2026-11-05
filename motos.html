@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Motos</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -73,7 +74,7 @@
   </div>
 
   <!-- au doigt : deux gros boutons -->
-  <div class="grid grid-cols-2 gap-3 sm:hidden">
+  <div data-touch class="grid grid-cols-2 gap-3">
     <button data-turn="-1" class="grid h-16 place-items-center rounded-[14px] bg-white/10 text-2xl font-bold active:bg-white/20" aria-label="Tourner à gauche">↺</button>
     <button data-turn="1" class="grid h-16 place-items-center rounded-[14px] bg-white/10 text-2xl font-bold active:bg-white/20" aria-label="Tourner à droite">↻</button>
   </div>
@@ -87,7 +88,8 @@
         <i data-icon="user-minus" class="size-4"></i> Retirer un bot
       </button>
     </div>
-    <span class="text-xs">Flèches ou ZQSD (WASD) pour tourner. Au doigt : boutons ↺ ↻. Premier à 5 manches.</span>
+    <span data-kbd class="text-xs">Flèches ou ZQSD (WASD) pour tourner. Premier à 5 manches.</span>
+    <span data-touch class="text-xs">Boutons ↺ ↻, ou touche la moitié gauche ou droite de la piste. Premier à 5 manches.</span>
   </footer>
 </main>
 

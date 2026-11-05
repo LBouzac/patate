@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
 <title>Salon</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -46,7 +47,7 @@
   </form>
 </main>
 
-<main id="game" hidden class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+<main id="game" hidden class="salon mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
   <header class="flex flex-wrap items-center justify-between gap-2">
     <button id="copy" title="Copier le lien d'invitation"
       class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
@@ -55,16 +56,31 @@
     </button>
   </header>
 
-  <h2 class="mt-6 mb-2 px-4 text-[13px] text-slate-400 uppercase">Dans le salon</h2>
-  <ul id="members" aria-live="polite" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></ul>
-  <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Invite les autres avec le code ou le lien, en haut.</p>
+  <section>
+    <h2 class="mt-6 mb-2 px-4 text-[13px] text-slate-400 uppercase">Inviter</h2>
+    <div class="flex items-center gap-4 rounded-xl bg-slate-900 p-4 ring-1 ring-white/5">
+      <div id="qr" class="qr" role="img" aria-label="QR code du lien d'invitation"></div>
+      <div class="min-w-0">
+        <div class="text-[13px] text-slate-400">Code du salon</div>
+        <div id="bigPin" class="font-mono text-4xl font-black tracking-widest text-amber-300"></div>
+        <p class="mt-1 text-[13px] leading-snug text-slate-400">Scanne le QR code avec ton téléphone, ou tape ce code sur la page Salon.</p>
+      </div>
+    </div>
 
-  <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Le jeu</h2>
-  <p id="who" class="mb-2 flex items-center gap-1.5 px-4 text-[15px] text-slate-300"></p>
-  <nav id="pick" aria-label="Choisir le jeu" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <h2 class="mt-7 mb-2 flex items-center justify-between px-4 text-[13px] text-slate-400 uppercase">Dans le salon <span id="count" class="tabular-nums"></span></h2>
+    <ul id="members" aria-live="polite" class="overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></ul>
+  </section>
+
+  <section>
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Le jeu</h2>
+    <p id="who" class="mb-2 flex items-center gap-1.5 px-4 text-[15px] text-slate-300"></p>
+    <nav id="pick" aria-label="Choisir le jeu" class="cards overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/5"></nav>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Jeu à moins de places que le groupe : les suivants partent ensemble dans une deuxième partie.</p>
+  </section>
 </main>
 
 <script src="/common.js"></script>
+<script src="/qr.js"></script>
 <script>
 let st = null;
 function start(pin) {
@@ -78,20 +94,31 @@ const rows = GAMES.map(g => {
   const b = document.createElement('button');
   b.className = 'group flex w-full items-center gap-3 pl-4 text-left transition-colors hover:bg-white/5 active:bg-white/10 disabled:opacity-40';
   b.append(...menuRow(g.href, g).childNodes); // même ligne que le menu du site, dans un bouton
+  const fit = document.createElement('span'); // trop ou pas assez de monde pour ce jeu
+  fit.className = 'mt-1 block text-[13px] font-semibold text-amber-300';
+  b.children[1].firstChild.append(fit); // sous le nom et la description
   b.onclick = () => send({ pick: g.href });
   $('pick').append(b);
-  return b;
+  return { b, g, fit };
 });
+const AVATAR = ['bg-orange-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-pink-500', 'bg-violet-500', 'bg-yellow-500', 'bg-sky-500', 'bg-red-500', 'bg-lime-500'];
+let qrFor = '';
 
 function draw() {
-  const chef = st.members[0]?.id, mine = chef === me; // le premier arrivé encore là est le chef
-  $('pinTxt').textContent = st.pin;
+  const chef = st.members[0]?.id, mine = chef === me, n = st.members.length; // le premier arrivé encore là est le chef
+  $('pinTxt').textContent = $('bigPin').textContent = st.pin;
+  const url = location.origin + '/salon.html?pin=' + st.pin;
+  if (qrFor !== url) { qrFor = url; $('qr').innerHTML = qrSVG(url); }
+  $('count').textContent = n + (n > 1 ? ' personnes' : ' personne');
   $('members').replaceChildren(...st.members.map(m => {
-    const li = document.createElement('li'), name = document.createElement('span');
-    li.className = 'flex items-center gap-3 border-b border-white/10 px-4 py-3 last:border-0';
+    const li = document.createElement('li'), name = document.createElement('span'), av = document.createElement('span');
+    li.className = 'flex items-center gap-3 border-b border-white/10 px-4 py-2.5 last:border-0';
+    av.className = 'avatar ' + AVATAR[m.id % AVATAR.length];
+    av.textContent = [...m.name][0]?.toUpperCase() || '?';
+    av.setAttribute('aria-hidden', 'true');
     name.className = 'min-w-0 flex-1 truncate text-[17px]' + (m.id === me ? ' text-amber-300' : '');
     name.textContent = m.name + (m.id === me ? ' (toi)' : '');
-    li.append(icon('user', 'size-5 text-slate-500'), name);
+    li.append(av, name);
     if (m.id === chef) {
       const c = icon('crown', 'size-5 text-amber-300');
       c.setAttribute('aria-label', 'Chef'); c.removeAttribute('aria-hidden');
@@ -101,7 +128,12 @@ function draw() {
   }));
   $('who').replaceChildren(icon('crown', 'size-4 text-amber-300'),
     mine ? 'Tu es le chef : choisis le jeu, tout le monde y part.' : (st.members[0]?.name || '?') + ' choisit le jeu…');
-  for (const b of rows) b.disabled = !mine;
+  for (const { b, g, fit } of rows) {
+    b.disabled = !mine;
+    fit.textContent = n < g.min ? 'Il faut au moins ' + g.min + ' joueurs'
+      : n > g.max ? Math.ceil(n / g.max) + ' parties, ' + g.max + ' places chacune' : '';
+    fit.hidden = !fit.textContent;
+  }
 }
 </script>
 </body>

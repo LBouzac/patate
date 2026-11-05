@@ -14,3 +14,116 @@
 @source "./tele.html";
 @source "./manette.html";
 @source "./common.js";
+@source "./salon.html";
+
+/* ---------- Mises en page écrites à la main ----------
+   Ces règles ne sont pas des classes Tailwind : Tailwind les recopie telles quelles à la fin de style.css.
+   Hors couche (@layer), elles passent devant les classes utilitaires qu'elles remplacent. */
+
+/* .cards : liste groupée sur téléphone, grille de cartes sur grand écran (menu, salon) */
+@media (min-width: 64rem) {
+  .cards { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: .75rem; overflow: visible; background: none; box-shadow: none; border-radius: 0; }
+  .cards > * { flex-direction: column; align-items: flex-start; gap: .75rem; padding: 1rem; border-radius: var(--radius-xl); background: var(--color-slate-900); box-shadow: 0 0 0 1px #ffffff12; transition: background-color .15s, box-shadow .15s, transform .15s; }
+  .cards > :not(:disabled):hover { background: var(--color-slate-800); box-shadow: 0 0 0 1px #ffffff26; transform: translateY(-2px); }
+  .cards > * > :first-child { width: 2.75rem; height: 2.75rem; border-radius: 10px; }
+  .cards > * > :first-child > svg { width: 1.75rem; height: 1.75rem; }
+  .cards > * > :last-child { width: 100%; flex: 1; align-items: flex-start; padding: 0; border: 0; }
+  .cards > * > :last-child > svg:last-child { display: none; }
+  .wide { max-width: 64rem; }
+  .salon { display: grid; grid-template-columns: 20rem minmax(0, 1fr); gap: 0 2rem; align-items: start; max-width: 72rem; }
+  .salon > header { grid-column: 1 / -1; }
+}
+
+/* Membres du salon et pastilles de jeu */
+.avatar { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex-shrink: 0; border-radius: 9999px; font-weight: 800; color: #fff; }
+.qr { width: 7rem; height: 7rem; flex-shrink: 0; overflow: hidden; border-radius: .5rem; background: #fff; padding: .25rem; }
+.qr > svg { width: 100%; height: 100%; display: block; }
+@media (min-width: 64rem) { .qr { width: 9rem; height: 9rem; } }
+
+/* Partie : le terrain (.stage) prend la place que laisse l'écran (common.js règle sa largeur).
+   Écran bas et large (téléphone couché) : le terrain à gauche sur toute la hauteur, le reste dans une colonne à droite. */
+#game.side { flex-direction: row; align-items: center; justify-content: center; max-width: none; height: 100dvh; min-height: 0; gap: .75rem;
+  padding: .5rem max(.5rem, env(safe-area-inset-right)) .5rem max(.5rem, env(safe-area-inset-left)); overflow: hidden; }
+#game.side > .stage { flex-shrink: 0; }
+#game .side-col { display: flex; flex: 1; flex-direction: column; justify-content: safe center; gap: .5rem; min-width: 15rem; max-width: 24rem; max-height: 100%; padding-bottom: 3.5rem; overflow: hidden auto; scrollbar-width: none; } /* en bas : la place du bouton de chat */
+#game .side-col .text-4xl { font-size: 1.75rem; }
+#game .side-col :is(header, footer), #game .side-col :is(header, footer) > * { flex-wrap: wrap; justify-content: center; }
+#game .side-col button { white-space: nowrap; }
+/* le joystick de Patate, posé là où le pouce touche */
+.stick { position: absolute; width: 7rem; height: 7rem; margin: -3.5rem 0 0 -3.5rem; border-radius: 9999px; background: #ffffff14; box-shadow: 0 0 0 2px #ffffff33; pointer-events: none; }
+.stick > span { position: absolute; left: 50%; top: 50%; width: 3rem; height: 3rem; margin: -1.5rem 0 0 -1.5rem; border-radius: 9999px; background: #ffffff59; }
+
+/* ---------- Choix du style (bouton « Style » en haut à droite des accueils) ----------
+   html[data-theme=y2k] : Y2K (chrome, boutons gel, orbes, grille néon)
+   html[data-theme=glass] : Liquid Glass (verre flou et translucide sur un fond coloré)
+   Sans data-theme : le style classique. Les thèmes habillent les classes communes à toutes les pages. */
+.theme-pick { position: fixed; top: max(.75rem, env(safe-area-inset-top)); right: .75rem; z-index: 30; }
+.theme-pick > button { display: inline-flex; align-items: center; gap: .375rem; border-radius: 9999px; padding: .375rem .75rem; font-size: .875rem; font-weight: 600; color: var(--color-slate-200); background: #ffffff1a; transition: background-color .15s; }
+.theme-pick > button:hover { background: #ffffff26; }
+.theme-pick > div { position: absolute; right: 0; top: calc(100% + .5rem); width: 13rem; padding: .375rem; border-radius: 14px; background: #1d293dee; box-shadow: 0 20px 40px #0008, 0 0 0 1px #ffffff1a; }
+.theme-pick > div > button { display: flex; width: 100%; align-items: center; gap: .625rem; padding: .5rem .625rem; border-radius: 10px; text-align: left; font-size: .9375rem; color: var(--color-slate-100); }
+.theme-pick > div > button:hover { background: #ffffff14; }
+.theme-pick .swatch { width: 1.5rem; height: 1.5rem; flex-shrink: 0; border-radius: 9999px; box-shadow: inset 0 0 0 1px #ffffff40; }
+
+/* ===== Y2K ===== */
+html[data-theme=y2k] { background: #040a24 radial-gradient(120% 60% at 50% 0%, #1b3fa8 0%, #071338 55%, #040a24 100%) fixed; }
+[data-theme=y2k] body { background: linear-gradient(#2f7df614 1px, transparent 1px) 0 0 / 44px 44px fixed, linear-gradient(90deg, #2f7df614 1px, transparent 1px) 0 0 / 44px 44px fixed; }
+[data-theme=y2k] :is(h1, h2, h3, button, .font-mono) { font-family: "Eurostile", "Microgramma", "Michroma", "Orbitron", "Bank Gothic", "Arial Black", system-ui, sans-serif; }
+[data-theme=y2k] :is(h1, h2, h3) { font-style: italic; letter-spacing: .06em; }
+[data-theme=y2k] h1 { background: linear-gradient(180deg, #fdfdfd 0%, #c9cdd4 45%, #8f96a3 50%, #e8ebf0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 #0b1433) drop-shadow(0 0 12px #2f7df680); }
+[data-theme=y2k] h2 { color: #9ec5ff; }
+/* panneaux : métal bleu nuit, cadre chromé */
+[data-theme=y2k] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .theme-pick > div) {
+  background: linear-gradient(180deg, #1c2f6b 0%, #0d1a45 50%, #0a1336 100%);
+  box-shadow: inset 0 1px 0 #ffffffa0, inset 0 -1px 0 #00000080, 0 0 0 1px #8f96a3, 0 0 0 2px #050b26, 0 0 18px #2f7df640; }
+/* pastilles et petits boutons : gel bleu */
+[data-theme=y2k] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button) {
+  background: radial-gradient(120% 100% at 50% 0%, #ffffff8c 0%, #ffffff00 45%), linear-gradient(180deg, #3b86ff, #1d4fb8);
+  box-shadow: inset 0 -2px 4px #0a1f6080, 0 0 0 1px #0b1f5c, 0 2px 8px #2f7df640; }
+[data-theme=y2k] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button):hover { filter: brightness(1.15) saturate(1.1); }
+/* gros boutons de couleur : gel, avec leur couleur */
+[data-theme=y2k] :is(button, a, label):is(.bg-orange-400, .bg-cyan-400, .bg-emerald-400, .bg-pink-400, .bg-lime-400, .bg-yellow-400, .bg-sky-400, .bg-red-400, .bg-violet-400, .bg-amber-400, .bg-rose-400, .bg-indigo-400, .bg-teal-400) {
+  background-image: radial-gradient(120% 100% at 50% 0%, #ffffffe6 0%, #ffffff00 45%); border-radius: 9999px;
+  box-shadow: inset 0 -3px 6px #0000004d, 0 0 0 1px #00000040, 0 4px 18px #2f7df659; }
+/* icônes des jeux : orbes brillantes */
+[data-theme=y2k] :is(.size-\[30px\], .rounded-\[10px\]) { border-radius: 9999px; background-image: radial-gradient(90% 70% at 50% 15%, #ffffffd0 0%, #ffffff00 55%), radial-gradient(circle at 50% 120%, #00000055, transparent 60%); box-shadow: 0 0 0 1px #ffffff60, 0 0 12px #2f7df660; }
+[data-theme=y2k] .bg-slate-950\/85 { background: linear-gradient(180deg, #c9cdd4 0, #8f96a3 2px, #0d1a45 3px, #050b26 100%); border-color: transparent; }
+[data-theme=y2k] canvas#c { box-shadow: 0 0 0 2px #c9cdd4, 0 0 0 4px #050b26, 0 0 28px #2f7df650; }
+[data-theme=y2k] .text-slate-400 { color: #a7bde8; }
+[data-theme=y2k] .border-white\/10 { border-color: #7fa6ff33; }
+
+/* ===== Liquid Glass ===== */
+html[data-theme=glass] { background: #0a0f1f fixed;
+  background-image: radial-gradient(40% 35% at 12% 18%, #ff5fb4a6, transparent), radial-gradient(45% 40% at 88% 12%, #4f7bffb0, transparent),
+    radial-gradient(45% 40% at 75% 88%, #1fd1b5a0, transparent), radial-gradient(40% 35% at 18% 92%, #ffae42a0, transparent); background-attachment: fixed; }
+[data-theme=glass] body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif; }
+[data-theme=glass] h1 { letter-spacing: -.02em; }
+[data-theme=glass] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .bg-white\/10, .bg-white\/15, .theme-pick > button, .theme-pick > div) {
+  background: linear-gradient(#ffffff14, #ffffff14), #0a0f1f59; -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 8px 24px #0000002e; }
+/* textes secondaires plus clairs : ils doivent rester lisibles quel que soit le fond sous le verre */
+[data-theme=glass] .text-slate-400 { color: #d3d9e6; }
+[data-theme=glass] .text-slate-500 { color: #aeb6c8; }
+[data-theme=glass] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button):hover { background: #ffffff26; }
+[data-theme=glass] .theme-pick > div { background: #1a2035b3; -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); }
+[data-theme=glass] :is(button, a, label):is(.bg-orange-400, .bg-cyan-400, .bg-emerald-400, .bg-pink-400, .bg-lime-400, .bg-yellow-400, .bg-sky-400, .bg-red-400, .bg-violet-400, .bg-amber-400, .bg-rose-400, .bg-indigo-400, .bg-teal-400) {
+  border-radius: 9999px; box-shadow: inset 0 1px 1px #ffffffa6, inset 0 -1px 2px #00000026, 0 6px 20px #0000003d; }
+[data-theme=glass] :is(.size-\[30px\], .rounded-\[10px\]) { box-shadow: inset 0 1px 1px #ffffff80, inset 0 -1px 1px #00000026; }
+/* barre des jeux : une capsule de verre qui flotte en bas */
+[data-theme=glass] .bg-slate-950\/85 { left: .75rem; right: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); padding-bottom: 0; border: 0; border-radius: 9999px;
+  background: #ffffff14; -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 10px 30px #0000004d; }
+[data-theme=glass] .bg-slate-950\/85 > div { border-radius: 9999px; }
+[data-theme=glass] canvas#c { box-shadow: 0 0 0 1px #ffffff40, 0 12px 40px #00000059; }
+[data-theme=glass] .border-white\/10 { border-color: #ffffff1f; }
+/* Réduire la transparence : du verre presque opaque, sans flou */
+@media (prefers-reduced-transparency: reduce) {
+  [data-theme=glass] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .bg-white\/10, .bg-white\/15, .bg-slate-950\/85, .theme-pick > button, .theme-pick > div) { background: #1c2236f2; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* sur grand écran, la grille de cartes reste transparente : ce sont les cartes qui prennent le style */
+@media (min-width: 64rem) {
+  html[data-theme] .cards { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  [data-theme=y2k] .cards > * { background: linear-gradient(180deg, #1c2f6b 0%, #0d1a45 50%, #0a1336 100%); box-shadow: inset 0 1px 0 #ffffffa0, 0 0 0 1px #8f96a3, 0 0 0 2px #050b26, 0 0 18px #2f7df640; }
+  [data-theme=glass] .cards > * { background: linear-gradient(#ffffff14, #ffffff14), #0a0f1f59; -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 8px 24px #0000002e; }
+  [data-theme] .cards > :not(:disabled):hover { filter: brightness(1.15); }
+}
