@@ -1,6 +1,7 @@
 // Lombrics : de 2 à 4 équipes de 3 vers (joueurs ou bots) sur une île qu'on creuse à coups d'explosions.
-// Chacun son tour, un ver de l'équipe se déplace, saute, choisit son arme (bazooka, grenade, fusil) et tire.
-// L'eau noie, les chutes font mal. La dernière équipe avec un ver vivant gagne.
+// Chacun son tour, un ver de l'équipe se déplace, saute ou vole en hélicoptère, choisit une arme et tire, puis
+// a quelques secondes pour se mettre à l'abri. L'eau noie (et monte en mort subite), les chutes font mal,
+// des caisses de soin tombent du ciel. La dernière équipe avec un ver vivant gagne.
 package main
 
 import (
@@ -16,31 +17,64 @@ import (
 )
 
 const (
-	LCell     = 5.0 // le terrain est une grille de cases de 5 px, qu'on creuse
-	LGW, LGH  = int(AW / LCell), int(AH / LCell)
-	WaterY    = AH - 22 // sous cette ligne, on se noie
-	WormR     = 6.0
-	WormsPer  = 3
-	WormSpeed = 45.0 // px/s en marchant
-	WormClimb = 6.0  // marche qu'un ver peut monter à chaque pixel
-	JumpVX    = 110.0
-	JumpVY    = 230.0
-	FallSafe  = 330.0 // vitesse d'atterrissage sans dégâts
-	LTurn     = 30.0
-	LMax      = 4
-	LSub      = 4
-	LBotWait  = 1.5
-	LRooms    = 1000
+	LCell        = 5.0 // le terrain est une grille de cases de 5 px, qu'on creuse
+	LGW, LGH     = int(AW / LCell), int(AH / LCell)
+	WaterY       = AH - 22 // sous cette ligne, on se noie (elle monte en mort subite)
+	WormR        = 6.0
+	WormsPer     = 3
+	WormSpeed    = 45.0 // px/s en marchant
+	WormClimb    = 6.0  // marche qu'un ver peut monter à chaque pixel
+	JumpVX       = 110.0
+	JumpVY       = 230.0
+	FallSafe     = 330.0 // vitesse d'atterrissage sans dégâts
+	LTurn        = 30.0
+	LRetreat     = 3.0 // secondes pour se mettre à l'abri après avoir tiré
+	HeliTime     = 5.0
+	HeliSpeed    = 130.0
+	HealHP       = 25
+	SuddenRounds = 8    // tours chacun avant la mort subite
+	FloodStep    = 12.0 // montée de l'eau à chaque tour en mort subite
+	LMax         = 4
+	LSub         = 4
+	LBotWait     = 1.5
+	LRooms       = 1000
 )
 
-// Armes : rayon du cratère, dégâts au centre, vitesse à pleine puissance.
+// Les armes qu'on choisit (de Bazooka à Heli), puis ce qu'elles lancent.
 const (
-	Bazooka = iota // explose au contact, poussé par le vent
-	Grenade        // rebondit et explose au bout de 3 s
-	Shotgun        // tir instantané en ligne droite
+	Bazooka   = iota // explose au contact, poussé par le vent
+	Grenade          // rebondit, explose au bout de 3 s
+	Shotgun          // 2 tirs droits et instantanés
+	Uzi              // mitrailleuse : rafale de balles
+	Flamer           // lance-flammes
+	Bat              // batte de baseball : envoie valser le ver d'en face
+	Dynamite         // posée aux pieds, explose au bout de 5 s
+	AirStrike        // 5 missiles tombent du ciel sur la cible
+	Heli             // hélicoptère : 5 s de vol, ne termine pas le tour
+	Missile
+	Flame
+	Bullet
 )
 
-var weapons = [...]struct{ crater, dmg, speed float64 }{{36, 50, 650}, {40, 55, 520}, {12, 25, 0}}
+// crater : rayon du trou, blast : rayon des dégâts, dmg : dégâts au centre (ou d'un coup direct), speed : vitesse
+// à pleine puissance, shots : tirs par tour, ammo : munitions par partie (-1 : illimité).
+var weapons = [...]struct {
+	crater, blast, dmg, speed float64
+	shots, ammo               int
+}{
+	Bazooka:   {36, 54, 50, 650, 1, -1},
+	Grenade:   {40, 58, 55, 520, 1, -1},
+	Shotgun:   {12, 30, 25, 0, 2, -1},
+	Uzi:       {0, 0, 0, 0, 1, -1},
+	Flamer:    {0, 0, 0, 330, 1, -1},
+	Bat:       {0, 0, 30, 520, 1, -1},
+	Dynamite:  {55, 80, 75, 0, 1, 2},
+	AirStrike: {0, 0, 0, 0, 1, 1},
+	Heli:      {0, 0, 0, 0, 1, 2},
+	Missile:   {24, 40, 30, 0, 0, 0},
+	Flame:     {3, 9, 3, 0, 0, 0},
+	Bullet:    {4, 9, 4, 0, 0, 0},
+}
 
 type Worm struct {
 	ID     int     `json:"id"`
@@ -50,6 +84,7 @@ type Worm struct {
 	Y      float64 `json:"y"`
 	Dir    int     `json:"dir"` // regarde à gauche (-1) ou à droite (1)
 	Alive  bool    `json:"alive"`
+	Heli   float64 `json:"heli,omitempty"` // secondes de vol qui restent
 	vx, vy float64
 	air    bool
 	walk   float64 // pixels de marche en attente
@@ -60,9 +95,11 @@ type Squad struct {
 	Name  string `json:"name"`
 	Color string `json:"color"`
 	Bot   bool   `json:"bot"`
+	Ammo  []int  `json:"ammo"` // munitions par arme (-1 : illimité)
 	send  chan []byte
-	next  int // prochain ver à jouer
-	move  int // flèche tenue : -1, 0 ou 1
+	next  int  // prochain ver à jouer
+	move  int  // flèche tenue : -1, 0 ou 1
+	up    bool // touche de saut tenue : l'hélicoptère monte
 }
 
 type Rocket struct {
@@ -75,28 +112,48 @@ type Rocket struct {
 	age    float64
 }
 
+type Crate struct {
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
+	Fall bool    `json:"fall"` // encore sous son parachute
+}
+
+// burst : une rafale en cours (mitrailleuse ou lance-flammes).
+type burst struct {
+	kind, n int
+	a, t    float64
+}
+
 type WormGame struct {
 	mu     sync.Mutex
-	Pin    string   `json:"pin"`
-	Squads []*Squad `json:"squads"`
-	Worms  []*Worm  `json:"worms"`
-	Land   string   `json:"land,omitempty"` // grille en base64, envoyée quand elle change et chaque seconde
-	Proj   *Rocket  `json:"proj"`
-	Phase  string   `json:"phase"` // wait, play, fly, settle, end
-	Wait   float64  `json:"wait"`
-	Turn   int      `json:"turn"` // ver qui joue
-	Weapon int      `json:"weapon"`
-	Wind   float64  `json:"wind"`
-	Winner string   `json:"winner"`
-	Events []Event  `json:"events"`
+	Pin    string    `json:"pin"`
+	Squads []*Squad  `json:"squads"`
+	Worms  []*Worm   `json:"worms"`
+	Land   string    `json:"land,omitempty"` // grille en base64, envoyée quand elle change et chaque seconde
+	Projs  []*Rocket `json:"projs"`
+	Crates []*Crate  `json:"crates"`
+	Phase  string    `json:"phase"` // wait, play, settle, end
+	Wait   float64   `json:"wait"`
+	Turn   int       `json:"turn"` // ver qui joue
+	Weapon int       `json:"weapon"`
+	Fired  bool      `json:"fired"` // a tiré : temps de repli
+	Wind   float64   `json:"wind"`
+	Water  float64   `json:"water"`
+	Winner string    `json:"winner"`
+	Events []Event   `json:"events"`
+	used   int       // tirs faits ce tour
+	burst  burst
 	land   []bool
 	dirty  bool
 	ticks  int
+	turns  int
 	team   int // équipe qui joue
 	nextID int
 }
 
-func newWormGame(pin string) *WormGame { return &WormGame{Pin: pin, Phase: "wait", Worms: []*Worm{}} }
+func newWormGame(pin string) *WormGame {
+	return &WormGame{Pin: pin, Phase: "wait", Worms: []*Worm{}, Projs: []*Rocket{}, Crates: []*Crate{}, Water: WaterY}
+}
 
 func (g *WormGame) event(e Event) { g.Events = append(g.Events, e) }
 
@@ -126,21 +183,13 @@ func (g *WormGame) solid(x, y float64) bool {
 	return g.land[int(y/LCell)*LGW+int(x/LCell)]
 }
 
-// hits : le corps d'un ver centré en (x, y) touche-t-il la terre ?
+// hits : le corps d'un ver centré en (x, y) (8 points sur son contour) touche-t-il la terre ?
+// Règle tenue à chaque mouvement : aucun point du corps dans la terre. Un ver collé à une paroi droite ne la
+// touche donc pas et tombe ; posé sur une bosse ou un rebord, il tient.
 func (g *WormGame) hits(x, y float64) bool {
 	const d = WormR * 0.7
-	return g.feet(x, y) || g.solid(x-WormR, y) || g.solid(x+WormR, y) || g.solid(x, y-WormR)
-}
-
-// feet : le dessous du ver touche-t-il la terre ? (les côtés ne portent pas : un ver contre une paroi tombe)
-func (g *WormGame) feet(x, y float64) bool {
-	const d = WormR * 0.7
-	return g.solid(x, y+WormR) || g.solid(x-d, y+d) || g.solid(x+d, y+d)
-}
-
-// blocked : le ver qui avance dans la direction dir bute-t-il (sol, mur devant ou plafond) ?
-func (g *WormGame) blocked(x, y, dir float64) bool {
-	return g.feet(x, y) || g.solid(x+dir*WormR, y) || g.solid(x, y-WormR)
+	return g.solid(x, y+WormR) || g.solid(x-d, y+d) || g.solid(x+d, y+d) || g.solid(x-WormR, y) || g.solid(x+WormR, y) ||
+		g.solid(x-d, y-d) || g.solid(x+d, y-d) || g.solid(x, y-WormR)
 }
 
 func (g *WormGame) landB64() string {
@@ -168,9 +217,14 @@ func (g *WormGame) newGame() {
 	for range 3 + rand.IntN(3) { // grottes
 		g.carve(60+rand.Float64()*(AW-120), 260+rand.Float64()*130, 22+rand.Float64()*22)
 	}
-	g.Worms = g.Worms[:0]
+	g.Water, g.turns = WaterY, 0
+	g.Worms, g.Projs, g.Crates = g.Worms[:0], g.Projs[:0], g.Crates[:0]
 	for _, s := range g.Squads {
 		s.next = 0
+		s.Ammo = make([]int, Missile)
+		for i := range s.Ammo {
+			s.Ammo[i] = weapons[i].ammo
+		}
 		for range WormsPer {
 			g.nextID++
 			w := &Worm{ID: g.nextID, Team: s.ID, HP: 100, Alive: true, Dir: 1}
@@ -178,7 +232,7 @@ func (g *WormGame) newGame() {
 			g.Worms = append(g.Worms, w)
 		}
 	}
-	g.dirty, g.Winner, g.Proj = true, "", nil
+	g.dirty, g.Winner = true, ""
 	g.team = g.Squads[rand.IntN(len(g.Squads))].ID
 	g.startTurn()
 }
@@ -188,10 +242,10 @@ func (g *WormGame) place(w *Worm) {
 	for try := range 300 {
 		x := 50 + rand.Float64()*(AW-100)
 		y := WormR
-		for y < WaterY && !g.hits(x, y+1) {
+		for y < g.Water && !g.hits(x, y+1) {
 			y++
 		}
-		if y >= WaterY-WormR {
+		if y >= g.Water-WormR {
 			continue
 		}
 		if try < 250 && slices.ContainsFunc(g.Worms, func(o *Worm) bool { return math.Hypot(o.X-x, o.Y-y) < 40 }) {
@@ -206,11 +260,12 @@ func (g *WormGame) place(w *Worm) {
 	w.X, w.Y, w.air = AW/2, 0, true // shortcut: île sans place libre (jamais vu), le ver tombe du ciel
 }
 
-// startTurn : l'équipe g.team joue avec son prochain ver vivant.
+// startTurn : l'équipe g.team joue avec son prochain ver vivant. Parfois une caisse tombe, et en mort subite l'eau monte.
 func (g *WormGame) startTurn() {
 	s := g.squad(g.team)
 	var mine []*Worm
 	for _, w := range g.Worms {
+		w.Heli = 0
 		if w.Team == s.ID && w.Alive {
 			mine = append(mine, w)
 		}
@@ -218,10 +273,18 @@ func (g *WormGame) startTurn() {
 	w := mine[s.next%len(mine)]
 	s.next++
 	for _, o := range g.Squads {
-		o.move = 0
+		o.move, o.up = 0, false
 	}
 	g.Turn, g.Weapon, g.Phase, g.Wait = w.ID, Bazooka, "play", LTurn
+	g.Fired, g.used, g.burst = false, 0, burst{}
 	g.Wind = math.Round((rand.Float64()*2-1)*10) / 10
+	if g.turns++; g.turns > SuddenRounds*len(g.Squads) {
+		g.Water = max(g.Water-FloodStep, 150)
+		g.event(Event{Kind: "flood", Y: g.Water})
+	}
+	if len(g.Crates) < 3 && rand.Float64() < 0.35 {
+		g.Crates = append(g.Crates, &Crate{X: 40 + rand.Float64()*(AW-80), Y: -10, Fall: true})
+	}
 }
 
 func (g *WormGame) teamAlive(id int) bool {
@@ -238,7 +301,7 @@ func (g *WormGame) checkWin() bool {
 	if len(left) > 1 {
 		return false
 	}
-	g.Phase, g.Wait, g.Proj = "end", 6, nil
+	g.Phase, g.Wait, g.Projs = "end", 6, g.Projs[:0]
 	if len(left) == 1 {
 		g.Winner = left[0].Name
 		g.event(Event{Kind: "win", A: left[0].ID, Text: left[0].Name})
@@ -258,6 +321,11 @@ func (g *WormGame) nextTurn() {
 			return
 		}
 	}
+}
+
+// endTurn : le ver qui joue ne peut plus rien faire, on attend que tout retombe.
+func (g *WormGame) endTurn() {
+	g.Phase, g.Wait, g.burst = "settle", 0.5, burst{}
 }
 
 func (g *WormGame) join(name string, bot bool) *Squad {
@@ -294,7 +362,7 @@ func (g *WormGame) leave(id int) {
 		g.Squads = nil // plus aucun humain : les bots partent aussi
 	}
 	if len(g.Squads) < 2 {
-		g.Phase, g.Wait, g.Proj, g.Worms = "wait", 0, nil, g.Worms[:0]
+		g.Phase, g.Wait, g.Projs, g.Worms = "wait", 0, g.Projs[:0], g.Worms[:0]
 		return
 	}
 	if g.Phase == "play" && g.team == id {
@@ -313,7 +381,7 @@ func (g *WormGame) removeBot() {
 	}
 }
 
-// active : le ver qui joue, s'il appartient à l'équipe s et peut agir.
+// active : le ver qui joue, s'il appartient à l'équipe s et que le tour n'est pas fini.
 func (g *WormGame) active(s *Squad) *Worm {
 	if w := g.worm(g.Turn); g.Phase == "play" && w != nil && w.Alive && w.Team == s.ID {
 		return w
@@ -321,87 +389,252 @@ func (g *WormGame) active(s *Squad) *Worm {
 	return nil
 }
 
+// canMove : le ver qui joue peut se déplacer, sauf pendant une rafale ou entre les deux tirs du fusil.
+func (g *WormGame) canMove(s *Squad) *Worm {
+	if w := g.active(s); w != nil && g.burst.n == 0 && (g.used == 0 || g.Fired) {
+		return w
+	}
+	return nil
+}
+
 func (g *WormGame) jump(s *Squad) {
-	if w := g.active(s); w != nil && !w.air {
+	if w := g.canMove(s); w != nil && !w.air && w.Heli == 0 {
 		w.vx, w.vy, w.air = float64(w.Dir)*JumpVX, -JumpVY, true
 		g.event(Event{Kind: "jump", A: w.ID})
 	}
 }
 
-func (g *WormGame) fire(s *Squad, weapon int, angle, power float64) {
+func (g *WormGame) retreat() { g.Fired, g.Wait = true, LRetreat }
+
+// fire utilise l'arme : angle et puissance pour viser, tx pour la cible de la frappe aérienne.
+func (g *WormGame) fire(s *Squad, weapon int, angle, power, tx float64) {
 	w := g.active(s)
-	if w == nil || weapon < 0 || weapon >= len(weapons) || !(power > 0) || math.IsNaN(angle) || math.IsInf(angle, 0) {
+	if w == nil || weapon < 0 || weapon >= Missile || g.Fired || g.burst.n > 0 || len(s.Ammo) != Missile || s.Ammo[weapon] == 0 ||
+		math.IsNaN(angle) || math.IsInf(angle, 0) || math.IsNaN(tx) || math.IsInf(tx, 0) ||
+		((weapon == Bazooka || weapon == Grenade) && !(power > 0)) || (g.used > 0 && weapon != g.Weapon) { // le fusil tire deux fois de suite
 		return
 	}
-	g.Weapon = weapon
-	if c := math.Cos(angle); c != 0 {
+	if weapon == Heli { // ne compte pas comme un tir
+		if w.Heli > 0 || g.used > 0 {
+			return
+		}
+		s.Ammo[Heli]--
+		w.Heli = HeliTime
+		g.event(Event{Kind: "heli", A: w.ID})
+		return
+	}
+	if s.Ammo[weapon] > 0 {
+		s.Ammo[weapon]--
+	}
+	g.Weapon, s.move, s.up = weapon, 0, false
+	g.used++
+	if c := math.Cos(angle); c != 0 && weapon != Dynamite && weapon != AirStrike {
 		w.Dir = int(math.Copysign(1, c))
 	}
-	s.move = 0
 	x, y := w.X+math.Cos(angle)*(WormR+4), w.Y+math.Sin(angle)*(WormR+4)
 	g.event(Event{Kind: "fire", A: w.ID, B: weapon, X: x, Y: y})
-	if weapon == Shotgun { // en ligne droite jusqu'à la terre ou un ver
-		for d := 0.0; d < 500; d += 2 {
-			px, py := x+math.Cos(angle)*d, y+math.Sin(angle)*d
-			if px < 0 || px > AW || py < 0 || py > AH {
-				break
-			}
-			if g.solid(px, py) || g.wormAt(px, py, w.ID) {
-				g.explode(px, py, Shotgun)
-				break
-			}
+	dir := float64(w.Dir)
+	switch weapon {
+	case Shotgun:
+		g.shoot(w, angle, Shotgun)
+	case Uzi:
+		g.burst = burst{kind: Uzi, n: 15, a: angle}
+		return
+	case Flamer:
+		g.burst = burst{kind: Flamer, n: 25, a: angle}
+		return
+	case Bat:
+		g.bat(w, angle)
+	case Dynamite:
+		g.Projs = append(g.Projs, &Rocket{X: w.X + dir*8, Y: w.Y, Kind: Dynamite, Fuse: 5, vx: dir * 30, vy: -40, by: w.ID})
+	case AirStrike: // les missiles arrivent du côté où regarde le ver
+		tx = max(0, min(AW, tx))
+		for i := range 5 {
+			g.Projs = append(g.Projs, &Rocket{X: tx + float64(i-2)*22 - dir*70, Y: -20 - float64(i)*12, Kind: Missile, vx: dir * 90, vy: 150})
 		}
-		g.Phase, g.Wait = "settle", 1
+	default: // bazooka, grenade
+		v := min(power, 1) * weapons[weapon].speed
+		g.Projs = append(g.Projs, &Rocket{X: x, Y: y, Kind: weapon, Fuse: 3, vx: v * math.Cos(angle), vy: v * math.Sin(angle), by: w.ID})
+	}
+	if g.used >= weapons[weapon].shots && g.Phase == "play" {
+		g.retreat()
+	}
+}
+
+// shoot : tir en ligne droite jusqu'à la terre ou un ver.
+func (g *WormGame) shoot(w *Worm, a float64, kind int) {
+	x, y := w.X+math.Cos(a)*(WormR+4), w.Y+math.Sin(a)*(WormR+4)
+	px, py := x, y
+	for d := 0.0; d < 500; d += 2 {
+		px, py = x+math.Cos(a)*d, y+math.Sin(a)*d
+		if px < 0 || px > AW || py < 0 || py > AH {
+			break
+		}
+		if g.solid(px, py) || g.wormNear(px, py, w.ID) != nil {
+			g.event(Event{Kind: "shot", A: int(px), B: int(py), X: x, Y: y})
+			g.impact(px, py, kind, w.ID, math.Cos(a), math.Sin(a))
+			return
+		}
+	}
+	g.event(Event{Kind: "shot", A: int(px), B: int(py), X: x, Y: y})
+}
+
+// impact : une balle ou une flamme touche un ver de plein fouet (dégâts entiers, petite poussée), sinon explose.
+func (g *WormGame) impact(x, y float64, kind, by int, vx, vy float64) {
+	t := g.wormNear(x, y, by)
+	if t == nil {
+		g.explode(x, y, kind)
 		return
 	}
-	v := min(power, 1) * weapons[weapon].speed
-	g.Proj = &Rocket{X: x, Y: y, Kind: weapon, Fuse: 3, vx: v * math.Cos(angle), vy: v * math.Sin(angle), by: w.ID}
-	g.Phase = "fly"
+	g.event(Event{Kind: "boom", B: 1, X: x, Y: y})
+	ax, ay := 0.0, -1.0
+	if d := math.Hypot(vx, vy); d > 0 {
+		ax, ay = vx/d, vy/d
+	}
+	push := weapons[kind].dmg * 12
+	g.hurt(t, int(weapons[kind].dmg))
+	if t.Alive {
+		t.vx, t.vy, t.air = t.vx+ax*push, t.vy+ay*push-30, true
+	}
 }
 
-func (g *WormGame) wormAt(x, y float64, except int) bool {
-	return slices.ContainsFunc(g.Worms, func(w *Worm) bool { return w.Alive && w.ID != except && math.Hypot(w.X-x, w.Y-y) < WormR+3 })
+// bat : coup de batte, envoie valser les vers juste devant.
+func (g *WormGame) bat(w *Worm, a float64) {
+	hx, hy := w.X+math.Cos(a)*12, w.Y+math.Sin(a)*12
+	g.event(Event{Kind: "bat", A: w.ID, X: hx, Y: hy})
+	for _, t := range g.Worms {
+		if t != w && t.Alive && math.Hypot(t.X-hx, t.Y-hy) < 14 {
+			g.hurt(t, int(weapons[Bat].dmg))
+			if t.Alive {
+				v := weapons[Bat].speed
+				t.vx, t.vy, t.air = math.Cos(a)*v, math.Sin(a)*v-150, true
+			}
+		}
+	}
 }
 
-// flight avance le projectile d'un sous-pas. Renvoie done quand il a fini (boom : il explose, sinon il a coulé ou est sorti).
+// spray : une balle ou une flamme de la rafale en cours.
+func (g *WormGame) spray(w *Worm) {
+	a := g.burst.a + (rand.Float64()*2-1)*0.06
+	if g.burst.kind == Uzi {
+		g.shoot(w, a, Bullet)
+		return
+	}
+	a += (rand.Float64()*2 - 1) * 0.1
+	v := weapons[Flamer].speed * (0.85 + rand.Float64()*0.3)
+	g.Projs = append(g.Projs, &Rocket{X: w.X + math.Cos(a)*(WormR+4), Y: w.Y + math.Sin(a)*(WormR+4), Kind: Flame, Fuse: 0.6, vx: v * math.Cos(a), vy: v * math.Sin(a), by: w.ID})
+}
+
+func (g *WormGame) wormNear(x, y float64, except int) *Worm {
+	for _, w := range g.Worms {
+		if w.Alive && w.ID != except && math.Hypot(w.X-x, w.Y-y) < WormR+3 {
+			return w
+		}
+	}
+	return nil
+}
+
+// flight avance un projectile d'un sous-pas. Renvoie done quand il a fini (boom : il explose ou touche, sinon il a
+// coulé, est sorti ou s'est éteint).
 func (g *WormGame) flight(p *Rocket, dt, wind float64) (done, boom bool) {
 	p.age += dt
-	p.vy += Gravity * dt
-	if p.Kind == Bazooka {
+	grav := Gravity
+	if p.Kind == Flame {
+		grav *= 0.35
+	}
+	p.vy += grav * dt
+	if p.Kind == Bazooka || p.Kind == Flame {
 		p.vx += wind * WindAcc * dt
 	}
 	nx, ny := p.X+p.vx*dt, p.Y+p.vy*dt
-	if ny > WaterY || nx < -50 || nx > AW+50 {
+	if ny > g.Water || nx < -50 || nx > AW+50 {
 		p.X, p.Y = nx, ny
 		return true, false
 	}
-	if p.Kind == Grenade {
+	switch p.Kind {
+	case Grenade, Dynamite:
 		if p.Fuse -= dt; p.Fuse <= 0 {
 			return true, true
 		}
-		if g.solid(nx, ny) { // rebond amorti
+		if g.solid(nx, ny) { // rebond amorti (la dynamite ne rebondit presque pas)
+			k := 0.5
+			if p.Kind == Dynamite {
+				k = 0.1
+			}
 			hx, hy := g.solid(nx, p.Y), g.solid(p.X, ny)
 			if hx || !hy {
-				p.vx *= -0.5
+				p.vx *= -k
 			}
 			if hy || !hx {
-				p.vy *= -0.5
+				p.vy *= -k
 			}
 			p.vx *= 0.8
 			return false, false
 		}
-	} else {
+	case Flame:
+		if p.Fuse -= dt; p.Fuse <= 0 {
+			return true, false
+		}
+		if g.solid(nx, ny) || g.wormNear(nx, ny, p.by) != nil { // le lance-flammes ne brûle pas son porteur
+			p.X, p.Y = nx, ny
+			return true, true
+		}
+	default: // bazooka, missile
 		self := p.by
 		if p.age > 0.3 {
 			self = 0 // l'obus peut retomber sur son tireur
 		}
-		if g.solid(nx, ny) || g.wormAt(nx, ny, self) {
+		if g.solid(nx, ny) || g.wormNear(nx, ny, self) != nil {
 			p.X, p.Y = nx, ny
 			return true, true
 		}
 	}
 	p.X, p.Y = nx, ny
 	return false, false
+}
+
+// advance fait voler tous les projectiles pendant dt.
+func (g *WormGame) advance(dt float64) {
+	for range LSub {
+		for i := 0; i < len(g.Projs); {
+			p := g.Projs[i]
+			done, boom := g.flight(p, dt/LSub, g.Wind)
+			if !done {
+				i++
+				continue
+			}
+			g.Projs = slices.Delete(g.Projs, i, i+1)
+			switch {
+			case boom && p.Kind == Flame:
+				g.impact(p.X, p.Y, Flame, p.by, p.vx, p.vy)
+			case boom:
+				g.explode(p.X, p.Y, p.Kind)
+			case p.Kind != Flame:
+				g.event(Event{Kind: "splash", X: p.X, Y: p.Y})
+			}
+		}
+	}
+}
+
+// crates : les caisses descendent en parachute ; un ver qui en touche une gagne des PV.
+func (g *WormGame) crates(dt float64) {
+	g.Crates = slices.DeleteFunc(g.Crates, func(c *Crate) bool {
+		if c.Fall = !g.solid(c.X, c.Y+7); c.Fall {
+			c.Y += 60 * dt
+		}
+		if c.Y > g.Water {
+			g.event(Event{Kind: "splash", X: c.X, Y: c.Y})
+			return true
+		}
+		for _, w := range g.Worms {
+			if w.Alive && math.Hypot(w.X-c.X, w.Y-c.Y) < 14 {
+				w.HP += HealHP
+				g.event(Event{Kind: "heal", A: w.ID, B: HealHP, X: w.X, Y: w.Y})
+				return true
+			}
+		}
+		return false
+	})
 }
 
 func (g *WormGame) carve(x, y, r float64) {
@@ -416,19 +649,17 @@ func (g *WormGame) carve(x, y, r float64) {
 }
 
 // explode creuse, blesse et projette les vers autour.
-func (g *WormGame) explode(x, y float64, weapon int) {
-	wp := weapons[weapon]
+func (g *WormGame) explode(x, y float64, kind int) {
+	wp := weapons[kind]
 	g.event(Event{Kind: "boom", B: int(wp.crater), X: x, Y: y})
 	g.carve(x, y, wp.crater)
-	blast := wp.crater + 18
 	for _, w := range g.Worms {
 		d := math.Hypot(w.X-x, w.Y-y)
-		if !w.Alive || d >= blast {
+		if !w.Alive || d >= wp.blast {
 			continue
 		}
-		k := 1 - d/blast
-		dmg := int(math.Round(wp.dmg * k))
-		g.hurt(w, dmg)
+		k := 1 - d/wp.blast
+		g.hurt(w, int(math.Round(wp.dmg*k)))
 		ax, ay := 0.0, -1.0
 		if d > 1 {
 			ax, ay = (w.X-x)/d, (w.Y-y)/d
@@ -438,6 +669,7 @@ func (g *WormGame) explode(x, y float64, weapon int) {
 	}
 }
 
+// hurt : comme dans le genre, le ver qui joue et se blesse finit son tour.
 func (g *WormGame) hurt(w *Worm, dmg int) {
 	if dmg <= 0 || !w.Alive {
 		return
@@ -446,53 +678,81 @@ func (g *WormGame) hurt(w *Worm, dmg int) {
 	g.event(Event{Kind: "hit", A: w.ID, B: dmg, X: w.X, Y: w.Y})
 	if w.HP <= 0 {
 		g.kill(w, "dead")
+	} else if w.ID == g.Turn && g.Phase == "play" {
+		g.endTurn()
 	}
 }
 
 func (g *WormGame) kill(w *Worm, kind string) {
-	w.HP, w.Alive, w.vx, w.vy = 0, false, 0, 0
+	w.HP, w.Alive, w.vx, w.vy, w.Heli = 0, false, 0, 0, 0
 	g.event(Event{Kind: kind, A: w.ID, X: w.X, Y: w.Y})
-	if w.ID == g.Turn && g.Phase == "play" { // le ver qui joue meurt : fin du tour
-		g.Phase, g.Wait = "settle", 1
+	if w.ID == g.Turn && g.Phase == "play" {
+		g.endTurn()
 	}
 }
 
-// move fait tomber, glisser ou marcher un ver pendant dt.
+// move fait tomber, voler, glisser ou marcher un ver pendant dt.
 func (g *WormGame) move(w *Worm, dt float64) {
 	if !w.Alive {
 		return
 	}
-	if !w.air && !g.feet(w.X, w.Y+1) {
+	s := g.squad(w.Team)
+	ctl := s != nil && g.canMove(s) == w // c'est lui qu'on commande
+	flying := false
+	if w.Heli > 0 {
+		w.Heli = max(0, w.Heli-dt)
+		if flying = ctl && (w.air || s.up); flying { // hélicoptère : on monte en tenant le saut, sinon on descend doucement
+			w.air = true
+			w.vx += (float64(s.move)*HeliSpeed - w.vx) * min(1, 4*dt)
+			if s.up {
+				w.vy -= 700 * dt
+			} else {
+				w.vy += 250 * dt
+			}
+			w.vy = max(-150, min(150, w.vy))
+			if s.move != 0 {
+				w.Dir = s.move
+			}
+		}
+	}
+	if !w.air && !g.hits(w.X, w.Y+1) {
 		w.air = true
 	}
 	if w.air {
-		w.vy += Gravity * dt
+		if !flying {
+			w.vy += Gravity * dt
+		}
 		nx, ny := w.X+w.vx*dt, w.Y+w.vy*dt
-		if w.vx != 0 && g.solid(nx+math.Copysign(WormR, w.vx), w.Y) { // mur
-			w.vx, nx = -w.vx*0.3, w.X
+		if ny < WormR { // haut de la carte : on ne sort pas de l'écran
+			ny, w.vy = WormR, 0
 		}
-		if w.vy < 0 && g.solid(nx, ny-WormR) { // plafond
-			w.vy, ny = 0, w.Y
-		}
-		if w.vy > 0 && g.feet(nx, ny) { // atterrissage : on descend au ras du sol
-			for range 10 {
-				if g.feet(nx, w.Y+1) {
-					break
+		if g.hits(nx, ny) { // on bute : d'abord de côté, puis de haut en bas
+			if g.hits(nx, w.Y) { // mur
+				w.vx, nx = -w.vx*0.3, w.X
+			}
+			if g.hits(nx, ny) {
+				if w.vy > 0 { // atterrissage : on descend au ras du sol
+					for range 10 {
+						if g.hits(nx, w.Y+1) {
+							break
+						}
+						w.Y++
+					}
+					if w.vy > FallSafe {
+						g.hurt(w, int((w.vy-FallSafe)/8))
+					}
+					w.air, w.vx, w.walk = false, 0, 0
 				}
-				w.Y++
+				w.vy, ny = 0, w.Y // plafond, ou posé
 			}
-			if w.vy > FallSafe {
-				g.hurt(w, int((w.vy-FallSafe)/8))
-			}
-			w.air, w.vx, w.walk, w.vy, ny = false, 0, 0, 0, w.Y
 		}
 		w.X, w.Y = nx, ny
-	} else if s := g.squad(w.Team); s != nil && s.move != 0 && g.active(s) == w {
+	} else if ctl && s.move != 0 {
 		w.Dir = s.move
 		for w.walk += WormSpeed * dt; w.walk >= 1; w.walk-- { // pixel par pixel, en montant les petites marches
 			nx := w.X + float64(s.move)
 			up := 0.0
-			for up <= WormClimb && g.blocked(nx, w.Y-up, float64(s.move)) {
+			for up <= WormClimb && g.hits(nx, w.Y-up) {
 				up++
 			}
 			if up > WormClimb || nx < 0 || nx > AW {
@@ -500,58 +760,63 @@ func (g *WormGame) move(w *Worm, dt float64) {
 				break
 			}
 			w.X, w.Y = nx, w.Y-up
-			for d := 0; d < int(WormClimb) && !g.feet(w.X, w.Y+1); d++ { // en descente, on suit le sol
+			for d := 0; d < int(WormClimb) && !g.hits(w.X, w.Y+1); d++ { // en descente, on suit le sol
 				w.Y++
 			}
 		}
 	}
-	if w.Y > WaterY {
+	if w.Y > g.Water {
 		g.kill(w, "drown")
 	}
 }
 
 func (g *WormGame) still() bool {
-	return !slices.ContainsFunc(g.Worms, func(w *Worm) bool { return w.Alive && w.air })
+	return len(g.Projs) == 0 && !slices.ContainsFunc(g.Worms, func(w *Worm) bool { return w.Alive && w.air })
 }
 
 func (g *WormGame) step(dt float64) {
-	if g.Phase != "wait" && g.Phase != "end" {
-		for range LSub {
-			for _, w := range g.Worms {
-				g.move(w, dt/LSub)
+	if g.Phase == "wait" || g.Phase == "end" {
+		if g.Phase == "end" {
+			if g.Wait -= dt; g.Wait <= 0 {
+				g.newGame()
 			}
+		}
+		return
+	}
+	for range LSub {
+		for _, w := range g.Worms {
+			g.move(w, dt/LSub)
 		}
 	}
+	g.advance(dt)
+	g.crates(dt)
 	switch g.Phase {
 	case "play":
-		if w := g.worm(g.Turn); w != nil {
-			if s := g.squad(w.Team); s != nil && s.Bot && g.Wait <= LTurn-LBotWait {
-				g.think(s, w)
-				return
+		w := g.worm(g.Turn)
+		if w == nil {
+			g.endTurn()
+			return
+		}
+		if g.burst.n > 0 { // rafale : le temps du tour s'arrête
+			for g.burst.t -= dt; g.burst.t <= 0 && g.burst.n > 0 && g.Phase == "play"; g.burst.t += 0.06 {
+				g.burst.n--
+				g.spray(w)
 			}
+			if g.burst.n == 0 && g.Phase == "play" {
+				g.retreat()
+			}
+			return
+		}
+		if s := g.squad(w.Team); s != nil && s.Bot && g.used == 0 && g.Wait <= LTurn-LBotWait {
+			g.think(s, w)
+			return
 		}
 		if g.Wait -= dt; g.Wait <= 0 {
-			g.Phase, g.Wait = "settle", 0.5
+			g.endTurn()
 		}
-	case "fly":
-		for range LSub {
-			if done, boom := g.flight(g.Proj, dt/LSub, g.Wind); done {
-				if boom {
-					g.explode(g.Proj.X, g.Proj.Y, g.Proj.Kind)
-				} else {
-					g.event(Event{Kind: "splash", X: g.Proj.X, Y: g.Proj.Y})
-				}
-				g.Proj, g.Phase, g.Wait = nil, "settle", 1.2
-				return
-			}
-		}
-	case "settle": // on attend que tout le monde soit retombé
+	case "settle": // on attend que tout le monde soit retombé et que plus rien ne vole
 		if g.Wait -= dt; g.Wait <= 0 && g.still() {
 			g.nextTurn()
-		}
-	case "end":
-		if g.Wait -= dt; g.Wait <= 0 {
-			g.newGame()
 		}
 	}
 }
@@ -582,7 +847,7 @@ func (g *WormGame) think(s *Squad, w *Worm) {
 				d := math.Hypot(r.X-o.X, r.Y-o.Y)
 				if o.Team != s.ID {
 					score = min(score, d)
-				} else if d < weapons[Bazooka].crater+25 {
+				} else if d < weapons[Bazooka].blast+8 {
 					score = math.Inf(1) // touche un ami
 					break
 				}
@@ -592,7 +857,7 @@ func (g *WormGame) think(s *Squad, w *Worm) {
 			}
 		}
 	}
-	g.fire(s, Bazooka, bestA+(rand.Float64()*2-1)*0.03, bestP*(1+(rand.Float64()*2-1)*0.03))
+	g.fire(s, Bazooka, bestA+(rand.Float64()*2-1)*0.03, bestP*(1+(rand.Float64()*2-1)*0.03), 0)
 }
 
 // --- salons Lombrics ---
@@ -684,6 +949,7 @@ func serveLombrics(w http.ResponseWriter, r *http.Request) {
 					W   int     `json:"w"`
 					A   float64 `json:"a"`
 					P   float64 `json:"p"`
+					X   float64 `json:"x"`
 				}
 				if json.Unmarshal(b, &m) != nil {
 					return
@@ -701,8 +967,10 @@ func serveLombrics(w http.ResponseWriter, r *http.Request) {
 					}
 				case m.T == "jump":
 					g.jump(s)
+				case m.T == "up": // touche de saut tenue ou relâchée : l'hélicoptère monte ou descend
+					s.up = m.M == 1
 				case m.T == "fire":
-					g.fire(s, m.W, m.A, m.P)
+					g.fire(s, m.W, m.A, m.P, m.X)
 				}
 			},
 		}, ""

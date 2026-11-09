@@ -15,7 +15,7 @@ L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'
 - **Artillerie** (`/artillerie.html`) : de 2 à 4 chars (bots possibles), vent et cratères, le dernier debout gagne.
 - **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.
-- **Lombrics** (`/lombrics.html`) : de 2 à 4 équipes de 3 vers (bots possibles), bazooka, grenade et fusil sur une île qu'on creuse, la dernière équipe en vie gagne.
+- **Lombrics** (`/lombrics.html`) : de 2 à 4 équipes de 3 vers (bots possibles) sur une île qu'on creuse : bazooka, mitrailleuse, lance-flammes, batte, dynamite, frappe aérienne, hélico… La dernière équipe en vie gagne.
 
 Et un **mode télé** (`/tele.html` + `/manette.html`) : le jeu s'affiche sur la télé, les téléphones servent de manettes. Cinq jeux faits pour ça : **Sumo**, **Course**, **Quiz rapide**, **Imposteur** et **Dessin en chaîne** (détails plus bas).
 
@@ -118,11 +118,20 @@ De 2 à 4 chars, joueurs ou **bots** (« Ajouter un bot »). Chacun son tour, 20
 De 2 à 4 équipes de **3 vers**, joueurs ou **bots**. Chacun son tour, 30 s : un ver de ton équipe joue (ils jouent à tour de rôle).
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
-- **Arme** : 1, 2, 3 ou les boutons. Puis tire en arrière et relâche, comme à l'Artillerie.
+- **Arme** : touches 1 à 9 ou les boutons, puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
   - 🚀 **Bazooka** : explose au contact, poussé par le **vent** (change à chaque tour).
-  - 💣 **Grenade** : rebondit et explose au bout de 3 s, insensible au vent.
-  - 🔫 **Fusil** : tir droit et instantané, petit trou et petits dégâts.
-- Le terrain est une île percée de grottes : **chaque explosion la creuse** (tunnels, ponts qui s'effondrent). Les explosions **projettent** les vers, les grosses chutes font mal et **l'eau noie**.
+  - 💣 **Grenade** : rebondit et explose au bout de 3 s.
+  - 🔫 **Fusil** : deux tirs droits et instantanés (on ne bouge pas entre les deux).
+  - 💥 **Mitrailleuse** : une rafale de 15 balles.
+  - 🔥 **Lance-flammes** : un jet de flammes à courte portée, poussé par le vent.
+  - 🏏 **Batte** : envoie valser le ver juste devant (30 PV).
+  - 🧨 **Dynamite** (2 par partie) : posée à tes pieds en touchant l'île (ou Entrée), explose au bout de 5 s. File !
+  - ✈️ **Frappe aérienne** (1 par partie) : touche la cible, 5 missiles tombent dessus.
+  - 🚁 **Hélico** (2 par partie) : touche l'île (ou Entrée), puis 5 s de vol : tiens Saut pour monter, ← → pour avancer. Ne termine pas le tour, on peut tirer après.
+- Après un tir, **3 s de repli** pour se mettre à l'abri. Un ver qui se blesse pendant son tour (chute, sa propre explosion) le termine aussitôt.
+- Le terrain est une île percée de grottes : **chaque explosion la creuse**. Les explosions **projettent** les vers, les grosses chutes font mal et **l'eau noie**.
+- Des **caisses de soin** (+25 PV) tombent parfois en parachute : marche dessus pour les prendre.
+- **Mort subite** : après 8 tours chacun, l'eau monte à chaque tour.
 - La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot tire au bazooka : il essaie toutes les directions (vent et terrain compris) et évite de toucher ses propres vers.
 
 ## Motos

@@ -18,7 +18,7 @@
       <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-pink-500"><i data-icon="worm" class="size-7"></i></span>
       <h1 class="text-[34px] leading-tight font-bold">Lombrics</h1>
     </div>
-    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 4 équipes de 3 vers, chacun son tour. Bazooka, grenade, fusil : la dernière équipe en vie gagne.</p>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 4 équipes de 3 vers, chacun son tour. Bazooka, mitrailleuse, lance-flammes, batte, dynamite, frappe aérienne, hélico : la dernière équipe en vie gagne.</p>
 
     <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
     <label class="block">
@@ -71,17 +71,13 @@
   <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
 
   <div class="relative">
-    <canvas id="c" width="800" height="450" aria-label="Île : à ton tour, marche avec les flèches, saute avec Espace, puis tire en arrière et relâche pour tirer"
+    <canvas id="c" width="800" height="450" aria-label="Île : à ton tour, marche avec les flèches, saute avec Espace, choisis une arme puis tire en arrière et relâche (dynamite et hélico : touche l'île, frappe aérienne : touche la cible)"
       class="block w-full touch-none rounded-[14px]"></canvas>
     <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
   </div>
 
   <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-    <div class="flex items-center gap-2" role="group" aria-label="Arme">
-      <button data-w="0" title="Bazooka (1) : explose au contact, poussé par le vent" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">🚀 Bazooka</button>
-      <button data-w="1" title="Grenade (2) : rebondit, explose au bout de 3 s" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">💣 Grenade</button>
-      <button data-w="2" title="Fusil (3) : tir droit et instantané, petits dégâts" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">🔫 Fusil</button>
-    </div>
+    <div id="arms" class="flex flex-wrap items-center gap-2" role="group" aria-label="Arme"></div>
     <div class="flex items-center gap-2" role="group" aria-label="Déplacement">
       <button data-move="-1" aria-label="Marcher à gauche" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-left" class="size-5"></i></button>
       <button id="jumpBtn" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">Saut</button>
@@ -98,25 +94,38 @@
         <i data-icon="user-minus" class="size-4"></i> Retirer un bot
       </button>
     </div>
-    <span class="text-xs">À ton tour : ← → pour marcher, Espace pour sauter, 1 2 3 pour l'arme, puis tire en arrière et relâche. L'eau noie.</span>
+    <span class="text-xs">À ton tour : ← → pour marcher, Espace pour sauter (tenu : l'hélico monte), 1 à 9 pour l'arme, puis tire en arrière et relâche. Après le tir, 3 s pour te mettre à l'abri.</span>
   </footer>
 </main>
 
 <script src="/common.js"></script>
 <script>
 const cv = $('c'), ctx = cv.getContext('2d');
-const W = 800, H = 450, CELL = 5, GW = W / CELL, GH = Math.floor(H / CELL), WATER = H - 22, R = 6, MAX_DRAG = 180;
+const W = 800, H = 450, CELL = 5, GW = W / CELL, GH = Math.floor(H / CELL), R = 6, MAX_DRAG = 180;
 const land = document.createElement('canvas'); land.width = W; land.height = H;
-let st = null, landB64 = '', trail = [], particles = [], shots = [], flash = 0, shake = 0, weapon = 0, moving = 0;
+// aim : power (tirer en arrière, la force compte), dir (seule la direction compte), now (un toucher), target (toucher la cible)
+const WEAPONS = [
+  { e: '🚀', n: 'Bazooka', aim: 'power', tip: 'explose au contact, poussé par le vent' },
+  { e: '💣', n: 'Grenade', aim: 'power', tip: 'rebondit, explose au bout de 3 s' },
+  { e: '🔫', n: 'Fusil', aim: 'dir', tip: 'deux tirs droits et instantanés' },
+  { e: '💥', n: 'Mitrailleuse', aim: 'dir', tip: 'une rafale de balles' },
+  { e: '🔥', n: 'Lance-flammes', aim: 'dir', tip: 'brûle à courte portée' },
+  { e: '🏏', n: 'Batte', aim: 'dir', tip: 'envoie valser le ver juste devant' },
+  { e: '🧨', n: 'Dynamite', aim: 'now', tip: 'posée à tes pieds, explose au bout de 5 s : file !' },
+  { e: '✈️', n: 'Frappe aérienne', aim: 'target', tip: '5 missiles sur la cible que tu touches' },
+  { e: '🚁', n: 'Hélico', aim: 'now', tip: '5 s de vol (tiens Saut pour monter), sans finir le tour' },
+];
+let st = null, landB64 = '', trail = [], particles = [], shots = [], texts = [], flash = 0, shake = 0, weapon = 0, moving = 0, upHeld = 0;
 
 function start(pin) {
   connect('/ws/lombrics', pin, '', m => {
     if (!m) { st = null; landB64 = ''; return; }
     if (m.land && m.land !== landB64) drawLand(landB64 = m.land);
     st = m;
-    if (m.proj) trail.push({ x: m.proj.x, y: m.proj.y }); else if (m.phase !== 'fly') trail = [];
+    const rocket = m.projs.find(p => p.kind === 0);
+    if (rocket) trail.push({ x: rocket.x, y: rocket.y }); else trail = [];
     for (const ev of m.events || []) onEvent(ev);
-    if (!myTurn()) walk(0);
+    if (!myTurn()) { walk(0); setUp(0); }
     hud();
   });
 }
@@ -128,44 +137,69 @@ const worm = id => st?.worms.find(w => w.id === id);
 const squad = id => st?.squads.find(s => s.id === id);
 const myTurn = () => st && st.phase === 'play' && worm(st.turn)?.team === me && worm(st.turn)?.alive;
 
-// ---------- Commandes : marcher, sauter, arme, tirer ----------
+// ---------- Commandes : marcher, sauter (et monter en hélico), arme, tirer ----------
 function walk(m) { if (m !== moving) { moving = m; if (myTurn() || !m) send({ t: 'move', m }); } }
-function jump() { if (myTurn()) send({ t: 'jump' }); }
-function pickWeapon(w) {
-  weapon = w;
-  document.querySelectorAll('[data-w]').forEach(b => { const on = +b.dataset.w === w; b.classList.toggle('bg-pink-400', on); b.classList.toggle('text-slate-950', on); b.classList.toggle('bg-white/10', !on); b.classList.toggle('text-slate-200', !on); });
+function setUp(v) { if (v !== upHeld) { upHeld = v; if (myTurn() || !v) send({ t: 'up', m: v }); } }
+function jumpDown() { if (myTurn()) send({ t: 'jump' }); setUp(1); }
+function fire(extra) { send({ t: 'fire', w: weapon, a: 0, p: 1, x: 0, ...extra }); }
+function pickWeapon(w) { weapon = w; arms(); }
+function arms() { // la barre d'armes, avec les munitions de ton équipe
+  const ammo = squad(me)?.ammo || [];
+  const key = weapon + ':' + ammo.join();
+  if ($('arms').dataset.key === key) return;
+  $('arms').dataset.key = key;
+  $('arms').replaceChildren(...WEAPONS.map((wp, i) => {
+    const on = i === weapon, left = ammo[i] ?? -1;
+    const b = el('button', 'rounded-full px-3 py-1.5 transition active:scale-95 ' + (on ? 'bg-pink-400 text-slate-950' : 'bg-white/10 text-slate-200 hover:bg-white/15') + (left === 0 ? ' opacity-50' : ''),
+      wp.e + ' ' + wp.n, ...(left >= 0 ? [el('span', 'font-mono ' + (on ? '' : 'text-amber-300'), ' ×' + left)] : []));
+    b.title = wp.n + ' (' + (i + 1) + ') : ' + wp.tip;
+    b.onclick = () => { pickWeapon(i); b.blur(); };
+    return b;
+  }));
 }
-pickWeapon(0);
-document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { pickWeapon(+b.dataset.w); b.blur(); });
 document.querySelectorAll('[data-move]').forEach(b => {
   b.onpointerdown = e => { e.preventDefault(); walk(+b.dataset.move); };
   b.onpointerup = b.onpointerleave = b.onpointercancel = () => walk(0);
 });
-$('jumpBtn').onclick = e => { jump(); e.currentTarget.blur(); };
-const LEFT = ['ArrowLeft', 'KeyA', 'KeyQ'], RIGHT = ['ArrowRight', 'KeyD'];
+$('jumpBtn').onpointerdown = e => { e.preventDefault(); jumpDown(); };
+$('jumpBtn').onpointerup = $('jumpBtn').onpointerleave = $('jumpBtn').onpointercancel = () => setUp(0);
+const LEFT = ['ArrowLeft', 'KeyA', 'KeyQ'], RIGHT = ['ArrowRight', 'KeyD'], UP = ['Space', 'ArrowUp', 'KeyW', 'KeyZ'];
 addEventListener('keydown', e => {
   if ($('game').hidden || e.target.tagName === 'INPUT') return;
   if (e.code === 'KeyM' && !e.repeat) setMuted(!muted);
   else if (LEFT.includes(e.code)) walk(-1);
   else if (RIGHT.includes(e.code)) walk(1);
-  else if (['Space', 'ArrowUp', 'KeyW', 'KeyZ'].includes(e.code)) { if (!e.repeat) jump(); }
-  else if (/^Digit[123]$/.test(e.code)) pickWeapon(+e.code.at(-1) - 1);
+  else if (UP.includes(e.code)) { if (!e.repeat) jumpDown(); }
+  else if (/^Digit[1-9]$/.test(e.code)) pickWeapon(+e.code.at(-1) - 1);
+  else if (e.code === 'Enter' && WEAPONS[weapon].aim === 'now') { if (!e.repeat && myTurn()) fire({}); }
   else return;
   e.preventDefault();
 });
-addEventListener('keyup', e => { if ((LEFT.includes(e.code) && moving < 0) || (RIGHT.includes(e.code) && moving > 0)) walk(0); });
-addEventListener('blur', () => walk(0));
+addEventListener('keyup', e => {
+  if ((LEFT.includes(e.code) && moving < 0) || (RIGHT.includes(e.code) && moving > 0)) walk(0);
+  if (UP.includes(e.code)) setUp(0);
+});
+addEventListener('blur', () => { walk(0); setUp(0); });
 
-// visée : on tire en arrière depuis n'importe où
+// visée : on tire en arrière depuis n'importe où (ou on touche, selon l'arme)
 let drag = null;
 function toField(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
 function aim() {
   const dx = drag.x0 - drag.x, dy = drag.y0 - drag.y;
-  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1), len: Math.hypot(dx, dy) };
 }
 cv.onpointerdown = e => { if (myTurn()) { walk(0); const p = toField(e); drag = { x0: p.x, y0: p.y, ...p }; cv.setPointerCapture(e.pointerId); } };
 cv.onpointermove = e => { if (drag) Object.assign(drag, toField(e)); };
-cv.onpointerup = () => { if (drag && myTurn()) { const s = aim(); if (s.p > 0.05) send({ t: 'fire', w: weapon, ...s }); } drag = null; };
+cv.onpointerup = () => {
+  if (drag && myTurn()) {
+    const mode = WEAPONS[weapon].aim, s = aim();
+    if (mode === 'now') fire({});
+    else if (mode === 'target') fire({ x: drag.x });
+    else if (mode === 'dir' && s.len > 10) fire({ a: s.a });
+    else if (mode === 'power' && s.p > 0.05) fire({ a: s.a, p: s.p });
+  }
+  drag = null;
+};
 cv.onpointercancel = () => { drag = null; };
 
 // ---------- Interface HTML ----------
@@ -177,12 +211,13 @@ const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-cent
 
 function hud() {
   if (!st) return;
+  arms();
   set($('pinTxt'), st.pin);
   const secs = Math.max(0, Math.ceil(st.wait)), cur = squad(worm(st.turn)?.team);
   set($('statusTxt'), {
-    wait: 'En attente', fly: 'Tir en cours…', settle: 'Boum !', end: st.winner ? 'Partie finie' : 'Ça commence…',
-    play: (myTurn() ? 'À toi de jouer' : 'Au tour de ' + (cur?.name || '?')) + ' · ' + secs + ' s',
-  }[st.phase]);
+    wait: 'En attente', settle: 'Boum !', end: st.winner ? 'Partie finie' : 'Ça commence…',
+    play: (st.fired ? 'Repli' : myTurn() ? 'À toi de jouer' : 'Au tour de ' + (cur?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase] + (st.water < H - 22 ? ' · 🌊 mort subite' : ''));
   $('status').classList.toggle('text-amber-300', myTurn());
   set($('wind'), st.wind === 0 ? '0' : (st.wind < 0 ? '← ' : '→ ') + Math.abs(st.wind).toFixed(1));
 
@@ -211,24 +246,28 @@ function hud() {
 function burst(x, y, n, color, speed, life) {
   for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = speed * (0.3 + Math.random()); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life, max: life, size: 1.5 + Math.random() * 3, color }); }
 }
-let lastFire = null;
+const say = (x, y, txt, color, life = 1.2) => texts.push({ x, y, txt, color, life, max: life });
 function onEvent(e) {
   switch (e.kind) {
     case 'fire':
-      lastFire = e;
-      if (e.b === 2) { tone(900, 0.08, 'square', 0.1, 200); noise(0.12, 0.25); } else { tone(140, 0.25, 'sawtooth', 0.1, 60); noise(0.12, 0.12); }
+      if (e.b === 4) noise(1.5, 0.08); else if (e.b === 0 || e.b === 1) { tone(140, 0.25, 'sawtooth', 0.1, 60); noise(0.12, 0.12); }
       break;
+    case 'shot': shots.push({ x0: e.x, y0: e.y, x1: e.a, y1: e.b, life: 0.2 }); tone(900, 0.06, 'square', 0.06, 200); noise(0.06, 0.12); break;
     case 'boom': {
+      if (e.b <= 5) { burst(e.x, e.y, 4, '#fb923c', 80, 0.4); break; } // balle, flamme
       const big = e.b > 20;
-      if (lastFire && !big) shots.push({ x0: lastFire.x, y0: lastFire.y, x1: e.x, y1: e.y, life: 0.25 });
       noise(big ? 0.6 : 0.2, big ? 0.35 : 0.2); if (big) tone(80, 0.5, 'sine', 0.2, 30);
       burst(e.x, e.y, big ? 50 : 15, '#fb923c', big ? 220 : 120, 0.8); burst(e.x, e.y, big ? 30 : 10, '#78350f', 160, 1);
-      if (big) { flash = 0.2; shake = 0.3; }
+      if (big) { flash = 0.2; shake = e.b > 45 ? 0.5 : 0.3; }
       break;
     }
+    case 'bat': tone(220, 0.08, 'square', 0.12, 80); noise(0.1, 0.25); burst(e.x, e.y, 12, '#fde047', 140, 0.4); break;
     case 'jump': tone(300, 0.12, 'triangle', 0.08, 600); break;
-    case 'hit': tone(200, 0.1, 'square', 0.05, 120); break;
-    case 'splash': case 'drown': burst(e.x, WATER, 25, '#7dd3fc', 140, 0.7); noise(0.4, 0.15); if (e.kind === 'drown') tone(500, 0.6, 'sine', 0.1, 80); break;
+    case 'heli': for (let i = 0; i < 10; i++) tone(90, 0.05, 'sawtooth', 0.06, 0, i * 0.08); break;
+    case 'hit': say(e.x, e.y - 20, '-' + e.b, '#f87171'); tone(200, 0.1, 'square', 0.05, 120); break;
+    case 'heal': say(e.x, e.y - 20, '+' + e.b, '#4ade80'); [660, 880].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.1)); break;
+    case 'flood': say(W / 2, 60, 'Mort subite : l\'eau monte !', '#7dd3fc', 2.5); noise(0.8, 0.1); break;
+    case 'splash': case 'drown': burst(e.x, st.water, 25, '#7dd3fc', 140, 0.7); noise(0.4, 0.15); if (e.kind === 'drown') tone(500, 0.6, 'sine', 0.1, 80); break;
     case 'dead': burst(e.x, e.y, 60, '#f9a8d4', 240, 1); tone(60, 0.8, 'sawtooth', 0.15, 30); break;
     case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.5 + i * 0.12)); break;
   }
@@ -251,17 +290,59 @@ function drawLand(b64) {
 // ---------- L'île ----------
 function drawWorm(w, now) {
   const s = squad(w.team), dir = w.dir || 1;
+  if (w.heli) { // hélicoptère : rotor qui tourne et petite cabine
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; const r = 14 * Math.abs(Math.sin(now / 25));
+    ctx.beginPath(); ctx.moveTo(w.x - r, w.y - 15); ctx.lineTo(w.x + r, w.y - 15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w.x, w.y - 15); ctx.lineTo(w.x, w.y - 8); ctx.stroke();
+  }
   ctx.fillStyle = '#f9a8d4'; ctx.strokeStyle = s?.color || '#fff'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(w.x - dir * 3, w.y + 2, 6, 4, 0, 0, 7); ctx.fill(); // queue
   ctx.beginPath(); ctx.arc(w.x + dir * 1, w.y - 1, R, 0, 7); ctx.fill(); ctx.stroke(); // tête
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w.x + dir * 3, w.y - 3, 2.2, 0, 7); ctx.fill();
   ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(w.x + dir * 3.6, w.y - 3, 1.1, 0, 7); ctx.fill();
   ctx.font = '700 11px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#0f172acc';
-  ctx.strokeText(w.hp, w.x, w.y - 12); ctx.fillStyle = s?.color || '#fff'; ctx.fillText(w.hp, w.x, w.y - 12);
+  const label = w.heli ? w.hp + ' · 🚁' + Math.ceil(w.heli) : w.hp;
+  ctx.strokeText(label, w.x, w.y - 18); ctx.fillStyle = s?.color || '#fff'; ctx.fillText(label, w.x, w.y - 18);
   if (w.id === st.turn && st.phase === 'play') { // flèche au-dessus du ver qui joue
-    const y = w.y - 30 + Math.sin(now / 150) * 3;
+    const y = w.y - 36 + Math.sin(now / 150) * 3;
     ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(w.x - 6, y - 8); ctx.lineTo(w.x + 6, y - 8); ctx.lineTo(w.x, y); ctx.fill();
   }
+}
+
+function drawProj(p, now) {
+  ctx.textAlign = 'center'; ctx.font = '700 12px system-ui';
+  if (p.kind === 10) { // flamme
+    ctx.fillStyle = ['#fde047', '#fb923c', '#ef4444'][Math.floor(now / 60 + p.x) % 3]; ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3 + Math.random() * 2, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return;
+  }
+  if (p.kind === 6) { // dynamite et sa mèche
+    ctx.fillStyle = '#dc2626'; ctx.fillRect(p.x - 3, p.y - 7, 6, 10);
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(p.x + 2, p.y - 9, 1.5 + Math.random(), 0, 7); ctx.fill();
+  } else if (p.kind === 9) { ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3, 6, 0, 0, 7); ctx.fill(); }
+  else { ctx.fillStyle = p.kind === 1 ? '#166534' : '#e2e8f0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.kind === 1 ? 4 : 3.5, 0, 7); ctx.fill(); }
+  if (p.kind === 1 || p.kind === 6) { ctx.fillStyle = '#fff'; ctx.fillText(Math.ceil(p.fuse), p.x, p.y - 12); }
+}
+
+function drawCrate(c) {
+  if (c.fall) { // parachute
+    ctx.fillStyle = '#f1f5f9cc'; ctx.beginPath(); ctx.arc(c.x, c.y - 20, 11, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = '#f1f5f9aa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x - 11, c.y - 20); ctx.lineTo(c.x - 4, c.y - 6); ctx.moveTo(c.x + 11, c.y - 20); ctx.lineTo(c.x + 4, c.y - 6); ctx.stroke();
+  }
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(c.x - 6, c.y - 6, 12, 12);
+  ctx.fillStyle = '#dc2626'; ctx.fillRect(c.x - 1.5, c.y - 4.5, 3, 9); ctx.fillRect(c.x - 4.5, c.y - 1.5, 9, 3);
+}
+
+function drawAim(w, now) {
+  const mode = WEAPONS[weapon].aim;
+  if (mode === 'now') return;
+  if (mode === 'target') { // viseur sur la cible
+    ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(drag.x, drag.y, 12, 0, 7);
+    ctx.moveTo(drag.x - 18, drag.y); ctx.lineTo(drag.x + 18, drag.y); ctx.moveTo(drag.x, drag.y - 18); ctx.lineTo(drag.x, drag.y + 18); ctx.stroke(); return;
+  }
+  const { a, p } = aim(), len = weapon === 5 ? 22 : mode === 'dir' ? 140 : 20 + p * 60;
+  ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * len, w.y + Math.sin(a) * len); ctx.stroke(); ctx.setLineDash([]);
+  if (mode === 'power') { ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, 16, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
 }
 
 let lastFrame = 0;
@@ -275,28 +356,23 @@ function draw(now) {
   sky.addColorStop(0, '#312e81'); sky.addColorStop(1, '#db277755');
   ctx.fillStyle = '#0b1220'; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
   if (landB64) ctx.drawImage(land, 0, 0);
+  for (const c of st.crates) drawCrate(c);
   for (const w of st.worms) if (w.alive) drawWorm(w, now);
   const w = worm(st.turn);
-  if (w && myTurn() && drag) { // visée
-    const { a, p } = aim();
-    ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * (weapon === 2 ? 120 : 20 + p * 60), w.y + Math.sin(a) * (weapon === 2 ? 120 : 20 + p * 60)); ctx.stroke(); ctx.setLineDash([]);
-    if (weapon !== 2) { ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, 16, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
-  }
-  if (trail.length && st.proj?.kind === 0) { ctx.strokeStyle = '#fde68a90'; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
-  if (st.proj) {
-    const p = st.proj;
-    ctx.fillStyle = p.kind === 1 ? '#166534' : '#e2e8f0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.kind === 1 ? 4 : 3.5, 0, 7); ctx.fill();
-    if (p.kind === 1) { ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(Math.ceil(p.fuse), p.x, p.y - 9); }
-  }
+  if (w && myTurn() && drag) drawAim(w, now);
+  if (trail.length) { ctx.strokeStyle = '#fde68a90'; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
+  for (const p of st.projs) drawProj(p, now);
   shots = shots.filter(s => (s.life -= dt) > 0);
   for (const s of shots) { ctx.strokeStyle = `rgba(254,240,138,${s.life * 4})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); ctx.stroke(); }
   // eau qui ondule
   ctx.fillStyle = '#0369a1cc'; ctx.beginPath(); ctx.moveTo(0, H);
-  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, WATER + Math.sin(x / 30 + now / 400) * 3);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, st.water + Math.sin(x / 30 + now / 400) * 3);
   ctx.lineTo(W, H); ctx.fill();
   particles = particles.filter(p => (p.life -= dt) > 0);
   for (const p of particles) { p.vy += 300 * dt; p.x += p.vx * dt; p.y += p.vy * dt; ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+  texts = texts.filter(t => (t.life -= dt) > 0);
+  ctx.font = '800 14px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#0f172a';
+  for (const t of texts) { t.y -= 20 * dt; ctx.globalAlpha = Math.min(1, t.life / t.max * 2); ctx.strokeText(t.txt, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.txt, t.x, t.y); }
   ctx.globalAlpha = 1;
   if (flash > 0) { flash -= dt; ctx.fillStyle = `rgba(255,200,120,${flash})`; ctx.fillRect(0, 0, W, H); }
 }

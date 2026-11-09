@@ -46,7 +46,7 @@ const GAMES = [
     text: 'text-red-400', tile: 'bg-red-500' },
   { href: '/motos.html', min: 1, max: 8, name: 'Motos', icon: 'trail', players: '2 à 8', tag: 'Ne touche aucun mur, pas même le tien. Bots possibles.',
     text: 'text-violet-400', tile: 'bg-violet-500' },
-  { href: '/lombrics.html', min: 1, max: 4, name: 'Lombrics', icon: 'worm', players: '2 à 4', tag: 'Équipes de vers, bazooka et grenades sur une île qui se creuse.',
+  { href: '/lombrics.html', min: 1, max: 4, name: 'Lombrics', icon: 'worm', players: '2 à 4', tag: 'Équipes de vers, 9 armes et un hélico, sur une île qui se creuse.',
     text: 'text-pink-400', tile: 'bg-pink-500' },
 ];
 // Mode télé : la télé affiche le jeu, les téléphones sont les manettes. Les jeux se lancent depuis la manette du chef.

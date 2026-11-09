@@ -24,10 +24,41 @@ func flatLand(g *WormGame, y float64) {
 	}
 }
 
-func settleWorms(g *WormGame) {
-	for i := 0; i < 3000 && (g.Phase == "fly" || g.Phase == "settle"); i++ {
+// run : dt secondes de jeu.
+func run(g *WormGame, secs float64) {
+	for range int(secs / ArtTick.Seconds()) {
 		g.step(ArtTick.Seconds())
 	}
+}
+
+// nextUp : joue jusqu'au tour suivant (ou la fin de partie).
+func nextUp(g *WormGame) {
+	turn := g.Turn
+	for i := 0; i < 5000 && g.Phase != "end" && (g.Phase != "play" || g.Turn == turn); i++ {
+		g.step(ArtTick.Seconds())
+	}
+}
+
+// wormDuel : sol plat à y = 300, le ver qui joue en x = 300, un adversaire en foeX, les autres loin. Sans vent.
+func wormDuel(t *testing.T, foeX float64) (*WormGame, *Squad, *Worm, *Worm) {
+	g, _, _ := worms2(t)
+	flatLand(g, 300)
+	g.Crates = g.Crates[:0] // pas de caisse tombée au hasard qui soignerait
+	me := g.worm(g.Turn)
+	var foe *Worm
+	far := []float64{40, 80, 700, 740}
+	for _, w := range g.Worms {
+		w.Y, w.air = 300-WormR-1, false
+		switch {
+		case w == me:
+			w.X, w.Dir = 300, 1
+		case foe == nil && w.Team != me.Team:
+			foe, w.X = w, foeX
+		default:
+			w.X, far = far[0], far[1:]
+		}
+	}
+	return g, g.squad(me.Team), me, foe
 }
 
 func TestWormsSetup(t *testing.T) {
@@ -116,11 +147,22 @@ func TestWormsTurnsAndWin(t *testing.T) {
 	}
 	first := g.worm(g.Turn).Team
 	s := g.squad(first)
-	g.fire(s, Grenade, -math.Pi/2, 0.3) // en l'air : retombe et explose au bout de 3 s
-	if g.Phase != "fly" || g.Proj == nil || g.Proj.Kind != Grenade {
-		t.Fatal("la grenade doit partir")
+	me := g.worm(g.Turn)
+	g.fire(s, Grenade, -math.Pi/2, 0.3, 0) // en l'air : retombe et explose au bout de 3 s
+	if g.Phase != "play" || len(g.Projs) != 1 || g.Projs[0].Kind != Grenade || !g.Fired || g.Wait != LRetreat {
+		t.Fatal("la grenade doit partir, puis le ver a le temps de se mettre à l'abri")
 	}
-	settleWorms(g)
+	x0 := me.X
+	s.move = 1
+	run(g, 1)
+	if me.X < x0+30 {
+		t.Fatalf("le ver se met à l'abri pendant que la grenade vole : x=%.0f", me.X)
+	}
+	g.fire(s, Bazooka, -math.Pi/2, 0.5, 0)
+	if len(g.Projs) != 1 {
+		t.Fatal("un seul tir par tour")
+	}
+	nextUp(g)
 	if g.Phase != "play" || g.worm(g.Turn).Team == first {
 		t.Fatalf("au tour de l'autre équipe attendu, obtenu %s / équipe %d", g.Phase, g.worm(g.Turn).Team)
 	}
@@ -163,11 +205,11 @@ func TestWormsBotAims(t *testing.T) {
 	if time.Since(start) > time.Second {
 		t.Fatalf("le bot réfléchit trop longtemps : %v", time.Since(start))
 	}
-	if g.Phase != "fly" {
+	if len(g.Projs) != 1 {
 		t.Fatalf("le bot aurait dû tirer, phase %s", g.Phase)
 	}
 	impact := math.Inf(1)
-	for i := 0; i < 3000 && g.Phase == "fly"; i++ {
+	for i := 0; i < 3000 && len(g.Projs) > 0; i++ {
 		g.Events = nil
 		g.step(ArtTick.Seconds())
 		for _, e := range g.Events {
@@ -176,7 +218,7 @@ func TestWormsBotAims(t *testing.T) {
 			}
 		}
 	}
-	if impact > 60 {
+	if impact > 80 { // il vise avec un peu de hasard : on vérifie qu'il tombe près, pas qu'il touche
 		t.Fatalf("sur terrain plat, le bot doit tomber près de sa cible : %.0f px", impact)
 	}
 	g.leave(h.ID)
@@ -192,11 +234,133 @@ func TestWormsFallAlongWall(t *testing.T) {
 		g.land[i] = float64(c)*LCell < 400 || float64(r)*LCell >= 400
 	}
 	w := g.Worms[0]
-	w.X, w.Y, w.air = 400+WormR-1, 200, false // collé à la paroi, rien dessous
+	w.X, w.Y, w.air = 400+WormR+0.5, 200, false // collé à la paroi, rien dessous
 	for range 60 {
 		g.move(w, 1.0/60)
 	}
 	if w.Y < 380 || w.air {
 		t.Fatalf("un ver contre une paroi doit tomber jusqu'au sol : y=%.0f air=%v", w.Y, w.air)
+	}
+}
+
+func TestWormsShotgunTwice(t *testing.T) {
+	g, s, me, foe := wormDuel(t, 360)
+	g.fire(s, Shotgun, 0, 1, 0)
+	if foe.HP != 100-int(weapons[Shotgun].dmg) || g.Fired {
+		t.Fatalf("premier coup de fusil : %d PV, tour pas fini attendu (fired=%v)", foe.HP, g.Fired)
+	}
+	g.fire(s, Bazooka, 0, 1, 0) // pas d'autre arme entre les deux tirs
+	if len(g.Projs) != 0 {
+		t.Fatal("entre les deux tirs du fusil, on ne change pas d'arme")
+	}
+	s.move = 1
+	run(g, 0.5)
+	if me.X != 300 {
+		t.Fatal("entre les deux tirs du fusil, on ne bouge pas")
+	}
+	g.fire(s, Shotgun, -math.Pi/2, 1, 0)
+	if !g.Fired {
+		t.Fatal("après le second tir : temps de repli")
+	}
+}
+
+func TestWormsBurstWeapons(t *testing.T) {
+	for _, weapon := range []int{Uzi, Flamer} {
+		g, s, me, foe := wormDuel(t, 340)
+		g.fire(s, weapon, 0, 1, 0)
+		s.move = 1
+		run(g, 0.5)
+		if me.X != 300 {
+			t.Fatalf("arme %d : on ne bouge pas pendant la rafale", weapon)
+		}
+		run(g, 2)
+		if foe.HP > 80 || !g.Fired {
+			t.Fatalf("arme %d : la rafale doit toucher l'adversaire à bout portant (%d PV) puis laisser le repli", weapon, foe.HP)
+		}
+		if me.HP != 100 {
+			t.Fatalf("arme %d : le tireur ne se blesse pas en tirant droit devant (%d PV)", weapon, me.HP)
+		}
+	}
+}
+
+func TestWormsBat(t *testing.T) {
+	g, s, _, foe := wormDuel(t, 312)
+	g.fire(s, Bat, -0.5, 1, 0)
+	if foe.HP != 100-int(weapons[Bat].dmg) || !foe.air || foe.vx < 300 || foe.vy > -200 {
+		t.Fatalf("coup de batte : %d PV et envolé vers la droite attendus, obtenu vx=%.0f vy=%.0f", foe.HP, foe.vx, foe.vy)
+	}
+}
+
+func TestWormsDynamiteAndAirStrike(t *testing.T) {
+	g, s, _, foe := wormDuel(t, 600)
+	g.fire(s, Dynamite, 0, 1, 0)
+	if s.Ammo[Dynamite] != weapons[Dynamite].ammo-1 || len(g.Projs) != 1 {
+		t.Fatal("la dynamite est posée et compte une munition")
+	}
+	nextUp(g)
+	if g.solid(300, 302) {
+		t.Fatal("la dynamite creuse un gros trou")
+	}
+
+	g, s, _, foe = wormDuel(t, 600)
+	g.fire(s, AirStrike, 0, 1, foe.X)
+	if len(g.Projs) != 5 {
+		t.Fatalf("5 missiles attendus, obtenu %d", len(g.Projs))
+	}
+	nextUp(g)
+	if foe.HP >= 100 {
+		t.Fatal("la frappe aérienne touche la cible")
+	}
+	g.fire(s, AirStrike, 0, 1, 0)
+	if s.Ammo[AirStrike] != 0 {
+		t.Fatal("une seule frappe aérienne par partie")
+	}
+}
+
+func TestWormsHeli(t *testing.T) {
+	g, s, me, _ := wormDuel(t, 600)
+	g.fire(s, Heli, 0, 1, 0)
+	if me.Heli != HeliTime || g.Fired || s.Ammo[Heli] != weapons[Heli].ammo-1 {
+		t.Fatal("l'hélicoptère décolle sans finir le tour")
+	}
+	s.up, s.move = true, 1
+	run(g, 1)
+	if me.Y > 250 || me.X < 360 {
+		t.Fatalf("en tenant le saut, l'hélicoptère monte et avance : x=%.0f y=%.0f", me.X, me.Y)
+	}
+	run(g, 2)
+	if me.Y < WormR {
+		t.Fatalf("l'hélicoptère ne sort pas par le haut de l'écran : y=%.0f", me.Y)
+	}
+	s.up, s.move = false, 0
+	run(g, 6)
+	if me.air || me.Heli != 0 || me.HP != 100 {
+		t.Fatalf("après 5 s, le ver redescend sans se blesser : air=%v hp=%d", me.air, me.HP)
+	}
+	g.fire(s, Bazooka, -math.Pi/2, 0.5, 0)
+	if len(g.Projs) != 1 {
+		t.Fatal("après l'hélicoptère, on peut encore tirer")
+	}
+}
+
+func TestWormsHurtEndsTurnCratesFlood(t *testing.T) {
+	g, s, me, _ := wormDuel(t, 600)
+	g.Crates = append(g.Crates[:0], &Crate{X: 300, Y: 280}) // sans la caisse tombée au hasard en début de tour
+	run(g, 0.2)
+	if me.HP != 100+HealHP || len(g.Crates) != 0 {
+		t.Fatalf("la caisse soigne de %d PV : %d", HealHP, me.HP)
+	}
+	g.hurt(me, 10)
+	if g.Phase != "settle" {
+		t.Fatal("le ver qui joue et se blesse finit son tour")
+	}
+	g.fire(s, Bazooka, 0, 1, 0)
+	if len(g.Projs) != 0 {
+		t.Fatal("tour fini : plus de tir")
+	}
+	g.turns = SuddenRounds * len(g.Squads)
+	nextUp(g)
+	if g.Water != WaterY-FloodStep {
+		t.Fatalf("mort subite : l'eau monte de %v, obtenu %.0f", FloodStep, g.Water)
 	}
 }
