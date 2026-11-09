@@ -129,7 +129,18 @@ func (g *WormGame) solid(x, y float64) bool {
 // hits : le corps d'un ver centré en (x, y) touche-t-il la terre ?
 func (g *WormGame) hits(x, y float64) bool {
 	const d = WormR * 0.7
-	return g.solid(x, y+WormR) || g.solid(x-d, y+d) || g.solid(x+d, y+d) || g.solid(x-WormR, y) || g.solid(x+WormR, y) || g.solid(x, y-WormR)
+	return g.feet(x, y) || g.solid(x-WormR, y) || g.solid(x+WormR, y) || g.solid(x, y-WormR)
+}
+
+// feet : le dessous du ver touche-t-il la terre ? (les côtés ne portent pas : un ver contre une paroi tombe)
+func (g *WormGame) feet(x, y float64) bool {
+	const d = WormR * 0.7
+	return g.solid(x, y+WormR) || g.solid(x-d, y+d) || g.solid(x+d, y+d)
+}
+
+// blocked : le ver qui avance dans la direction dir bute-t-il (sol, mur devant ou plafond) ?
+func (g *WormGame) blocked(x, y, dir float64) bool {
+	return g.feet(x, y) || g.solid(x+dir*WormR, y) || g.solid(x, y-WormR)
 }
 
 func (g *WormGame) landB64() string {
@@ -451,29 +462,29 @@ func (g *WormGame) move(w *Worm, dt float64) {
 	if !w.Alive {
 		return
 	}
-	if !w.air && !g.hits(w.X, w.Y+1) {
+	if !w.air && !g.feet(w.X, w.Y+1) {
 		w.air = true
 	}
 	if w.air {
 		w.vy += Gravity * dt
 		nx, ny := w.X+w.vx*dt, w.Y+w.vy*dt
-		if g.hits(nx, w.Y) {
+		if w.vx != 0 && g.solid(nx+math.Copysign(WormR, w.vx), w.Y) { // mur
 			w.vx, nx = -w.vx*0.3, w.X
 		}
-		if g.hits(nx, ny) {
-			if w.vy > 0 { // atterrissage : on descend au ras du sol
-				for range 10 {
-					if g.hits(nx, w.Y+1) {
-						break
-					}
-					w.Y++
-				}
-				if w.vy > FallSafe {
-					g.hurt(w, int((w.vy-FallSafe)/8))
-				}
-				w.air, w.vx, w.walk = false, 0, 0
-			}
+		if w.vy < 0 && g.solid(nx, ny-WormR) { // plafond
 			w.vy, ny = 0, w.Y
+		}
+		if w.vy > 0 && g.feet(nx, ny) { // atterrissage : on descend au ras du sol
+			for range 10 {
+				if g.feet(nx, w.Y+1) {
+					break
+				}
+				w.Y++
+			}
+			if w.vy > FallSafe {
+				g.hurt(w, int((w.vy-FallSafe)/8))
+			}
+			w.air, w.vx, w.walk, w.vy, ny = false, 0, 0, 0, w.Y
 		}
 		w.X, w.Y = nx, ny
 	} else if s := g.squad(w.Team); s != nil && s.move != 0 && g.active(s) == w {
@@ -481,7 +492,7 @@ func (g *WormGame) move(w *Worm, dt float64) {
 		for w.walk += WormSpeed * dt; w.walk >= 1; w.walk-- { // pixel par pixel, en montant les petites marches
 			nx := w.X + float64(s.move)
 			up := 0.0
-			for up <= WormClimb && g.hits(nx, w.Y-up) {
+			for up <= WormClimb && g.blocked(nx, w.Y-up, float64(s.move)) {
 				up++
 			}
 			if up > WormClimb || nx < 0 || nx > AW {
@@ -489,7 +500,7 @@ func (g *WormGame) move(w *Worm, dt float64) {
 				break
 			}
 			w.X, w.Y = nx, w.Y-up
-			for d := 0; d < int(WormClimb) && !g.hits(w.X, w.Y+1); d++ { // en descente, on suit le sol
+			for d := 0; d < int(WormClimb) && !g.feet(w.X, w.Y+1); d++ { // en descente, on suit le sol
 				w.Y++
 			}
 		}
@@ -548,7 +559,7 @@ func (g *WormGame) step(dt float64) {
 // think : le bot essaie des tirs au bazooka dans toutes les directions (vent compris) et garde celui qui explose
 // le plus près d'un ver adverse, sans trop s'approcher des siens.
 func (g *WormGame) think(s *Squad, w *Worm) {
-	bestA, bestP, best := -math.Pi/2, 0.5, math.Inf(1)
+	bestA, bestP, best := -math.Pi/2+float64(w.Dir)*0.7, 0.6, math.Inf(1) // faute de mieux : en cloche devant lui, pas à la verticale
 	for deg := 0.0; deg < 360; deg += 5 {
 		a := deg * math.Pi / 180
 		for p := 0.3; p <= 1.0; p += 0.07 {

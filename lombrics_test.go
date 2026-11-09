@@ -184,3 +184,19 @@ func TestWormsBotAims(t *testing.T) {
 		t.Fatal("les bots partent avec le dernier humain")
 	}
 }
+
+func TestWormsFallAlongWall(t *testing.T) {
+	g, _, _ := worms2(t)
+	for i := range g.land { // une paroi verticale à gauche (x < 400), un sol à y = 400
+		r, c := i/LGW, i%LGW
+		g.land[i] = float64(c)*LCell < 400 || float64(r)*LCell >= 400
+	}
+	w := g.Worms[0]
+	w.X, w.Y, w.air = 400+WormR-1, 200, false // collé à la paroi, rien dessous
+	for range 60 {
+		g.move(w, 1.0/60)
+	}
+	if w.Y < 380 || w.air {
+		t.Fatalf("un ver contre une paroi doit tomber jusqu'au sol : y=%.0f air=%v", w.Y, w.air)
+	}
+}
