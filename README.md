@@ -115,10 +115,10 @@ De 2 à 4 chars, joueurs ou **bots** (« Ajouter un bot »). Chacun son tour, 20
 
 ## Lombrics
 
-De 2 à 4 équipes de **3 vers**, joueurs ou **bots**. Chacun son tour, 30 s : un ver de ton équipe joue (ils jouent à tour de rôle).
+De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Bébert…), joueurs ou **bots**. Chacun son tour, 30 s : un ver de ton équipe joue (ils jouent à tour de rôle).
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
-- **Arme** : touches 1 à 9 ou les boutons, puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
+- **Arme** : touches 1 à 9, 0 et R, ou les boutons (sur téléphone, icônes seules), puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
   - 🚀 **Bazooka** : explose au contact, poussé par le **vent** (change à chaque tour).
   - 💣 **Grenade** : rebondit et explose au bout de 3 s.
   - 🔫 **Fusil** : deux tirs droits et instantanés (on ne bouge pas entre les deux).
@@ -126,13 +126,16 @@ De 2 à 4 équipes de **3 vers**, joueurs ou **bots**. Chacun son tour, 30 s : u
   - 🔥 **Lance-flammes** : un jet de flammes à courte portée, poussé par le vent.
   - 🏏 **Batte** : envoie valser le ver juste devant (30 PV).
   - 🧨 **Dynamite** (2 par partie) : posée à tes pieds en touchant l'île (ou Entrée), explose au bout de 5 s. File !
+  - 🪤 **Mine** (2 par partie) : posée à tes pieds, s'arme en 3 s puis saute quand un ver passe.
   - ✈️ **Frappe aérienne** (1 par partie) : touche la cible, 5 missiles tombent dessus.
-  - 🚁 **Hélico** (2 par partie) : touche l'île (ou Entrée), puis 5 s de vol : tiens Saut pour monter, ← → pour avancer. Ne termine pas le tour, on peut tirer après.
+  - 🚁 **Hélico** (2 par partie) : touche l'île (ou Entrée), puis 5 s de vol : tiens Saut (ou ▲) pour monter, ← → pour avancer. Ne termine pas le tour, on peut tirer après.
+  - 🪢 **Corde ninja** : vise un bout de terre (260 px au plus), le ver s'y accroche. ← → pour se balancer, ↑ ↓ (ou ▲ ▼) pour raccourcir ou allonger, Espace (ou Saut) pour lâcher avec l'élan. Ne termine pas le tour. Si la terre où elle tient saute, on tombe.
 - Après un tir, **3 s de repli** pour se mettre à l'abri. Un ver qui se blesse pendant son tour (chute, sa propre explosion) le termine aussitôt.
 - Le terrain est une île percée de grottes : **chaque explosion la creuse**. Les explosions **projettent** les vers, les grosses chutes font mal et **l'eau noie**.
-- Des **caisses de soin** (+25 PV) tombent parfois en parachute : marche dessus pour les prendre.
+- L'île cache **5 mines** (un ver qui passe à côté la déclenche : 1,5 s pour s'éloigner) et **3 barils de pétrole** qui explosent quand on les touche (tir, explosion, flammes) en répandant des flammes. Les explosions font sauter les mines et les barils voisins : réactions en chaîne.
+- Des **caisses** tombent parfois en parachute : marche dessus pour les prendre. **Soin** (croix rouge, +25 PV) ou **armes** (caisse en bois : une munition de plus de dynamite, mine, frappe aérienne ou hélico).
 - **Mort subite** : après 8 tours chacun, l'eau monte à chaque tour.
-- La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot tire au bazooka : il essaie toutes les directions (vent et terrain compris) et évite de toucher ses propres vers.
+- La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot tire au bazooka ou à la grenade : il essaie toutes les directions (vent et terrain compris) et évite de toucher ses propres vers. Collé à un adversaire, il sort la batte.
 
 ## Motos
 

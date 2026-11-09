@@ -77,12 +77,14 @@
   </div>
 
   <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-    <div id="arms" class="flex flex-wrap items-center gap-2" role="group" aria-label="Arme"></div>
-    <div class="flex items-center gap-2" role="group" aria-label="Déplacement">
+    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Déplacement">
       <button data-move="-1" aria-label="Marcher à gauche" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-left" class="size-5"></i></button>
       <button id="jumpBtn" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">Saut</button>
+      <button data-len="up" title="Corde : raccourcir · Hélico : monter (↑)" aria-label="Monter" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95">▲</button>
+      <button data-len="down" title="Corde : allonger (↓)" aria-label="Descendre" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95">▼</button>
       <button data-move="1" aria-label="Marcher à droite" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-right" class="size-5"></i></button>
     </div>
+    <div id="arms" class="flex flex-wrap items-center gap-2" role="group" aria-label="Arme"></div>
   </div>
 
   <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
@@ -94,7 +96,7 @@
         <i data-icon="user-minus" class="size-4"></i> Retirer un bot
       </button>
     </div>
-    <span class="text-xs">À ton tour : ← → pour marcher, Espace pour sauter (tenu : l'hélico monte), 1 à 9 pour l'arme, puis tire en arrière et relâche. Après le tir, 3 s pour te mettre à l'abri.</span>
+    <span class="text-xs">À ton tour : ← → pour marcher, Espace pour sauter (tenu : l'hélico monte), 1 à 9, 0 et R pour l'arme, puis tire en arrière et relâche. Corde : ← → pour te balancer, ↑ ↓ pour la longueur, Espace pour lâcher. Après le tir, 3 s pour te mettre à l'abri.</span>
   </footer>
 </main>
 
@@ -112,20 +114,24 @@ const WEAPONS = [
   { e: '🔥', n: 'Lance-flammes', aim: 'dir', tip: 'brûle à courte portée' },
   { e: '🏏', n: 'Batte', aim: 'dir', tip: 'envoie valser le ver juste devant' },
   { e: '🧨', n: 'Dynamite', aim: 'now', tip: 'posée à tes pieds, explose au bout de 5 s : file !' },
+  { e: '🪤', n: 'Mine', aim: 'now', tip: "posée à tes pieds, s'arme en 3 s et saute quand un ver passe" },
   { e: '✈️', n: 'Frappe aérienne', aim: 'target', tip: '5 missiles sur la cible que tu touches' },
   { e: '🚁', n: 'Hélico', aim: 'now', tip: '5 s de vol (tiens Saut pour monter), sans finir le tour' },
+  { e: '🪢', n: 'Corde', aim: 'dir', tip: "s'accroche à la terre visée : ← → pour te balancer, ↑ ↓ pour la longueur, Saut pour lâcher. Ne finit pas le tour" },
 ];
-let st = null, landB64 = '', trail = [], particles = [], shots = [], texts = [], flash = 0, shake = 0, weapon = 0, moving = 0, upHeld = 0;
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'R']; // touche de chaque arme
+const K = { bazooka: 0, grenade: 1, flamer: 4, bat: 5, dynamite: 6, missile: 11, flame: 12 }; // numéros des armes et projectiles du serveur
+let st = null, landB64 = '', trail = [], particles = [], shots = [], texts = [], flash = 0, shake = 0, weapon = 0, moving = 0, upHeld = 0, downHeld = 0;
 
 function start(pin) {
   connect('/ws/lombrics', pin, '', m => {
     if (!m) { st = null; landB64 = ''; return; }
     if (m.land && m.land !== landB64) drawLand(landB64 = m.land);
     st = m;
-    const rocket = m.projs.find(p => p.kind === 0);
+    const rocket = m.projs.find(p => p.kind === K.bazooka);
     if (rocket) trail.push({ x: rocket.x, y: rocket.y }); else trail = [];
     for (const ev of m.events || []) onEvent(ev);
-    if (!myTurn()) { walk(0); setUp(0); }
+    if (!myTurn()) { walk(0); setUp(0); setDown(0); }
     hud();
   });
 }
@@ -140,19 +146,21 @@ const myTurn = () => st && st.phase === 'play' && worm(st.turn)?.team === me && 
 // ---------- Commandes : marcher, sauter (et monter en hélico), arme, tirer ----------
 function walk(m) { if (m !== moving) { moving = m; if (myTurn() || !m) send({ t: 'move', m }); } }
 function setUp(v) { if (v !== upHeld) { upHeld = v; if (myTurn() || !v) send({ t: 'up', m: v }); } }
+function setDown(v) { if (v !== downHeld) { downHeld = v; if (myTurn() || !v) send({ t: 'down', m: v }); } }
+const roped = () => myTurn() && worm(st.turn)?.rope;
 function jumpDown() { if (myTurn()) send({ t: 'jump' }); setUp(1); }
 function fire(extra) { send({ t: 'fire', w: weapon, a: 0, p: 1, x: 0, ...extra }); }
 function pickWeapon(w) { weapon = w; arms(); }
 function arms() { // la barre d'armes, avec les munitions de ton équipe
-  const ammo = squad(me)?.ammo || [];
-  const key = weapon + ':' + ammo.join();
+  const ammo = squad(me)?.ammo || [], compact = matchMedia('(max-width: 639px)').matches || $('game').classList.contains('side'); // téléphone : icônes seules
+  const key = weapon + ':' + ammo.join() + compact;
   if ($('arms').dataset.key === key) return;
   $('arms').dataset.key = key;
   $('arms').replaceChildren(...WEAPONS.map((wp, i) => {
     const on = i === weapon, left = ammo[i] ?? -1;
     const b = el('button', 'rounded-full px-3 py-1.5 transition active:scale-95 ' + (on ? 'bg-pink-400 text-slate-950' : 'bg-white/10 text-slate-200 hover:bg-white/15') + (left === 0 ? ' opacity-50' : ''),
-      wp.e + ' ' + wp.n, ...(left >= 0 ? [el('span', 'font-mono ' + (on ? '' : 'text-amber-300'), ' ×' + left)] : []));
-    b.title = wp.n + ' (' + (i + 1) + ') : ' + wp.tip;
+      compact ? wp.e : wp.e + ' ' + wp.n, ...(left >= 0 ? [el('span', 'font-mono ' + (on ? '' : 'text-amber-300'), ' ×' + left)] : []));
+    b.title = wp.n + ' (' + KEYS[i] + ') : ' + wp.tip; b.setAttribute('aria-label', wp.n);
     b.onclick = () => { pickWeapon(i); b.blur(); };
     return b;
   }));
@@ -163,14 +171,20 @@ document.querySelectorAll('[data-move]').forEach(b => {
 });
 $('jumpBtn').onpointerdown = e => { e.preventDefault(); jumpDown(); };
 $('jumpBtn').onpointerup = $('jumpBtn').onpointerleave = $('jumpBtn').onpointercancel = () => setUp(0);
-const LEFT = ['ArrowLeft', 'KeyA', 'KeyQ'], RIGHT = ['ArrowRight', 'KeyD'], UP = ['Space', 'ArrowUp', 'KeyW', 'KeyZ'];
+document.querySelectorAll('[data-len]').forEach(b => {
+  const set = b.dataset.len === 'up' ? setUp : setDown;
+  b.onpointerdown = e => { e.preventDefault(); set(1); };
+  b.onpointerup = b.onpointerleave = b.onpointercancel = () => set(0);
+});
+const LEFT = ['ArrowLeft', 'KeyA', 'KeyQ'], RIGHT = ['ArrowRight', 'KeyD'], UP = ['Space', 'ArrowUp', 'KeyW', 'KeyZ'], DOWN = ['ArrowDown', 'KeyS'];
 addEventListener('keydown', e => {
   if ($('game').hidden || e.target.tagName === 'INPUT') return;
   if (e.code === 'KeyM' && !e.repeat) setMuted(!muted);
   else if (LEFT.includes(e.code)) walk(-1);
   else if (RIGHT.includes(e.code)) walk(1);
-  else if (UP.includes(e.code)) { if (!e.repeat) jumpDown(); }
-  else if (/^Digit[1-9]$/.test(e.code)) pickWeapon(+e.code.at(-1) - 1);
+  else if (UP.includes(e.code)) { if (!e.repeat) { if (roped() && e.code !== 'Space') setUp(1); else jumpDown(); } } // à la corde, seul Espace lâche
+  else if (DOWN.includes(e.code)) setDown(1);
+  else if (/^Digit[0-9]$/.test(e.code) || e.code === 'KeyR') pickWeapon(KEYS.indexOf(e.code.at(-1)));
   else if (e.code === 'Enter' && WEAPONS[weapon].aim === 'now') { if (!e.repeat && myTurn()) fire({}); }
   else return;
   e.preventDefault();
@@ -178,8 +192,10 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => {
   if ((LEFT.includes(e.code) && moving < 0) || (RIGHT.includes(e.code) && moving > 0)) walk(0);
   if (UP.includes(e.code)) setUp(0);
+  if (DOWN.includes(e.code)) setDown(0);
 });
-addEventListener('blur', () => { walk(0); setUp(0); });
+addEventListener('blur', () => { walk(0); setUp(0); setDown(0); });
+addEventListener('resize', () => st && arms());
 
 // visée : on tire en arrière depuis n'importe où (ou on touche, selon l'arme)
 let drag = null;
@@ -228,7 +244,7 @@ function hud() {
     $('board').replaceChildren(...st.squads.map(s => {
       const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = s.color;
       const playing = st.worms.some(w => w.team === s.id);
-      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (playing && !hp(s) ? ' opacity-50' : '') + (s.id === cur?.id && st.phase === 'play' ? ' ring-2 ring-pink-400/60' : ''),
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (playing && !hp(s) ? ' opacity-50' : '') + (s.id === cur?.id && st.phase === 'play' ? ' ring-2 ring-yellow-400/60' : ''),
         dot, el('span', s.id === me ? 'font-bold' : '', s.name + (s.bot ? ' (bot)' : '')), el('span', 'font-mono text-amber-300', playing ? hp(s) + ' PV' : '…'));
     }));
   }
@@ -250,7 +266,7 @@ const say = (x, y, txt, color, life = 1.2) => texts.push({ x, y, txt, color, lif
 function onEvent(e) {
   switch (e.kind) {
     case 'fire':
-      if (e.b === 4) noise(1.5, 0.08); else if (e.b === 0 || e.b === 1) { tone(140, 0.25, 'sawtooth', 0.1, 60); noise(0.12, 0.12); }
+      if (e.b === K.flamer) noise(1.5, 0.08); else if (e.b === K.bazooka || e.b === K.grenade) { tone(140, 0.25, 'sawtooth', 0.1, 60); noise(0.12, 0.12); }
       break;
     case 'shot': shots.push({ x0: e.x, y0: e.y, x1: e.a, y1: e.b, life: 0.2 }); tone(900, 0.06, 'square', 0.06, 200); noise(0.06, 0.12); break;
     case 'boom': {
@@ -266,6 +282,10 @@ function onEvent(e) {
     case 'heli': for (let i = 0; i < 10; i++) tone(90, 0.05, 'sawtooth', 0.06, 0, i * 0.08); break;
     case 'hit': say(e.x, e.y - 20, '-' + e.b, '#f87171'); tone(200, 0.1, 'square', 0.05, 120); break;
     case 'heal': say(e.x, e.y - 20, '+' + e.b, '#4ade80'); [660, 880].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.1)); break;
+    case 'ammo': say(e.x, e.y - 20, '+1 ' + WEAPONS[e.b].e, '#fde047'); [660, 990].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.1)); break;
+    case 'beep': [0, 0.25, 0.5, 0.75, 1, 1.2, 1.35].forEach(d => tone(1400, 0.06, 'square', 0.06, 0, d)); say(e.x, e.y - 14, '!', '#f87171', 1.5); break;
+    case 'rope': tone(500, 0.08, 'triangle', 0.08, 900); break;
+    case 'release': tone(700, 0.06, 'triangle', 0.06, 300); break;
     case 'flood': say(W / 2, 60, 'Mort subite : l\'eau monte !', '#7dd3fc', 2.5); noise(0.8, 0.1); break;
     case 'splash': case 'drown': burst(e.x, st.water, 25, '#7dd3fc', 140, 0.7); noise(0.4, 0.15); if (e.kind === 'drown') tone(500, 0.6, 'sine', 0.1, 80); break;
     case 'dead': burst(e.x, e.y, 60, '#f9a8d4', 240, 1); tone(60, 0.8, 'sawtooth', 0.15, 30); break;
@@ -290,6 +310,7 @@ function drawLand(b64) {
 // ---------- L'île ----------
 function drawWorm(w, now) {
   const s = squad(w.team), dir = w.dir || 1;
+  if (w.rope) { ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.rope[0], w.rope[1]); ctx.stroke(); }
   if (w.heli) { // hélicoptère : rotor qui tourne et petite cabine
     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; const r = 14 * Math.abs(Math.sin(now / 25));
     ctx.beginPath(); ctx.moveTo(w.x - r, w.y - 15); ctx.lineTo(w.x + r, w.y - 15); ctx.stroke();
@@ -303,33 +324,50 @@ function drawWorm(w, now) {
   ctx.font = '700 11px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#0f172acc';
   const label = w.heli ? w.hp + ' · 🚁' + Math.ceil(w.heli) : w.hp;
   ctx.strokeText(label, w.x, w.y - 18); ctx.fillStyle = s?.color || '#fff'; ctx.fillText(label, w.x, w.y - 18);
+  ctx.font = '600 10px system-ui'; ctx.strokeText(w.name, w.x, w.y - 30); ctx.fillStyle = '#f1f5f9'; ctx.fillText(w.name, w.x, w.y - 30);
   if (w.id === st.turn && st.phase === 'play') { // flèche au-dessus du ver qui joue
-    const y = w.y - 36 + Math.sin(now / 150) * 3;
+    const y = w.y - 46 + Math.sin(now / 150) * 3;
     ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(w.x - 6, y - 8); ctx.lineTo(w.x + 6, y - 8); ctx.lineTo(w.x, y); ctx.fill();
   }
 }
 
 function drawProj(p, now) {
   ctx.textAlign = 'center'; ctx.font = '700 12px system-ui';
-  if (p.kind === 10) { // flamme
+  if (p.kind === K.flame) { // flamme
     ctx.fillStyle = ['#fde047', '#fb923c', '#ef4444'][Math.floor(now / 60 + p.x) % 3]; ctx.globalAlpha = 0.85;
     ctx.beginPath(); ctx.arc(p.x, p.y, 3 + Math.random() * 2, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return;
   }
-  if (p.kind === 6) { // dynamite et sa mèche
+  if (p.kind === K.dynamite) { // dynamite et sa mèche
     ctx.fillStyle = '#dc2626'; ctx.fillRect(p.x - 3, p.y - 7, 6, 10);
     ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(p.x + 2, p.y - 9, 1.5 + Math.random(), 0, 7); ctx.fill();
-  } else if (p.kind === 9) { ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3, 6, 0, 0, 7); ctx.fill(); }
-  else { ctx.fillStyle = p.kind === 1 ? '#166534' : '#e2e8f0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.kind === 1 ? 4 : 3.5, 0, 7); ctx.fill(); }
-  if (p.kind === 1 || p.kind === 6) { ctx.fillStyle = '#fff'; ctx.fillText(Math.ceil(p.fuse), p.x, p.y - 12); }
+  } else if (p.kind === K.missile) { ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3, 6, 0, 0, 7); ctx.fill(); }
+  else { ctx.fillStyle = p.kind === K.grenade ? '#166534' : '#e2e8f0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.kind === K.grenade ? 4 : 3.5, 0, 7); ctx.fill(); }
+  if (p.kind === K.grenade || p.kind === K.dynamite) { ctx.fillStyle = '#fff'; ctx.fillText(Math.ceil(p.fuse), p.x, p.y - 12); }
 }
 
-function drawCrate(c) {
-  if (c.fall) { // parachute
-    ctx.fillStyle = '#f1f5f9cc'; ctx.beginPath(); ctx.arc(c.x, c.y - 20, 11, Math.PI, 0); ctx.fill();
-    ctx.strokeStyle = '#f1f5f9aa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x - 11, c.y - 20); ctx.lineTo(c.x - 4, c.y - 6); ctx.moveTo(c.x + 11, c.y - 20); ctx.lineTo(c.x + 4, c.y - 6); ctx.stroke();
+function drawObj(o, now) {
+  if (o.kind === 'mine') { // disque sombre, voyant qui clignote vite quand elle va sauter
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 4, 6, 3.5, 0, Math.PI, 0); ctx.fill();
+    const on = o.fuse >= 0 ? Math.floor(now / 80) % 2 : Math.floor(now / 700) % 2;
+    ctx.fillStyle = on ? '#ef4444' : '#7f1d1d'; ctx.beginPath(); ctx.arc(o.x, o.y + 1, 1.8, 0, 7); ctx.fill();
+    return;
   }
-  ctx.fillStyle = '#f8fafc'; ctx.fillRect(c.x - 6, c.y - 6, 12, 12);
-  ctx.fillStyle = '#dc2626'; ctx.fillRect(c.x - 1.5, c.y - 4.5, 3, 9); ctx.fillRect(c.x - 4.5, c.y - 1.5, 9, 3);
+  if (o.kind === 'barrel') { // baril de pétrole
+    ctx.fillStyle = '#b91c1c'; ctx.fillRect(o.x - 5, o.y - 7, 10, 14);
+    ctx.fillStyle = '#fbbf24'; ctx.fillRect(o.x - 5, o.y - 3, 10, 2); ctx.fillRect(o.x - 5, o.y + 2, 10, 2);
+    return;
+  }
+  if (o.fall) { // parachute
+    ctx.fillStyle = '#f1f5f9cc'; ctx.beginPath(); ctx.arc(o.x, o.y - 20, 11, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = '#f1f5f9aa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(o.x - 11, o.y - 20); ctx.lineTo(o.x - 4, o.y - 6); ctx.moveTo(o.x + 11, o.y - 20); ctx.lineTo(o.x + 4, o.y - 6); ctx.stroke();
+  }
+  if (o.kind === 'ammo') { // caisse d'armes en bois, avec l'arme dessus
+    ctx.fillStyle = '#92400e'; ctx.fillRect(o.x - 6, o.y - 6, 12, 12); ctx.strokeStyle = '#451a03'; ctx.lineWidth = 1; ctx.strokeRect(o.x - 6, o.y - 6, 12, 12);
+    ctx.font = '9px system-ui'; ctx.textAlign = 'center'; ctx.fillText(WEAPONS[o.w].e, o.x, o.y + 3);
+    return;
+  }
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(o.x - 6, o.y - 6, 12, 12);
+  ctx.fillStyle = '#dc2626'; ctx.fillRect(o.x - 1.5, o.y - 4.5, 3, 9); ctx.fillRect(o.x - 4.5, o.y - 1.5, 9, 3);
 }
 
 function drawAim(w, now) {
@@ -339,7 +377,7 @@ function drawAim(w, now) {
     ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(drag.x, drag.y, 12, 0, 7);
     ctx.moveTo(drag.x - 18, drag.y); ctx.lineTo(drag.x + 18, drag.y); ctx.moveTo(drag.x, drag.y - 18); ctx.lineTo(drag.x, drag.y + 18); ctx.stroke(); return;
   }
-  const { a, p } = aim(), len = weapon === 5 ? 22 : mode === 'dir' ? 140 : 20 + p * 60;
+  const { a, p } = aim(), len = weapon === K.bat ? 22 : mode === 'dir' ? 140 : 20 + p * 60;
   ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
   ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * len, w.y + Math.sin(a) * len); ctx.stroke(); ctx.setLineDash([]);
   if (mode === 'power') { ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, 16, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
@@ -356,7 +394,7 @@ function draw(now) {
   sky.addColorStop(0, '#312e81'); sky.addColorStop(1, '#db277755');
   ctx.fillStyle = '#0b1220'; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
   if (landB64) ctx.drawImage(land, 0, 0);
-  for (const c of st.crates) drawCrate(c);
+  for (const o of st.objs) drawObj(o, now);
   for (const w of st.worms) if (w.alive) drawWorm(w, now);
   const w = worm(st.turn);
   if (w && myTurn() && drag) drawAim(w, now);

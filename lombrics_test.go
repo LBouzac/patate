@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-// worms2 : deux équipes humaines, partie lancée, sans vent.
+// worms2 : deux équipes humaines, partie lancée, sans vent, sans mine, baril ni caisse (testés à part).
 func worms2(t *testing.T) (*WormGame, *Squad, *Squad) {
 	g := newWormGame("0000")
 	a, b := g.join("A", false), g.join("B", false)
 	for g.Phase != "play" {
 		g.step(0.1)
 	}
-	g.Wind = 0
+	g.Wind, g.Objs = 0, g.Objs[:0]
 	return g, a, b
 }
 
@@ -43,7 +43,6 @@ func nextUp(g *WormGame) {
 func wormDuel(t *testing.T, foeX float64) (*WormGame, *Squad, *Worm, *Worm) {
 	g, _, _ := worms2(t)
 	flatLand(g, 300)
-	g.Crates = g.Crates[:0] // pas de caisse tombée au hasard qui soignerait
 	me := g.worm(g.Turn)
 	var foe *Worm
 	far := []float64{40, 80, 700, 740}
@@ -186,6 +185,7 @@ func TestWormsBotAims(t *testing.T) {
 		g.step(0.1)
 	}
 	flatLand(g, 300)
+	g.Objs = g.Objs[:0]
 	var me, target *Worm
 	for _, w := range g.Worms {
 		w.X, w.Y, w.air = 50, 300-WormR-1, false
@@ -345,9 +345,9 @@ func TestWormsHeli(t *testing.T) {
 
 func TestWormsHurtEndsTurnCratesFlood(t *testing.T) {
 	g, s, me, _ := wormDuel(t, 600)
-	g.Crates = append(g.Crates[:0], &Crate{X: 300, Y: 280}) // sans la caisse tombée au hasard en début de tour
+	g.Objs = append(g.Objs[:0], &Obj{Kind: "heal", X: 300, Y: 280, Fuse: -1}) // sans la caisse tombée au hasard en début de tour
 	run(g, 0.2)
-	if me.HP != 100+HealHP || len(g.Crates) != 0 {
+	if me.HP != 100+HealHP || len(g.Objs) != 0 {
 		t.Fatalf("la caisse soigne de %d PV : %d", HealHP, me.HP)
 	}
 	g.hurt(me, 10)
@@ -362,5 +362,139 @@ func TestWormsHurtEndsTurnCratesFlood(t *testing.T) {
 	nextUp(g)
 	if g.Water != WaterY-FloodStep {
 		t.Fatalf("mort subite : l'eau monte de %v, obtenu %.0f", FloodStep, g.Water)
+	}
+}
+
+func TestWormsNamesAndObjects(t *testing.T) {
+	g := newWormGame("0000")
+	g.join("A", false)
+	g.join("B", false)
+	for g.Phase != "play" {
+		g.step(0.1)
+	}
+	kinds := map[string]int{}
+	for _, o := range g.Objs {
+		if !o.crate() && !g.solid(o.X, o.Y+7) {
+			t.Fatalf("%s posé(e) sur la terre attendu : %+v", o.Kind, *o)
+		}
+		kinds[o.Kind]++
+	}
+	if kinds["mine"] != 5 || kinds["barrel"] != 3 {
+		t.Fatalf("5 mines et 3 barils sur l'île attendus : %v", kinds)
+	}
+	seen := map[string]bool{}
+	for _, w := range g.Worms {
+		if w.Name == "" || seen[w.Name] {
+			t.Fatalf("chaque ver a un nom à lui : %q", w.Name)
+		}
+		seen[w.Name] = true
+	}
+}
+
+func TestWormsRope(t *testing.T) {
+	g, s, me, _ := wormDuel(t, 600)
+	for i := range g.land { // un plafond au-dessus (y < 150) et le sol à y = 300
+		if float64(i/LGW)*LCell < 150 {
+			g.land[i] = true
+		}
+	}
+	g.fire(s, Rope, -math.Pi/2, 1, 0)
+	if me.Rope == nil || math.Abs(me.Rope[1]-150) > 3 || g.Fired {
+		t.Fatalf("la corde s'accroche au plafond sans finir le tour : %v", me.Rope)
+	}
+	s.up = true
+	run(g, 1)
+	if me.Y > 250 {
+		t.Fatalf("en tenant le haut, la corde raccourcit et le ver monte : y=%.0f", me.Y)
+	}
+	s.up, s.move = false, 1
+	maxX := me.X
+	for range 45 { // c'est un pendule : il part et revient, on regarde jusqu'où il va
+		run(g, ArtTick.Seconds())
+		maxX = max(maxX, me.X)
+		if math.Hypot(me.X-me.Rope[0], me.Y-me.Rope[1]) > me.ropeL+1 {
+			t.Fatal("le ver reste au bout de sa corde")
+		}
+	}
+	if maxX < 315 {
+		t.Fatalf("on se balance au bout de la corde : x max=%.0f", maxX)
+	}
+	s.move = 0
+	g.jump(s)
+	if me.Rope != nil {
+		t.Fatal("sauter lâche la corde")
+	}
+	run(g, 3)
+	if me.air || me.HP > 100 {
+		t.Fatalf("on retombe : air=%v", me.air)
+	}
+}
+
+func TestWormsMinesAndBarrels(t *testing.T) {
+	g, s, me, foe := wormDuel(t, 600)
+	g.Objs = append(g.Objs, &Obj{Kind: "mine", X: 560, Y: 293, Fuse: -1}, &Obj{Kind: "barrel", X: 400, Y: 293, Fuse: -1})
+	foe.X = 545 // passe près de la mine
+	run(g, 0.1)
+	if g.Objs[0].Fuse < 0 {
+		t.Fatal("un ver près d'une mine la déclenche")
+	}
+	run(g, 2)
+	if foe.HP >= 100 || len(g.Objs) != 1 {
+		t.Fatalf("la mine saute et blesse : %d PV", foe.HP)
+	}
+	g.fire(s, Bazooka, 0, 1, 0) // droit sur le baril
+	for i := 0; i < 200 && len(g.Objs) > 0; i++ {
+		g.step(ArtTick.Seconds())
+	}
+	if len(g.Objs) != 0 || g.solid(400, 296) {
+		t.Fatal("touché, le baril explose et creuse")
+	}
+	_ = me
+
+	g, s, me, _ = wormDuel(t, 600)
+	g.fire(s, Mine, 0, 1, 0)
+	if len(g.Objs) != 1 || g.Objs[0].Kind != "mine" || !g.Fired || s.Ammo[Mine] != weapons[Mine].ammo-1 {
+		t.Fatal("on pose une mine à ses pieds")
+	}
+	run(g, 1)
+	if g.Objs[0].Fuse >= 0 {
+		t.Fatal("une mine posée ne se déclenche pas tout de suite sous son poseur")
+	}
+	_ = me
+}
+
+func TestWormsAmmoCrate(t *testing.T) {
+	g, s, _, _ := wormDuel(t, 600)
+	g.Objs = append(g.Objs, &Obj{Kind: "ammo", W: AirStrike, X: 300, Y: 290, Fuse: -1})
+	run(g, 0.2)
+	if s.Ammo[AirStrike] != weapons[AirStrike].ammo+1 || len(g.Objs) != 0 {
+		t.Fatalf("la caisse d'armes donne une frappe aérienne de plus : %d", s.Ammo[AirStrike])
+	}
+}
+
+func TestWormsBotBat(t *testing.T) {
+	g := newWormGame("0000")
+	h := g.join("Humain", false)
+	bot := g.join("Bot", true)
+	for g.Phase != "play" {
+		g.step(0.1)
+	}
+	flatLand(g, 300)
+	g.Objs = g.Objs[:0]
+	var me, foe *Worm
+	for i, w := range g.Worms {
+		w.X, w.Y, w.air = 40+float64(i)*30, 300-WormR-1, false
+		if w.Team == bot.ID && me == nil {
+			me, w.X = w, 400
+		} else if w.Team == h.ID && foe == nil {
+			foe, w.X = w, 412
+		}
+	}
+	g.team = bot.ID
+	g.startTurn()
+	g.Turn = me.ID
+	run(g, LBotWait+0.2)
+	if foe.HP != 100-int(weapons[Bat].dmg) || foe.vx <= 0 {
+		t.Fatalf("collé à un adversaire, le bot le frappe à la batte : %d PV", foe.HP)
 	}
 }
