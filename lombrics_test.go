@@ -379,8 +379,8 @@ func TestWormsNamesAndObjects(t *testing.T) {
 		}
 		kinds[o.Kind]++
 	}
-	if kinds["mine"] != 5 || kinds["barrel"] != 3 {
-		t.Fatalf("5 mines et 3 barils sur l'île attendus : %v", kinds)
+	if kinds["mine"] != 8 || kinds["barrel"] != 5 {
+		t.Fatalf("8 mines et 5 barils sur l'île attendus : %v", kinds)
 	}
 	seen := map[string]bool{}
 	for _, w := range g.Worms {

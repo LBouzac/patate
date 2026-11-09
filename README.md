@@ -115,7 +115,9 @@ De 2 à 4 chars, joueurs ou **bots** (« Ajouter un bot »). Chacun son tour, 20
 
 ## Lombrics
 
-De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Bébert…), joueurs ou **bots**. Chacun son tour, 30 s : un ver de ton équipe joue (ils jouent à tour de rôle).
+De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Bébert…), joueurs ou **bots**. Chacun son tour, 45 s : un ver de ton équipe joue (ils jouent à tour de rôle).
+
+- **Grande île** (1600 × 800, deux fois plus large et haute que l'écran) avec des îlots flottants et des grottes. La **vue suit l'action** : le ver qui joue, puis le projectile en vol. **Molette** pour zoomer, bouton 🗺️ ou touche **V** pour voir toute l'île (pratique pour viser la frappe aérienne), et quand ce n'est pas ton tour, **glisse** sur l'île pour regarder ailleurs.
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
 - **Arme** : touches 1 à 9, 0 et R, ou les boutons (sur téléphone, icônes seules), puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
@@ -132,7 +134,7 @@ De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Béber
   - 🪢 **Corde ninja** : vise un bout de terre (260 px au plus), le ver s'y accroche. ← → pour se balancer, ↑ ↓ (ou ▲ ▼) pour raccourcir ou allonger, Espace (ou Saut) pour lâcher avec l'élan. Ne termine pas le tour. Si la terre où elle tient saute, on tombe.
 - Après un tir, **3 s de repli** pour se mettre à l'abri. Un ver qui se blesse pendant son tour (chute, sa propre explosion) le termine aussitôt.
 - Le terrain est une île percée de grottes : **chaque explosion la creuse**. Les explosions **projettent** les vers, les grosses chutes font mal et **l'eau noie**.
-- L'île cache **5 mines** (un ver qui passe à côté la déclenche : 1,5 s pour s'éloigner) et **3 barils de pétrole** qui explosent quand on les touche (tir, explosion, flammes) en répandant des flammes. Les explosions font sauter les mines et les barils voisins : réactions en chaîne.
+- L'île cache **8 mines** (un ver qui passe à côté la déclenche : 1,5 s pour s'éloigner) et **5 barils de pétrole** qui explosent quand on les touche (tir, explosion, flammes) en répandant des flammes. Les explosions font sauter les mines et les barils voisins : réactions en chaîne.
 - Des **caisses** tombent parfois en parachute : marche dessus pour les prendre. **Soin** (croix rouge, +25 PV) ou **armes** (caisse en bois : une munition de plus de dynamite, mine, frappe aérienne ou hélico).
 - **Mort subite** : après 8 tours chacun, l'eau monte à chaque tour.
 - La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot tire au bazooka ou à la grenade : il essaie toutes les directions (vent et terrain compris) et évite de toucher ses propres vers. Collé à un adversaire, il sort la batte.

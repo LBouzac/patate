@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	LCell        = 5.0 // le terrain est une grille de cases de 5 px, qu'on creuse
-	LGW, LGH     = int(AW / LCell), int(AH / LCell)
-	WaterY       = AH - 22 // sous cette ligne, on se noie (elle monte en mort subite)
+	LW, LH       = 1600.0, 800.0 // l'île, plus grande que l'écran : la caméra suit l'action
+	LCell        = 5.0           // le terrain est une grille de cases de 5 px, qu'on creuse
+	LGW, LGH     = int(LW / LCell), int(LH / LCell)
+	WaterY       = LH - 22 // sous cette ligne, on se noie (elle monte en mort subite)
 	WormR        = 6.0
 	WormsPer     = 3
 	WormSpeed    = 45.0 // px/s en marchant
@@ -28,7 +29,7 @@ const (
 	JumpVX       = 110.0
 	JumpVY       = 230.0
 	FallSafe     = 330.0 // vitesse d'atterrissage sans dégâts
-	LTurn        = 30.0
+	LTurn        = 45.0
 	LRetreat     = 3.0 // secondes pour se mettre à l'abri après avoir tiré
 	HeliTime     = 5.0
 	HeliSpeed    = 130.0
@@ -205,7 +206,7 @@ func (g *WormGame) squad(id int) *Squad {
 
 // solid : y a-t-il de la terre au point (x, y) ? Hors du terrain, non.
 func (g *WormGame) solid(x, y float64) bool {
-	if x < 0 || y < 0 || x >= AW || y >= AH || g.land == nil {
+	if x < 0 || y < 0 || x >= LW || y >= LH || g.land == nil {
 		return false
 	}
 	return g.land[int(y/LCell)*LGW+int(x/LCell)]
@@ -233,17 +234,20 @@ func (g *WormGame) landB64() string {
 // newGame : une île au relief au hasard, percée de grottes, et les vers posés en surface.
 func (g *WormGame) newGame() {
 	g.land = make([]bool, LGW*LGH)
-	p1, p2, f := rand.Float64()*7, rand.Float64()*7, 1.5+rand.Float64()
+	p1, p2, f := rand.Float64()*7, rand.Float64()*7, 2+rand.Float64()*1.5
 	for c := range LGW {
 		x := (float64(c) + 0.5) * LCell
-		e := math.Min(x, AW-x) // les bords de l'île plongent dans l'eau
-		top := 210 + 60*math.Sin(f*x/AW*2*math.Pi+p1) + 25*math.Sin(4.3*x/AW*2*math.Pi+p2) + math.Max(0, 80-e)*2.5
+		e := math.Min(x, LW-x) // les bords de l'île plongent dans l'eau
+		top := LH*0.5 + 110*math.Sin(f*x/LW*2*math.Pi+p1) + 45*math.Sin(4.3*f*x/LW*2*math.Pi+p2) + math.Max(0, 120-e)*2.5
 		for r := range LGH {
 			g.land[r*LGW+c] = (float64(r)+0.5)*LCell > top
 		}
 	}
-	for range 3 + rand.IntN(3) { // grottes
-		g.carve(60+rand.Float64()*(AW-120), 260+rand.Float64()*130, 22+rand.Float64()*22)
+	for range 2 + rand.IntN(2) { // îlots flottants : de quoi accrocher la corde, ou se percher
+		g.fill(150+rand.Float64()*(LW-300), LH*0.18+rand.Float64()*LH*0.12, 50+rand.Float64()*60, 14+rand.Float64()*10)
+	}
+	for range 6 + rand.IntN(4) { // grottes
+		g.carve(80+rand.Float64()*(LW-160), LH*0.6+rand.Float64()*LH*0.25, 25+rand.Float64()*28)
 	}
 	g.Water, g.turns = WaterY, 0
 	g.Worms, g.Projs, g.Objs = g.Worms[:0], g.Projs[:0], g.Objs[:0]
@@ -262,10 +266,10 @@ func (g *WormGame) newGame() {
 			g.Worms = append(g.Worms, w)
 		}
 	}
-	for range 5 {
+	for range 8 {
 		g.placeObj("mine")
 	}
-	for range 3 {
+	for range 5 {
 		g.placeObj("barrel")
 	}
 	g.dirty, g.Winner = true, ""
@@ -276,7 +280,7 @@ func (g *WormGame) newGame() {
 // place pose un ver en surface, loin des autres.
 func (g *WormGame) place(w *Worm) {
 	for try := range 300 {
-		x := 50 + rand.Float64()*(AW-100)
+		x := 50 + rand.Float64()*(LW-100)
 		y := WormR
 		for y < g.Water && !g.hits(x, y+1) {
 			y++
@@ -288,18 +292,18 @@ func (g *WormGame) place(w *Worm) {
 			continue
 		}
 		w.X, w.Y = x, y
-		if x > AW/2 {
+		if x > LW/2 {
 			w.Dir = -1
 		}
 		return
 	}
-	w.X, w.Y, w.air = AW/2, 0, true // shortcut: île sans place libre (jamais vu), le ver tombe du ciel
+	w.X, w.Y, w.air = LW/2, 0, true // shortcut: île sans place libre (jamais vu), le ver tombe du ciel
 }
 
 // placeObj pose une mine ou un baril en surface, loin des vers (pour ne rien déclencher au départ).
 func (g *WormGame) placeObj(kind string) {
 	for range 100 {
-		x := 30 + rand.Float64()*(AW-60)
+		x := 30 + rand.Float64()*(LW-60)
 		y := 0.0
 		for y < g.Water && !g.solid(x, y+7) {
 			y++
@@ -332,11 +336,11 @@ func (g *WormGame) startTurn() {
 	g.Fired, g.used, g.burst = false, 0, burst{}
 	g.Wind = math.Round((rand.Float64()*2-1)*10) / 10
 	if g.turns++; g.turns > SuddenRounds*len(g.Squads) {
-		g.Water = max(g.Water-FloodStep, 150)
+		g.Water = max(g.Water-FloodStep, LH*0.35)
 		g.event(Event{Kind: "flood", Y: g.Water})
 	}
 	if n := len(slices.DeleteFunc(slices.Clone(g.Objs), func(o *Obj) bool { return !o.crate() })); n < 3 && rand.Float64() < 0.4 {
-		c := &Obj{Kind: "heal", X: 40 + rand.Float64()*(AW-80), Y: -10, Fall: true, Fuse: -1}
+		c := &Obj{Kind: "heal", X: 40 + rand.Float64()*(LW-80), Y: -10, Fall: true, Fuse: -1}
 		if rand.IntN(2) == 0 {
 			c.Kind, c.W = "ammo", crateWeapons[rand.IntN(len(crateWeapons))]
 		}
@@ -488,7 +492,7 @@ func (g *WormGame) fire(s *Squad, weapon int, angle, power, tx float64) {
 		}
 		for d := WormR + 2; d < RopeMax; d += 2 {
 			px, py := w.X+math.Cos(angle)*d, w.Y+math.Sin(angle)*d
-			if px < 0 || px >= AW || py < 0 || py >= AH {
+			if px < 0 || px >= LW || py < 0 || py >= LH {
 				break
 			}
 			if g.solid(px, py) {
@@ -535,7 +539,7 @@ func (g *WormGame) fire(s *Squad, weapon int, angle, power, tx float64) {
 	case Mine:
 		g.Objs = append(g.Objs, &Obj{Kind: "mine", X: w.X + dir*10, Y: w.Y, Fuse: -1, arm: 3})
 	case AirStrike: // les missiles arrivent du côté où regarde le ver
-		tx = max(0, min(AW, tx))
+		tx = max(0, min(LW, tx))
 		for i := range 5 {
 			g.Projs = append(g.Projs, &Rocket{X: tx + float64(i-2)*22 - dir*70, Y: -20 - float64(i)*12, Kind: Missile, vx: dir * 90, vy: 150})
 		}
@@ -554,7 +558,7 @@ func (g *WormGame) shoot(w *Worm, a float64, kind int) {
 	px, py := x, y
 	for d := 0.0; d < 500; d += 2 {
 		px, py = x+math.Cos(a)*d, y+math.Sin(a)*d
-		if px < 0 || px > AW || py < 0 || py > AH {
+		if px < 0 || px > LW || py < 0 || py > LH {
 			break
 		}
 		if g.solid(px, py) || g.wormNear(px, py, w.ID) != nil || g.objHit(px, py) {
@@ -639,7 +643,7 @@ func (g *WormGame) flight(p *Rocket, dt, wind float64) (done, boom bool) {
 		p.vx += wind * WindAcc * dt
 	}
 	nx, ny := p.X+p.vx*dt, p.Y+p.vy*dt
-	if ny > g.Water || nx < -50 || nx > AW+50 {
+	if ny > g.Water || nx < -50 || nx > LW+50 {
 		p.X, p.Y = nx, ny
 		return true, false
 	}
@@ -770,6 +774,18 @@ func (g *WormGame) blow(o *Obj) {
 		a := -math.Pi/2 + (rand.Float64()*2-1)*1.2
 		v := 120 + rand.Float64()*160
 		g.Projs = append(g.Projs, &Rocket{X: o.X, Y: o.Y - 4, Kind: Flame, Fuse: 1.2, vx: v * math.Cos(a), vy: v * math.Sin(a)})
+	}
+}
+
+// fill ajoute de la terre en ellipse (îlots flottants).
+func (g *WormGame) fill(x, y, rx, ry float64) {
+	for row := range LGH {
+		for c := range LGW {
+			dx, dy := ((float64(c)+0.5)*LCell-x)/rx, ((float64(row)+0.5)*LCell-y)/ry
+			if dx*dx+dy*dy < 1 {
+				g.land[row*LGW+c] = true
+			}
+		}
 	}
 }
 
@@ -930,7 +946,7 @@ func (g *WormGame) move(w *Worm, dt float64) {
 			for up <= WormClimb && g.hits(nx, w.Y-up) {
 				up++
 			}
-			if up > WormClimb || nx < 0 || nx > AW {
+			if up > WormClimb || nx < 0 || nx > LW {
 				w.walk = 0
 				break
 			}
@@ -1087,11 +1103,12 @@ func (g *WormGame) run() {
 		}
 		g.mu.Lock()
 		g.step(ArtTick.Seconds())
-		if g.ticks++; g.land != nil && (g.dirty || g.ticks%30 == 0) { // chaque seconde aussi : rattrape une image perdue
-			g.Land = g.landB64()
+		// au plus 10 fois par seconde quand il change (lance-flammes), et chaque seconde pour rattraper une image perdue
+		if g.ticks++; g.land != nil && ((g.dirty && g.ticks%3 == 0) || g.ticks%30 == 0) {
+			g.Land, g.dirty = g.landB64(), false
 		}
 		b, _ := json.Marshal(g)
-		g.Events, g.Land, g.dirty = nil, "", false
+		g.Events, g.Land = nil, ""
 		for _, s := range g.Squads {
 			if s.send != nil {
 				select {
