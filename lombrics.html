@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
+<title>Lombrics</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-pink-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-pink-500"><i data-icon="worm" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Lombrics</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 4 équipes de 3 vers, chacun son tour. Bazooka, grenade, fusil : la dernière équipe en vie gagne.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-pink-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-pink-400 hover:bg-pink-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une partie
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-pink-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span class="flex items-center gap-2">
+      <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+        <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+      </span>
+      <span class="rounded-full bg-white/10 px-3 py-1.5 font-mono text-sm" title="Vent (pousse le bazooka)"><span class="font-sans text-slate-400">Vent</span> <b id="wind"></b></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <div class="relative">
+    <canvas id="c" width="800" height="450" aria-label="Île : à ton tour, marche avec les flèches, saute avec Espace, puis tire en arrière et relâche pour tirer"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+    <div class="flex items-center gap-2" role="group" aria-label="Arme">
+      <button data-w="0" title="Bazooka (1) : explose au contact, poussé par le vent" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">🚀 Bazooka</button>
+      <button data-w="1" title="Grenade (2) : rebondit, explose au bout de 3 s" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">💣 Grenade</button>
+      <button data-w="2" title="Fusil (3) : tir droit et instantané, petits dégâts" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">🔫 Fusil</button>
+    </div>
+    <div class="flex items-center gap-2" role="group" aria-label="Déplacement">
+      <button data-move="-1" aria-label="Marcher à gauche" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-left" class="size-5"></i></button>
+      <button id="jumpBtn" class="rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">Saut</button>
+      <button data-move="1" aria-label="Marcher à droite" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-right" class="size-5"></i></button>
+    </div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Ajouter un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer un bot
+      </button>
+    </div>
+    <span class="text-xs">À ton tour : ← → pour marcher, Espace pour sauter, 1 2 3 pour l'arme, puis tire en arrière et relâche. L'eau noie.</span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+const W = 800, H = 450, CELL = 5, GW = W / CELL, GH = Math.floor(H / CELL), WATER = H - 22, R = 6, MAX_DRAG = 180;
+const land = document.createElement('canvas'); land.width = W; land.height = H;
+let st = null, landB64 = '', trail = [], particles = [], shots = [], flash = 0, shake = 0, weapon = 0, moving = 0;
+
+function start(pin) {
+  connect('/ws/lombrics', pin, '', m => {
+    if (!m) { st = null; landB64 = ''; return; }
+    if (m.land && m.land !== landB64) drawLand(landB64 = m.land);
+    st = m;
+    if (m.proj) trail.push({ x: m.proj.x, y: m.proj.y }); else if (m.phase !== 'fly') trail = [];
+    for (const ev of m.events || []) onEvent(ev);
+    if (!myTurn()) walk(0);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+
+const worm = id => st?.worms.find(w => w.id === id);
+const squad = id => st?.squads.find(s => s.id === id);
+const myTurn = () => st && st.phase === 'play' && worm(st.turn)?.team === me && worm(st.turn)?.alive;
+
+// ---------- Commandes : marcher, sauter, arme, tirer ----------
+function walk(m) { if (m !== moving) { moving = m; if (myTurn() || !m) send({ t: 'move', m }); } }
+function jump() { if (myTurn()) send({ t: 'jump' }); }
+function pickWeapon(w) {
+  weapon = w;
+  document.querySelectorAll('[data-w]').forEach(b => { const on = +b.dataset.w === w; b.classList.toggle('bg-pink-400', on); b.classList.toggle('text-slate-950', on); b.classList.toggle('bg-white/10', !on); b.classList.toggle('text-slate-200', !on); });
+}
+pickWeapon(0);
+document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { pickWeapon(+b.dataset.w); b.blur(); });
+document.querySelectorAll('[data-move]').forEach(b => {
+  b.onpointerdown = e => { e.preventDefault(); walk(+b.dataset.move); };
+  b.onpointerup = b.onpointerleave = b.onpointercancel = () => walk(0);
+});
+$('jumpBtn').onclick = e => { jump(); e.currentTarget.blur(); };
+const LEFT = ['ArrowLeft', 'KeyA', 'KeyQ'], RIGHT = ['ArrowRight', 'KeyD'];
+addEventListener('keydown', e => {
+  if ($('game').hidden || e.target.tagName === 'INPUT') return;
+  if (e.code === 'KeyM' && !e.repeat) setMuted(!muted);
+  else if (LEFT.includes(e.code)) walk(-1);
+  else if (RIGHT.includes(e.code)) walk(1);
+  else if (['Space', 'ArrowUp', 'KeyW', 'KeyZ'].includes(e.code)) { if (!e.repeat) jump(); }
+  else if (/^Digit[123]$/.test(e.code)) pickWeapon(+e.code.at(-1) - 1);
+  else return;
+  e.preventDefault();
+});
+addEventListener('keyup', e => { if ((LEFT.includes(e.code) && moving < 0) || (RIGHT.includes(e.code) && moving > 0)) walk(0); });
+addEventListener('blur', () => walk(0));
+
+// visée : on tire en arrière depuis n'importe où
+let drag = null;
+function toField(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function aim() {
+  const dx = drag.x0 - drag.x, dy = drag.y0 - drag.y;
+  return { a: Math.atan2(dy, dx), p: Math.min(Math.hypot(dx, dy) / MAX_DRAG, 1) };
+}
+cv.onpointerdown = e => { if (myTurn()) { walk(0); const p = toField(e); drag = { x0: p.x, y0: p.y, ...p }; cv.setPointerCapture(e.pointerId); } };
+cv.onpointermove = e => { if (drag) Object.assign(drag, toField(e)); };
+cv.onpointerup = () => { if (drag && myTurn()) { const s = aim(); if (s.p > 0.05) send({ t: 'fire', w: weapon, ...s }); } drag = null; };
+cv.onpointercancel = () => { drag = null; };
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-3 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  const secs = Math.max(0, Math.ceil(st.wait)), cur = squad(worm(st.turn)?.team);
+  set($('statusTxt'), {
+    wait: 'En attente', fly: 'Tir en cours…', settle: 'Boum !', end: st.winner ? 'Partie finie' : 'Ça commence…',
+    play: (myTurn() ? 'À toi de jouer' : 'Au tour de ' + (cur?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase]);
+  $('status').classList.toggle('text-amber-300', myTurn());
+  set($('wind'), st.wind === 0 ? '0' : (st.wind < 0 ? '← ' : '→ ') + Math.abs(st.wind).toFixed(1));
+
+  const hp = s => st.worms.filter(w => w.team === s.id && w.alive).reduce((t, w) => t + w.hp, 0);
+  const key = JSON.stringify(st.squads.map(s => [s.id, s.name, hp(s)])) + cur?.id + st.phase;
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...st.squads.map(s => {
+      const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = s.color;
+      const playing = st.worms.some(w => w.team === s.id);
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (playing && !hp(s) ? ' opacity-50' : '') + (s.id === cur?.id && st.phase === 'play' ? ' ring-2 ring-pink-400/60' : ''),
+        dot, el('span', s.id === me ? 'font-bold' : '', s.name + (s.bot ? ' (bot)' : '')), el('span', 'font-mono text-amber-300', playing ? hp(s) + ' PV' : '…'));
+    }));
+  }
+  if (st.phase === 'wait') overlay('wait', () => bubble(
+    el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-amber-300'), 'En attente d\'adversaires'),
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' ou ajoute un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-pink-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-pink-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Ajouter un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'end' && st.winner) overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Nouvelle île dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son et effets ----------
+function burst(x, y, n, color, speed, life) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = speed * (0.3 + Math.random()); particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life, max: life, size: 1.5 + Math.random() * 3, color }); }
+}
+let lastFire = null;
+function onEvent(e) {
+  switch (e.kind) {
+    case 'fire':
+      lastFire = e;
+      if (e.b === 2) { tone(900, 0.08, 'square', 0.1, 200); noise(0.12, 0.25); } else { tone(140, 0.25, 'sawtooth', 0.1, 60); noise(0.12, 0.12); }
+      break;
+    case 'boom': {
+      const big = e.b > 20;
+      if (lastFire && !big) shots.push({ x0: lastFire.x, y0: lastFire.y, x1: e.x, y1: e.y, life: 0.25 });
+      noise(big ? 0.6 : 0.2, big ? 0.35 : 0.2); if (big) tone(80, 0.5, 'sine', 0.2, 30);
+      burst(e.x, e.y, big ? 50 : 15, '#fb923c', big ? 220 : 120, 0.8); burst(e.x, e.y, big ? 30 : 10, '#78350f', 160, 1);
+      if (big) { flash = 0.2; shake = 0.3; }
+      break;
+    }
+    case 'jump': tone(300, 0.12, 'triangle', 0.08, 600); break;
+    case 'hit': tone(200, 0.1, 'square', 0.05, 120); break;
+    case 'splash': case 'drown': burst(e.x, WATER, 25, '#7dd3fc', 140, 0.7); noise(0.4, 0.15); if (e.kind === 'drown') tone(500, 0.6, 'sine', 0.1, 80); break;
+    case 'dead': burst(e.x, e.y, 60, '#f9a8d4', 240, 1); tone(60, 0.8, 'sawtooth', 0.15, 30); break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, 0.5 + i * 0.12)); break;
+  }
+}
+
+// le terrain, dessiné une fois à chaque changement : herbe en surface, terre dessous
+function drawLand(b64) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const solid = (c, r) => c >= 0 && c < GW && r >= 0 && r < GH && (bytes[(r * GW + c) >> 3] >> ((r * GW + c) & 7)) & 1;
+  const g = land.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  for (let r = 0; r < GH; r++) for (let c = 0; c < GW; c++) {
+    if (!solid(c, r)) continue;
+    const top = !solid(c, r - 1), n = (c * 7 + r * 13) % 5;
+    g.fillStyle = top ? '#65a30d' : !solid(c, r - 2) ? '#4d7c0f' : ['#6b4423', '#5f3b1e', '#734a26', '#583619', '#66401f'][n];
+    g.fillRect(c * CELL, r * CELL, CELL, CELL);
+  }
+}
+
+// ---------- L'île ----------
+function drawWorm(w, now) {
+  const s = squad(w.team), dir = w.dir || 1;
+  ctx.fillStyle = '#f9a8d4'; ctx.strokeStyle = s?.color || '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(w.x - dir * 3, w.y + 2, 6, 4, 0, 0, 7); ctx.fill(); // queue
+  ctx.beginPath(); ctx.arc(w.x + dir * 1, w.y - 1, R, 0, 7); ctx.fill(); ctx.stroke(); // tête
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w.x + dir * 3, w.y - 3, 2.2, 0, 7); ctx.fill();
+  ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(w.x + dir * 3.6, w.y - 3, 1.1, 0, 7); ctx.fill();
+  ctx.font = '700 11px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#0f172acc';
+  ctx.strokeText(w.hp, w.x, w.y - 12); ctx.fillStyle = s?.color || '#fff'; ctx.fillText(w.hp, w.x, w.y - 12);
+  if (w.id === st.turn && st.phase === 'play') { // flèche au-dessus du ver qui joue
+    const y = w.y - 30 + Math.sin(now / 150) * 3;
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(w.x - 6, y - 8); ctx.lineTo(w.x + 6, y - 8); ctx.lineTo(w.x, y); ctx.fill();
+  }
+}
+
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
+  if (!st) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (shake > 0) { shake -= dt; ctx.translate((Math.random() - 0.5) * shake * 30, (Math.random() - 0.5) * shake * 30); }
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#312e81'); sky.addColorStop(1, '#db277755');
+  ctx.fillStyle = '#0b1220'; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  if (landB64) ctx.drawImage(land, 0, 0);
+  for (const w of st.worms) if (w.alive) drawWorm(w, now);
+  const w = worm(st.turn);
+  if (w && myTurn() && drag) { // visée
+    const { a, p } = aim();
+    ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * (weapon === 2 ? 120 : 20 + p * 60), w.y + Math.sin(a) * (weapon === 2 ? 120 : 20 + p * 60)); ctx.stroke(); ctx.setLineDash([]);
+    if (weapon !== 2) { ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, 16, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
+  }
+  if (trail.length && st.proj?.kind === 0) { ctx.strokeStyle = '#fde68a90'; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
+  if (st.proj) {
+    const p = st.proj;
+    ctx.fillStyle = p.kind === 1 ? '#166534' : '#e2e8f0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.kind === 1 ? 4 : 3.5, 0, 7); ctx.fill();
+    if (p.kind === 1) { ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(Math.ceil(p.fuse), p.x, p.y - 9); }
+  }
+  shots = shots.filter(s => (s.life -= dt) > 0);
+  for (const s of shots) { ctx.strokeStyle = `rgba(254,240,138,${s.life * 4})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); ctx.stroke(); }
+  // eau qui ondule
+  ctx.fillStyle = '#0369a1cc'; ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, WATER + Math.sin(x / 30 + now / 400) * 3);
+  ctx.lineTo(W, H); ctx.fill();
+  particles = particles.filter(p => (p.life -= dt) > 0);
+  for (const p of particles) { p.vy += 300 * dt; p.x += p.vx * dt; p.y += p.vy * dt; ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  if (flash > 0) { flash -= dt; ctx.fillStyle = `rgba(255,200,120,${flash})`; ctx.fillRect(0, 0, W, H); }
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

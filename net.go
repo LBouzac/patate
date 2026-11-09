@@ -54,7 +54,7 @@ var groupJoin sync.Mutex // une arrivée groupée à la fois : deux joueurs du g
 
 // gamePages : les pages vers lesquelles un groupe peut partir (le salon et les jeux).
 var gamePages = map[string]bool{"/salon.html": true, "/patate.html": true, "/ricochet.html": true, "/golf.html": true, "/dessin.html": true,
-	"/foot.html": true, "/petanque.html": true, "/billard.html": true, "/artillerie.html": true, "/motos.html": true}
+	"/foot.html": true, "/petanque.html": true, "/billard.html": true, "/artillerie.html": true, "/motos.html": true, "/lombrics.html": true}
 
 // chatJoin inscrit la place au salon et rend le groupe du salon (group, ou un nouveau si vide, pour un salon neuf).
 func chatJoin(key string, s *Seat, group string) string {
