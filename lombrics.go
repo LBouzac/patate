@@ -168,6 +168,8 @@ type WormGame struct {
 	Fired  bool      `json:"fired"` // a tiré : temps de repli
 	Wind   float64   `json:"wind"`
 	Water  float64   `json:"water"`
+	Map    string    `json:"map"`  // la carte (voir lombrics_maps.go)
+	Next   string    `json:"next"` // la carte choisie pour la prochaine partie ("" : au hasard)
 	Winner string    `json:"winner"`
 	Events []Event   `json:"events"`
 	used   int       // tirs faits ce tour
@@ -231,24 +233,15 @@ func (g *WormGame) landB64() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// newGame : une île au relief au hasard, percée de grottes, et les vers posés en surface.
+// newGame : une nouvelle carte (celle choisie, sinon au hasard), les vers posés dessus, les mines et les barils.
 func (g *WormGame) newGame() {
-	g.land = make([]bool, LGW*LGH)
-	p1, p2, f := rand.Float64()*7, rand.Float64()*7, 2+rand.Float64()*1.5
-	for c := range LGW {
-		x := (float64(c) + 0.5) * LCell
-		e := math.Min(x, LW-x) // les bords de l'île plongent dans l'eau
-		top := LH*0.5 + 110*math.Sin(f*x/LW*2*math.Pi+p1) + 45*math.Sin(4.3*f*x/LW*2*math.Pi+p2) + math.Max(0, 120-e)*2.5
-		for r := range LGH {
-			g.land[r*LGW+c] = (float64(r)+0.5)*LCell > top
+	prev := g.Map
+	if g.Map = g.Next; g.Map == "" { // au hasard, mais pas deux fois la même de suite
+		for g.Map == "" || g.Map == prev {
+			g.Map = mapNames[rand.IntN(len(mapNames))]
 		}
 	}
-	for range 2 + rand.IntN(2) { // îlots flottants : de quoi accrocher la corde, ou se percher
-		g.fill(150+rand.Float64()*(LW-300), LH*0.18+rand.Float64()*LH*0.12, 50+rand.Float64()*60, 14+rand.Float64()*10)
-	}
-	for range 6 + rand.IntN(4) { // grottes
-		g.carve(80+rand.Float64()*(LW-160), LH*0.6+rand.Float64()*LH*0.25, 25+rand.Float64()*28)
-	}
+	g.genMap()
 	g.Water, g.turns = WaterY, 0
 	g.Worms, g.Projs, g.Objs = g.Worms[:0], g.Projs[:0], g.Objs[:0]
 	names := slices.Clone(wormNames)
@@ -282,7 +275,7 @@ func (g *WormGame) place(w *Worm) {
 	for try := range 300 {
 		x := 50 + rand.Float64()*(LW-100)
 		y := WormR
-		for y < g.Water && !g.hits(x, y+1) {
+		for y < g.Water && (g.hits(x, y) || !g.hits(x, y+1)) { // la première place libre avec du sol dessous
 			y++
 		}
 		if y >= g.Water-WormR {
@@ -305,7 +298,7 @@ func (g *WormGame) placeObj(kind string) {
 	for range 100 {
 		x := 30 + rand.Float64()*(LW-60)
 		y := 0.0
-		for y < g.Water && !g.solid(x, y+7) {
+		for y < g.Water && (g.solid(x, y) || !g.solid(x, y+7)) {
 			y++
 		}
 		if y >= g.Water-7 || slices.ContainsFunc(g.Worms, func(w *Worm) bool { return math.Hypot(w.X-x, w.Y-y) < 50 }) ||
@@ -340,7 +333,13 @@ func (g *WormGame) startTurn() {
 		g.event(Event{Kind: "flood", Y: g.Water})
 	}
 	if n := len(slices.DeleteFunc(slices.Clone(g.Objs), func(o *Obj) bool { return !o.crate() })); n < 3 && rand.Float64() < 0.4 {
-		c := &Obj{Kind: "heal", X: 40 + rand.Float64()*(LW-80), Y: -10, Fall: true, Fuse: -1}
+		c := &Obj{Kind: "heal", X: 40 + rand.Float64()*(LW-80), Fall: true, Fuse: -1}
+		for c.Y < g.Water && g.solid(c.X, c.Y) { // sous un plafond (caverne) : elle apparaît dessous
+			c.Y++
+		}
+		if c.Y >= g.Water-10 { // que de la roche à cet endroit : pas de caisse ce tour-ci
+			return
+		}
 		if rand.IntN(2) == 0 {
 			c.Kind, c.W = "ammo", crateWeapons[rand.IntN(len(crateWeapons))]
 		}
@@ -1153,6 +1152,7 @@ func serveLombrics(w http.ResponseWriter, r *http.Request) {
 					A   float64 `json:"a"`
 					P   float64 `json:"p"`
 					X   float64 `json:"x"`
+					V   string  `json:"v"`
 				}
 				if json.Unmarshal(b, &m) != nil {
 					return
@@ -1174,6 +1174,10 @@ func serveLombrics(w http.ResponseWriter, r *http.Request) {
 					s.up = m.M == 1
 				case m.T == "down": // la corde s'allonge
 					s.down = m.M == 1
+				case m.T == "map": // la carte de la prochaine partie, au choix de n'importe qui (comme les bots)
+					if m.V == "" || slices.Contains(mapNames, m.V) {
+						g.Next = m.V
+					}
 				case m.T == "fire":
 					g.fire(s, m.W, m.A, m.P, m.X)
 				}

@@ -117,7 +117,14 @@ De 2 à 4 chars, joueurs ou **bots** (« Ajouter un bot »). Chacun son tour, 20
 
 De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Bébert…), joueurs ou **bots**. Chacun son tour, 45 s : un ver de ton équipe joue (ils jouent à tour de rôle).
 
-- **Grande île** (1600 × 800, deux fois plus large et haute que l'écran) avec des îlots flottants et des grottes. La **vue suit l'action** : le ver qui joue, puis le projectile en vol. **Molette** pour zoomer, bouton 🗺️ ou touche **V** pour voir toute l'île (pratique pour viser la frappe aérienne), et quand ce n'est pas ton tour, **glisse** sur l'île pour regarder ailleurs.
+- **6 cartes**, toutes de 1600 × 800 (deux fois plus large et haute que l'écran), tirées au hasard à chaque partie (jamais deux fois de suite la même). N'importe quel joueur peut choisir la suivante (« Prochaine carte », en bas) :
+  - 🌄 **Collines** : du relief, des îlots flottants, des grottes.
+  - 🏰 **Château** : un château fort en briques (tours crénelées, donjon, grande salle à deux niveaux, portes) et deux tours de guet, sous la lune.
+  - 🏖️ **Plage** : des dunes qui descendent dans la mer, des palmiers, un château de sable, un ponton sur pilotis.
+  - 🏔️ **Banquise** : des pics enneigés, des grottes de glace, des plaques de glace sur l'eau, la neige qui tombe.
+  - 🦇 **Caverne** : de la roche partout, des galeries et de grandes salles, deux cheminées ouvertes sur le ciel. Le paradis de la corde ninja.
+  - 🏙️ **Ville** : des immeubles à étages (on y entre par les portes et les fenêtres) au coucher du soleil.
+- La **vue suit l'action** : le ver qui joue, puis le projectile en vol. **Molette** pour zoomer, bouton 🗺️ ou touche **V** pour voir toute l'île (pratique pour viser la frappe aérienne), et quand ce n'est pas ton tour, **glisse** sur l'île pour regarder ailleurs.
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
 - **Arme** : touches 1 à 9, 0 et R, ou les boutons (sur téléphone, icônes seules), puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).

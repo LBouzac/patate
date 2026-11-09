@@ -498,3 +498,52 @@ func TestWormsBotBat(t *testing.T) {
 		t.Fatalf("collé à un adversaire, le bot le frappe à la batte : %d PV", foe.HP)
 	}
 }
+
+func TestWormsMaps(t *testing.T) {
+	for _, m := range mapNames {
+		for range 8 {
+			g := newWormGame("0000")
+			g.join("A", false)
+			g.join("B", false)
+			g.Next = m
+			for g.Phase != "play" {
+				g.step(0.1)
+			}
+			if g.Map != m {
+				t.Fatalf("carte %q choisie, obtenu %q", m, g.Map)
+			}
+			n := 0
+			for _, s := range g.land {
+				if s {
+					n++
+				}
+			}
+			if k := float64(n) / float64(len(g.land)); k < 0.15 || k > 0.8 {
+				t.Fatalf("%s : %.0f %% de terre, carte vide ou pleine", m, k*100)
+			}
+			for _, w := range g.Worms {
+				if w.air || g.hits(w.X, w.Y) || !g.hits(w.X, w.Y+1) || w.Y > g.Water-WormR {
+					t.Fatalf("%s : ver posé sur la terre, hors de l'eau, attendu : %+v", m, *w)
+				}
+			}
+			for _, o := range g.Objs {
+				if !o.crate() && (g.solid(o.X, o.Y) || !g.solid(o.X, o.Y+7)) {
+					t.Fatalf("%s : %s posé(e) sur la terre attendu : %+v", m, o.Kind, *o)
+				}
+			}
+		}
+	}
+	g := newWormGame("0000") // au hasard : jamais deux fois de suite la même
+	g.join("A", false)
+	g.join("B", false)
+	for g.Phase != "play" {
+		g.step(0.1)
+	}
+	for range 20 {
+		prev := g.Map
+		g.newGame()
+		if g.Map == prev {
+			t.Fatalf("deux fois de suite la carte %q", prev)
+		}
+	}
+}
