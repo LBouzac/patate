@@ -124,10 +124,10 @@ De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Béber
   - 🏔️ **Banquise** : des pics enneigés, des grottes de glace, des plaques de glace sur l'eau, la neige qui tombe.
   - 🦇 **Caverne** : de la roche partout, des galeries et de grandes salles, deux cheminées ouvertes sur le ciel. Le paradis de la corde ninja.
   - 🏙️ **Ville** : des immeubles à étages (on y entre par les portes et les fenêtres) au coucher du soleil.
-- La **vue suit l'action** : le ver qui joue, puis le projectile en vol. **Molette** pour zoomer, bouton 🗺️ ou touche **V** pour voir toute l'île (pratique pour viser la frappe aérienne), et quand ce n'est pas ton tour, **glisse** sur l'île pour regarder ailleurs.
+- La **vue suit l'action** : le ver qui joue, puis le projectile en vol. **Molette** pour zoomer, bouton carte ou touche **V** pour voir toute l'île (pratique pour viser la frappe aérienne), et quand ce n'est pas ton tour, **glisse** sur l'île pour regarder ailleurs.
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
-- **Arme** : touches 1 à 9, 0 et R, ou les boutons, rangés par catégorie (🎯 Tir, ✊ Contact, 💣 Explosifs, 🧭 Bouger ; sur téléphone, icônes seules). Une ligne sous les boutons rappelle ce que fait l'arme choisie, comment viser et combien il en reste. Ensuite, puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
+- **Arme** : touches 1 à 9, 0 et R, ou les boutons, rangés par catégorie (Tir, Contact, Explosifs, Bouger ; sur téléphone, icônes seules). Une ligne sous les boutons rappelle ce que fait l'arme choisie, comment viser et combien il en reste. Ensuite, puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
   - 🚀 **Bazooka** : explose au contact, poussé par le **vent** (change à chaque tour).
   - 💣 **Grenade** : rebondit et explose au bout de 3 s.
   - 🔫 **Fusil** : deux tirs droits et instantanés (on ne bouge pas entre les deux).
@@ -139,7 +139,7 @@ De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Béber
   - ✈️ **Frappe aérienne** (1 par partie) : touche la cible, 5 missiles tombent dessus.
   - 🚁 **Hélico** (2 par partie) : touche l'île (ou Entrée), puis 5 s de vol : tiens Saut (ou ▲) pour monter, ← → pour avancer. Ne termine pas le tour, on peut tirer après.
   - 🪢 **Corde ninja** : vise un bout de terre (260 px au plus), le ver s'y accroche. ← → pour se balancer, ↑ ↓ (ou ▲ ▼) pour raccourcir ou allonger, Espace (ou Saut) pour lâcher avec l'élan. Ne termine pas le tour. Si la terre où elle tient saute, on tombe.
-- Un **chrono** rond en haut de l'écran montre le temps qui reste et qui joue : vert, puis jaune sous 15 s, rouge qui clignote sous 5 s (avec un bip chaque seconde à ton tour), orange pendant le repli.
+- Un **chrono** rond en haut à gauche de l'écran montre le temps qui reste et qui joue : vert, puis jaune sous 15 s, rouge qui clignote sous 5 s (avec un bip chaque seconde à ton tour), orange pendant le repli.
 - Après un tir, **3 s de repli** pour se mettre à l'abri. Un ver qui se blesse pendant son tour (chute, sa propre explosion) le termine aussitôt.
 - Le terrain est une île percée de grottes : **chaque explosion la creuse**. Les explosions **projettent** les vers, les grosses chutes font mal et **l'eau noie**.
 - L'île cache **8 mines** (un ver qui passe à côté la déclenche : 1,5 s pour s'éloigner) et **5 barils de pétrole** qui explosent quand on les touche (tir, explosion, flammes) en répandant des flammes. Les explosions font sauter les mines et les barils voisins : réactions en chaîne.
@@ -220,7 +220,7 @@ Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu
 - **Y2K** : fond bleu électrique quadrillé, titres chromés en italique, panneaux à cadre métallique, boutons « gel » brillants et icônes en orbes.
 - **Liquid Glass** : verre flou et translucide sur un fond coloré, boutons en capsule, barre des jeux qui flotte en bas. Avec le réglage système « Réduire la transparence », le verre devient presque opaque.
 
-L'interface utilise **Tailwind CSS v4** et les icônes **Heroicons** (de l'équipe Tailwind, licence MIT, intégrées dans `common.js`). Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
+L'interface utilise **Tailwind CSS v4**, les icônes **Heroicons** (de l'équipe Tailwind, licence MIT) et des icônes au trait **Lucide** (licence ISC, libre d'utilisation, mention de licence en tête de `common.js`), toutes intégrées dans `common.js`. Les icônes d'armes de Lombrics que Lucide n'a pas (fusil, mitrailleuse, batte, dynamite, mine, hélico) sont dessinées dans le même style. Aucun emoji : tout est en icônes. Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 
 Si tu modifies des classes dans une page, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
 

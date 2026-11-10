@@ -126,7 +126,7 @@
     </div>
     <div data-kbd class="flex flex-wrap items-center gap-1 text-xs">
       <kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">ZQSD</kbd> bouger
-      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">1-4</kbd> 😂😡👋💀
+      <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">1-4</kbd> <span class="inline-flex items-center gap-0.5" aria-label="emotes"><i data-icon="laugh" class="size-4"></i><i data-icon="angry" class="size-4"></i><i data-icon="hand" class="size-4"></i><i data-icon="skull" class="size-4"></i></span>
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">Tab</kbd> scores
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">B</kbd><kbd class="rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">N</kbd> bots
       <kbd class="ml-2 rounded bg-slate-800 px-1.5 py-0.5 font-mono ring-1 ring-white/10">M</kbd> son
@@ -135,10 +135,10 @@
     <div data-touch class="flex w-full flex-wrap items-center justify-between gap-2">
       <span class="text-xs">Pose le pouce sur le terrain et glisse pour bouger.</span>
       <span class="flex items-center gap-1.5">
-        <button data-emote="1" aria-label="Emote rire" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">😂</button>
-        <button data-emote="2" aria-label="Emote colère" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">😡</button>
-        <button data-emote="3" aria-label="Emote salut" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">👋</button>
-        <button data-emote="4" aria-label="Emote mort" class="grid size-10 place-items-center rounded-full bg-white/10 text-xl active:scale-95">💀</button>
+        <button data-emote="1" aria-label="Emote rire" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95"><i data-icon="laugh" class="size-6"></i></button>
+        <button data-emote="2" aria-label="Emote colère" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95"><i data-icon="angry" class="size-6"></i></button>
+        <button data-emote="3" aria-label="Emote salut" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95"><i data-icon="hand" class="size-6"></i></button>
+        <button data-emote="4" aria-label="Emote mort" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95"><i data-icon="skull" class="size-6"></i></button>
         <button id="scoresBtn" aria-label="Classement" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 active:scale-95">
           <i data-icon="chart-bar-square" class="size-5"></i>
         </button>
@@ -198,7 +198,7 @@ function ticks() {
 
 // ---------- Événements : son + effets + fil d'actions ----------
 const BONUS = { speed: ['bolt', '#fde047', 'Vitesse', 'text-yellow-300'], shield: ['shield-check', '#67e8f9', 'Bouclier', 'text-cyan-300'], ice: ['pause-circle', '#7dd3fc', 'Gel', 'text-sky-300'] };
-const EMOTES = ['', '😂', '😡', '👋', '💀'];
+const EMOTES = ['', 'laugh', 'angry', 'hand', 'skull']; // icônes au trait (LINES de common.js)
 const nameOf = id => (st.players.find(p => p.id === id) || { name: '?' }).name;
 let particles = [], rings = [], shake = 0;
 
@@ -513,8 +513,7 @@ function draw(now) {
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(lx - 18, by - 16, 36, 32, 10); ctx.fill();
       ctx.beginPath(); ctx.moveTo(lx - 5, by + 15); ctx.lineTo(lx + 5, by + 15); ctx.lineTo(lx, by + 22); ctx.fill();
-      ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(EMOTES[p.emote], lx, by + 1);
+      lineIcon(ctx, EMOTES[p.emote], lx, by, 22, '#0f172a');
     }
   }
   ctx.globalAlpha = 1;

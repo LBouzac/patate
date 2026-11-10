@@ -254,7 +254,7 @@ function render() {
   if (pk !== playersKey) {
     playersKey = pk;
     $('players').replaceChildren(...[...st.players].sort((a, b) => b.score - a.score).map(p => el('li', 'flex items-center gap-2' + (p.id === me ? ' font-bold' : ''),
-      el('span', 'w-5 text-center', p.id === st.owner ? '📷' : p.id === st.drawer ? '✏️' : p.found ? '✅' : ''),
+      el('span', 'grid w-5 place-items-center', ...(p.id === st.owner ? [icon('camera', 'size-4 text-sky-300')] : p.id === st.drawer ? [icon('pencil', 'size-4 text-amber-300')] : p.found ? [icon('check-circle', 'size-4 text-emerald-400')] : [])),
       el('span', 'flex-1 truncate', p.name),
       ...(p.gain && (st.phase === 'reveal' || p.found) ? [el('span', 'text-xs text-emerald-400', '+' + p.gain)] : []),
       el('span', 'font-mono text-amber-300', p.score))));
@@ -273,8 +273,8 @@ function render() {
         el('span', 'flex-1 min-w-0 truncate', el('b', 'font-semibold', who), ' ' + text),
         el('span', 'font-mono text-xs text-slate-400', g.pts));
       if (iOwn && g.ok === null && (st.phase === 'draw' || st.phase === 'judge')) {
-        for (const [ok, label, cls] of [[true, '✓', 'bg-emerald-500 hover:bg-emerald-400'], [false, '✗', 'bg-red-500 hover:bg-red-400']]) {
-          const b = el('button', 'grid size-8 place-items-center rounded-lg font-bold text-slate-950 transition ' + cls, label);
+        for (const [ok, name, cls] of [[true, 'check', 'bg-emerald-500 hover:bg-emerald-400'], [false, 'x', 'bg-red-500 hover:bg-red-400']]) {
+          const b = el('button', 'grid size-8 place-items-center rounded-lg font-bold text-slate-950 transition ' + cls, icon(name, 'size-5'));
           b.title = ok ? 'Bonne réponse' : 'Mauvaise réponse';
           b.onclick = () => send({ judge: g.id, ok });
           row.append(b);

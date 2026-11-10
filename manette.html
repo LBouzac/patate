@@ -203,7 +203,7 @@ function quizEditor() {
   const rows = list.map((q, i) => el('div', 'flex items-start gap-2 rounded-xl bg-slate-900 p-3 ring-1 ring-white/5',
     btn('min-w-0 flex-1 text-left', () => { qDraft = { q: q.q, a: [...q.a], at: i }; key = ''; render(); },
       el('span', 'block text-[15px] font-semibold leading-snug', `${i + 1}. ${q.q}`),
-      el('span', 'mt-1 block text-[13px] text-slate-400', el('b', 'text-emerald-400', '✓ ' + q.a[0]), ' · ' + q.a.slice(1).join(' · '))),
+      el('span', 'mt-1 block text-[13px] text-slate-400', el('b', 'inline-flex items-center gap-1 text-emerald-400', icon('check', 'size-4'), q.a[0]), ' · ' + q.a.slice(1).join(' · '))),
     btn('grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-slate-300 active:bg-white/20', () => { if (confirm('Supprimer cette question ?')) setQuiz(list.filter((_, j) => j !== i)); }, '×')));
   const area = el('textarea', 'w-full rounded-xl bg-slate-900 p-3 text-[14px] ring-1 ring-white/10 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-400 focus:outline-none');
   area.rows = 4; area.value = pasteDraft; area.oninput = () => { pasteDraft = area.value; };

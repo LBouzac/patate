@@ -490,7 +490,7 @@ function raceOverlay(s) {
         el('b', 'w-7 text-right text-slate-400', c.in ? c.rank : ''), avatar(c, 'size-8 text-[15px]'),
         el('span', 'min-w-0 flex-1 truncate', c.name),
         c.item && icon(ITEM[c.item][0], 'size-6 ' + ITEM[c.item][1]),
-        el('span', 'text-[19px] tabular-nums ' + (c.done ? 'text-emerald-400' : 'text-slate-300'), !c.in ? 'attend' : c.done ? '✓' : `T${c.lap}/${s.laps}`))),
+        el('span', 'text-[19px] tabular-nums ' + (c.done ? 'text-emerald-400' : 'text-slate-300'), !c.in ? 'attend' : c.done ? icon('check', 'inline size-5') : `T${c.lap}/${s.laps}`))),
       el('div', 'mt-auto flex items-center gap-3', qr, el('div', '', el('div', 'text-[17px] text-slate-400', 'Rejoindre'),
         el('div', 'font-mono text-[34px] leading-none font-black tracking-widest text-amber-300', st.pin)))),
     s.phase === 'race' && s.finish > 0 && el('div', 'absolute top-6 left-[1120px] -translate-x-1/2 rounded-full bg-slate-950/80 px-6 py-2 text-[30px] font-bold text-amber-300', `Fin de la course dans ${s.finish} s`),
