@@ -61,7 +61,7 @@
         <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
       </span>
       <span id="mapName" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm" title="La carte"></span>
-      <span class="rounded-full bg-white/10 px-3 py-1.5 font-mono text-sm" title="Vent (pousse le bazooka)"><span class="font-sans text-slate-400">Vent</span> <b id="wind"></b></span>
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm" title="Vent : pousse le bazooka et les flammes"><i data-icon="wind" class="size-4 text-sky-300"></i><b id="wind"></b></span>
     </span>
     <button id="overview" title="Vue d'ensemble de l'île (V)" aria-label="Vue d'ensemble" aria-pressed="false"
       class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
@@ -298,7 +298,7 @@ function hud() {
   $('status').classList.toggle('text-amber-300', myTurn());
   if ($('mapName').dataset.map !== st.map) { $('mapName').dataset.map = st.map; $('mapName').replaceChildren(icon(theme().e, 'size-4'), theme().n); }
   if (document.activeElement !== $('mapPick') && $('mapPick').value !== st.next) $('mapPick').value = st.next;
-  set($('wind'), st.wind === 0 ? '0' : (st.wind < 0 ? '← ' : '→ ') + Math.abs(st.wind).toFixed(1));
+  set($('wind'), windText(st.wind));
 
   const hp = s => st.worms.filter(w => w.team === s.id && w.alive).reduce((t, w) => t + w.hp, 0);
   const key = JSON.stringify(st.squads.map(s => [s.id, s.name, hp(s)])) + cur?.id + st.phase;
@@ -511,7 +511,51 @@ function draw(now) {
   ctx.globalAlpha = 1;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (flash > 0) { flash -= dt; ctx.fillStyle = `rgba(255,200,120,${flash})`; ctx.fillRect(0, 0, VW, VH); }
+  drawGusts(dt);
+  drawWind(now);
   drawClock(now);
+}
+
+// ---------- Vent : pastille, jauge en haut à droite, traînées d'air ----------
+const windText = w => !w ? 'Calme' : (w < 0 ? '← ' : '→ ') + (Math.abs(w) < 0.4 ? 'faible' : Math.abs(w) < 0.7 ? 'moyen' : 'fort');
+const windColor = a => a < 0.4 ? '#7dd3fc' : a < 0.7 ? '#facc15' : '#f87171';
+const GUSTS = Array.from({ length: 28 }, () => ({ x: Math.random() * VW, y: Math.random() * VH, len: 20 + Math.random() * 30, v: 0.7 + Math.random() * 0.6 }));
+
+// drawGusts : des traînées d'air qui filent dans le sens du vent, plus vite et plus visibles quand il est fort.
+function drawGusts(dt) {
+  const a = Math.abs(st.wind), dir = Math.sign(st.wind);
+  if (a < 0.05) return;
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  for (const g of GUSTS) {
+    g.x += dir * (60 + a * 520) * g.v * dt;
+    if (g.x > VW + 60) { g.x = -60; g.y = Math.random() * VH; } else if (g.x < -60) { g.x = VW + 60; g.y = Math.random() * VH; }
+    ctx.globalAlpha = 0.12 + a * 0.28;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(g.x - dir * g.len * (0.5 + a), g.y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+}
+
+// drawWind : la jauge du vent, en haut à droite. Elle part du milieu vers où souffle le vent, d'autant plus longue
+// qu'il est fort (bleu, jaune puis rouge), et des chevrons y défilent dans son sens.
+function drawWind(now) {
+  if (st.phase === 'wait') return;
+  const w = st.wind, a = Math.abs(w), dir = Math.sign(w), x0 = VW - 176, y0 = 16, cx = x0 + 100, half = 58;
+  ctx.fillStyle = '#0f172acc'; ctx.beginPath(); ctx.roundRect(x0, y0, 164, 40, 20); ctx.fill();
+  lineIcon(ctx, 'wind', x0 + 20, y0 + 20, 18, a ? windColor(a) : '#94a3b8');
+  ctx.fillStyle = '#ffffff1f'; ctx.beginPath(); ctx.roundRect(cx - half, y0 + 14, half * 2, 12, 6); ctx.fill();
+  if (a) {
+    const len = half * a, left = dir > 0 ? cx : cx - len;
+    ctx.save(); ctx.beginPath(); ctx.roundRect(left, y0 + 14, len, 12, 6); ctx.clip();
+    ctx.fillStyle = windColor(a); ctx.fillRect(left, y0 + 14, len, 12);
+    ctx.strokeStyle = '#0f172a99'; ctx.lineWidth = 2; // chevrons qui avancent dans le sens du vent
+    const off = (now / 1000 * (20 + a * 60)) % 10;
+    for (let x = left - 10; x < left + len + 10; x += 10) {
+      const xx = x + dir * off;
+      ctx.beginPath(); ctx.moveTo(xx - dir * 3, y0 + 16); ctx.lineTo(xx + dir * 2, y0 + 20); ctx.lineTo(xx - dir * 3, y0 + 24); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.fillStyle = '#ffffffaa'; ctx.fillRect(cx - 1, y0 + 11, 2, 18); // le milieu : pas de vent
 }
 
 // drawClock : le chrono du tour, en haut à gauche de l'écran (au milieu, il cachait le ver quand il est tout en haut). L'anneau se vide, passe au jaune puis au rouge qui

@@ -128,7 +128,7 @@ De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Béber
 
 - **Marcher** : ← → (ou Q/A et D), ou les boutons ‹ ›. Le ver monte les petites marches, pas les murs. **Sauter** : Espace (ou ↑, Z, W), ou le bouton « Saut ».
 - **Arme** : touches 1 à 9, 0 et R, ou les boutons, rangés par catégorie (Tir, Contact, Explosifs, Bouger ; sur téléphone, icônes seules). Une ligne sous les boutons rappelle ce que fait l'arme choisie, comment viser et combien il en reste. Ensuite, puis tire en arrière et relâche (la force compte pour le bazooka et la grenade, seule la direction pour les autres).
-  - 🚀 **Bazooka** : explose au contact, poussé par le **vent** (change à chaque tour).
+  - 🚀 **Bazooka** : explose au contact, poussé par le **vent** (change à chaque tour). Le vent se voit en haut à droite de l'écran : une jauge qui part du milieu vers où il souffle, d'autant plus longue qu'il est fort (bleu faible, jaune moyen, rouge fort), avec des chevrons qui défilent dans son sens ; des traînées d'air filent aussi dans le ciel, et la pastille du haut dit « ← faible », « → fort »…
   - 💣 **Grenade** : rebondit et explose au bout de 3 s.
   - 🔫 **Fusil** : deux tirs droits et instantanés (on ne bouge pas entre les deux).
   - 💥 **Mitrailleuse** : une rafale de 15 balles.
