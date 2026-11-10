@@ -34,6 +34,8 @@ const (
 	HeliTime     = 5.0
 	HeliSpeed    = 130.0
 	RopeMax      = 260.0 // portée de la corde ninja
+	BatReach     = 14.0  // la batte frappe à cette distance devant le ver…
+	BatZone      = 16.0  // …dans un cercle de ce rayon
 	MineRange    = 22.0  // une mine se déclenche quand un ver passe à cette distance
 	HealHP       = 25
 	SuddenRounds = 8    // tours chacun avant la mort subite
@@ -73,7 +75,7 @@ var weapons = [...]struct {
 	Grenade:   {40, 58, 55, 520, 1, -1},
 	Shotgun:   {12, 30, 25, 0, 2, -1},
 	Uzi:       {0, 0, 0, 0, 1, -1},
-	Flamer:    {0, 0, 0, 330, 1, -1},
+	Flamer:    {0, 0, 0, 380, 1, -1},
 	Bat:       {0, 0, 30, 520, 1, -1},
 	Dynamite:  {55, 80, 75, 0, 1, 2},
 	Mine:      {25, 45, 40, 0, 1, 2},
@@ -81,7 +83,7 @@ var weapons = [...]struct {
 	Heli:      {0, 0, 0, 0, 1, 2},
 	Rope:      {0, 0, 0, 0, 1, -1},
 	Missile:   {24, 40, 30, 0, 0, 0},
-	Flame:     {3, 9, 3, 0, 0, 0},
+	Flame:     {7, 12, 3, 0, 0, 0}, // chaque flamme creuse un peu : le lance-flammes perce la terre
 	Bullet:    {4, 9, 4, 0, 0, 0},
 	Barrel:    {35, 70, 45, 0, 0, 0},
 }
@@ -529,7 +531,7 @@ func (g *WormGame) fire(s *Squad, weapon int, angle, power, tx float64) {
 		g.burst = burst{kind: Uzi, n: 15, a: angle}
 		return
 	case Flamer:
-		g.burst = burst{kind: Flamer, n: 25, a: angle}
+		g.burst = burst{kind: Flamer, n: 30, a: angle}
 		return
 	case Bat:
 		g.bat(w, angle)
@@ -573,7 +575,11 @@ func (g *WormGame) shoot(w *Worm, a float64, kind int) {
 func (g *WormGame) impact(x, y float64, kind, by int, vx, vy float64) {
 	t := g.wormNear(x, y, by)
 	if t == nil {
-		g.explode(x, y, kind)
+		skip := 0
+		if kind == Flame {
+			skip = by
+		}
+		g.explode(x, y, kind, skip)
 		return
 	}
 	g.event(Event{Kind: "boom", B: 1, X: x, Y: y})
@@ -588,12 +594,12 @@ func (g *WormGame) impact(x, y float64, kind, by int, vx, vy float64) {
 	}
 }
 
-// bat : coup de batte, envoie valser les vers juste devant.
+// bat : coup de batte, envoie valser les vers dans la zone juste devant (la page montre cette zone en visant).
 func (g *WormGame) bat(w *Worm, a float64) {
-	hx, hy := w.X+math.Cos(a)*12, w.Y+math.Sin(a)*12
+	hx, hy := w.X+math.Cos(a)*BatReach, w.Y+math.Sin(a)*BatReach
 	g.event(Event{Kind: "bat", A: w.ID, X: hx, Y: hy})
 	for _, t := range g.Worms {
-		if t != w && t.Alive && math.Hypot(t.X-hx, t.Y-hy) < 14 {
+		if t != w && t.Alive && math.Hypot(t.X-hx, t.Y-hy) < BatZone {
 			g.hurt(t, int(weapons[Bat].dmg))
 			if t.Alive {
 				v := weapons[Bat].speed
@@ -612,7 +618,7 @@ func (g *WormGame) spray(w *Worm) {
 	}
 	a += (rand.Float64()*2 - 1) * 0.1
 	v := weapons[Flamer].speed * (0.85 + rand.Float64()*0.3)
-	g.Projs = append(g.Projs, &Rocket{X: w.X + math.Cos(a)*(WormR+4), Y: w.Y + math.Sin(a)*(WormR+4), Kind: Flame, Fuse: 0.6, vx: v * math.Cos(a), vy: v * math.Sin(a), by: w.ID})
+	g.Projs = append(g.Projs, &Rocket{X: w.X + math.Cos(a)*(WormR+4), Y: w.Y + math.Sin(a)*(WormR+4), Kind: Flame, Fuse: 0.75, vx: v * math.Cos(a), vy: v * math.Sin(a), by: w.ID})
 }
 
 // objHit : une mine ou un baril au point (x, y) ?
@@ -703,7 +709,7 @@ func (g *WormGame) advance(dt float64) {
 			case boom && p.Kind == Flame:
 				g.impact(p.X, p.Y, Flame, p.by, p.vx, p.vy)
 			case boom:
-				g.explode(p.X, p.Y, p.Kind)
+				g.explode(p.X, p.Y, p.Kind, 0)
 			case p.Kind != Flame:
 				g.event(Event{Kind: "splash", X: p.X, Y: p.Y})
 			}
@@ -765,10 +771,10 @@ func (g *WormGame) objects(dt float64) {
 // blow fait sauter une mine ou un baril ; le baril de pétrole répand des flammes.
 func (g *WormGame) blow(o *Obj) {
 	if o.Kind == "mine" {
-		g.explode(o.X, o.Y, Mine)
+		g.explode(o.X, o.Y, Mine, 0)
 		return
 	}
-	g.explode(o.X, o.Y, Barrel)
+	g.explode(o.X, o.Y, Barrel, 0)
 	for range 8 {
 		a := -math.Pi/2 + (rand.Float64()*2-1)*1.2
 		v := 120 + rand.Float64()*160
@@ -799,8 +805,8 @@ func (g *WormGame) carve(x, y, r float64) {
 	g.dirty = true
 }
 
-// explode creuse, blesse et projette les vers autour.
-func (g *WormGame) explode(x, y float64, kind int) {
+// explode creuse, blesse et projette les vers autour, sauf le ver skip (le porteur du lance-flammes).
+func (g *WormGame) explode(x, y float64, kind, skip int) {
 	wp := weapons[kind]
 	g.event(Event{Kind: "boom", B: int(wp.crater), X: x, Y: y})
 	g.carve(x, y, wp.crater)
@@ -811,7 +817,7 @@ func (g *WormGame) explode(x, y float64, kind int) {
 	}
 	for _, w := range g.Worms {
 		d := math.Hypot(w.X-x, w.Y-y)
-		if !w.Alive || d >= wp.blast {
+		if !w.Alive || d >= wp.blast || w.ID == skip {
 			continue
 		}
 		k := 1 - d/wp.blast

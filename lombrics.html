@@ -89,7 +89,10 @@
       <button data-len="down" title="Corde : allonger (↓)" aria-label="Descendre" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95">▼</button>
       <button data-move="1" aria-label="Marcher à droite" class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/15 active:scale-95"><i data-icon="chevron-right" class="size-5"></i></button>
     </div>
-    <div id="arms" class="flex flex-wrap items-center gap-2" role="group" aria-label="Arme"></div>
+    <div class="flex flex-col gap-1.5">
+      <div id="arms" class="flex flex-col gap-1.5" role="group" aria-label="Armes, par catégorie"></div>
+      <p id="armInfo" aria-live="polite" class="text-xs leading-snug text-slate-400"></p>
+    </div>
   </div>
 
   <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
@@ -128,6 +131,15 @@ const WEAPONS = [
   { e: '🪢', n: 'Corde', aim: 'dir', tip: "s'accroche à la terre visée : ← → pour te balancer, ↑ ↓ pour la longueur, Saut pour lâcher. Ne finit pas le tour" },
 ];
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'R']; // touche de chaque arme
+// les armes rangées par catégorie : [icône, nom, numéros des armes]
+const CATS = [['🎯', 'Tir', [0, 1, 2, 3]], ['✊', 'Contact', [4, 5]], ['💣', 'Explosifs', [6, 7, 8]], ['🧭', 'Bouger', [9, 10]]];
+const HOW = { // comment viser, selon l'arme
+  power: 'Tire en arrière et relâche : plus tu tires, plus ça part fort.',
+  dir: 'Tire en arrière et relâche : seule la direction compte.',
+  now: "Touche l'île (ou Entrée) pour l'utiliser.",
+  target: "Touche la cible sur l'île (V pour voir toute l'île).",
+};
+const TURN = 45, RETREAT = 3, BAT_REACH = 14, BAT_ZONE = 16; // comme le serveur
 const K = { bazooka: 0, grenade: 1, flamer: 4, bat: 5, dynamite: 6, missile: 11, flame: 12 }; // numéros des armes et projectiles du serveur
 // les cartes : couleurs du terrain (surface, sous-surface, intérieur), ciel, eau et décor
 const MAPS = {
@@ -148,6 +160,7 @@ $('mapPick').querySelectorAll('option').forEach(o => o.className = 'bg-slate-900
 $('mapPick').onchange = e => send({ t: 'map', v: e.target.value });
 // caméra : centre (cx, cy) et zoom (z, zz pour l'animation) ; free : on regarde ailleurs à la main
 const cam = { cx: -1, cy: 0, z: 1, zz: 1, free: false, overview: false, turn: 0 };
+let swings = [], lastSec = 0; // coups de batte à dessiner, dernière seconde bipée
 let st = null, landB64 = '', landMap = '', trail = [], particles = [], shots = [], texts = [], flash = 0, shake = 0, weapon = 0, moving = 0, upHeld = 0, downHeld = 0;
 
 function start(pin) {
@@ -179,19 +192,24 @@ const roped = () => myTurn() && worm(st.turn)?.rope;
 function jumpDown() { if (myTurn()) send({ t: 'jump' }); setUp(1); }
 function fire(extra) { send({ t: 'fire', w: weapon, a: 0, p: 1, x: 0, ...extra }); }
 function pickWeapon(w) { weapon = w; arms(); }
-function arms() { // la barre d'armes, avec les munitions de ton équipe
+function arms() { // les armes par catégorie, avec les munitions de ton équipe, et ce que fait l'arme choisie
   const ammo = squad(me)?.ammo || [], compact = matchMedia('(max-width: 639px)').matches || $('game').classList.contains('side'); // téléphone : icônes seules
   const key = weapon + ':' + ammo.join() + compact;
   if ($('arms').dataset.key === key) return;
   $('arms').dataset.key = key;
-  $('arms').replaceChildren(...WEAPONS.map((wp, i) => {
-    const on = i === weapon, left = ammo[i] ?? -1;
+  const button = i => {
+    const wp = WEAPONS[i], on = i === weapon, left = ammo[i] ?? -1;
     const b = el('button', 'rounded-full px-3 py-1.5 transition active:scale-95 ' + (on ? 'bg-pink-400 text-slate-950' : 'bg-white/10 text-slate-200 hover:bg-white/15') + (left === 0 ? ' opacity-50' : ''),
       compact ? wp.e : wp.e + ' ' + wp.n, ...(left >= 0 ? [el('span', 'font-mono ' + (on ? '' : 'text-amber-300'), ' ×' + left)] : []));
-    b.title = wp.n + ' (' + KEYS[i] + ') : ' + wp.tip; b.setAttribute('aria-label', wp.n);
+    b.title = wp.n + ' (' + KEYS[i] + ') : ' + wp.tip; b.setAttribute('aria-label', wp.n); b.setAttribute('aria-pressed', on);
     b.onclick = () => { pickWeapon(i); b.blur(); };
     return b;
-  }));
+  };
+  $('arms').replaceChildren(...CATS.map(([e, n, list]) => el('div', 'flex flex-wrap items-center gap-2', Object.assign(
+    el('span', (compact ? '' : 'w-24 ') + 'shrink-0 text-xs font-semibold text-slate-400 uppercase', compact ? e : e + ' ' + n), { title: n }),
+    ...list.map(button))));
+  const wp = WEAPONS[weapon], left = ammo[weapon] ?? -1;
+  set($('armInfo'), wp.e + ' ' + wp.n + ' (touche ' + KEYS[weapon] + ') : ' + wp.tip + '. ' + HOW[wp.aim] + (left >= 0 ? ' Il en reste ' + left + '.' : ''));
 }
 document.querySelectorAll('[data-move]').forEach(b => {
   b.onpointerdown = e => { e.preventDefault(); walk(+b.dataset.move); };
@@ -323,7 +341,11 @@ function onEvent(e) {
       if (big) { flash = 0.2; shake = e.b > 45 ? 0.5 : 0.3; }
       break;
     }
-    case 'bat': tone(220, 0.08, 'square', 0.12, 80); noise(0.1, 0.25); burst(e.x, e.y, 12, '#fde047', 140, 0.4); break;
+    case 'bat': {
+      tone(220, 0.08, 'square', 0.12, 80); noise(0.1, 0.25); burst(e.x, e.y, 12, '#fde047', 140, 0.4);
+      const w = worm(e.a); if (w) swings.push({ x: w.x, y: w.y, a: Math.atan2(e.y - w.y, e.x - w.x), life: 0.3 });
+      break;
+    }
     case 'jump': tone(300, 0.12, 'triangle', 0.08, 600); break;
     case 'heli': for (let i = 0; i < 10; i++) tone(90, 0.05, 'sawtooth', 0.06, 0, i * 0.08); break;
     case 'hit': say(e.x, e.y - 20, '-' + e.b, '#f87171'); tone(200, 0.1, 'square', 0.05, 120); break;
@@ -381,9 +403,10 @@ function drawWorm(w, now) {
 
 function drawProj(p, now) {
   ctx.textAlign = 'center'; ctx.font = '700 12px system-ui';
-  if (p.kind === K.flame) { // flamme
-    ctx.fillStyle = ['#fde047', '#fb923c', '#ef4444'][Math.floor(now / 60 + p.x) % 3]; ctx.globalAlpha = 0.85;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 3 + Math.random() * 2, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return;
+  if (p.kind === K.flame) { // flamme : un halo et un cœur qui scintille
+    ctx.globalAlpha = 0.35; ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(p.x, p.y, 9 + Math.random() * 3, 0, 7); ctx.fill();
+    ctx.globalAlpha = 0.9; ctx.fillStyle = ['#fde047', '#fb923c', '#ef4444'][Math.floor(now / 60 + p.x) % 3];
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4 + Math.random() * 3, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return;
   }
   if (p.kind === K.dynamite) { // dynamite et sa mèche
     ctx.fillStyle = '#dc2626'; ctx.fillRect(p.x - 3, p.y - 7, 6, 10);
@@ -426,7 +449,21 @@ function drawAim(w, now) {
     ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(t.x, t.y, 12, 0, 7);
     ctx.moveTo(t.x - 18, t.y); ctx.lineTo(t.x + 18, t.y); ctx.moveTo(t.x, t.y - 18); ctx.lineTo(t.x, t.y + 18); ctx.stroke(); return;
   }
-  const { a, p } = aim(), len = weapon === K.bat ? 22 : mode === 'dir' ? 140 : 20 + p * 60;
+  const { a, p } = aim();
+  if (weapon === K.bat) { // la zone que la batte va frapper, les vers dedans, et où ils partiront
+    const hx = w.x + Math.cos(a) * BAT_REACH, hy = w.y + Math.sin(a) * BAT_REACH;
+    ctx.fillStyle = '#fde04733'; ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(hx, hy, BAT_ZONE, 0, 7); ctx.fill(); ctx.stroke();
+    for (const o of st.worms) if (o.alive && o.id !== w.id && Math.hypot(o.x - hx, o.y - hy) < BAT_ZONE) {
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(o.x, o.y - 1, 10, 0, 7); ctx.stroke();
+    }
+    const ex = hx + Math.cos(a) * 45, ey = hy + Math.sin(a) * 45 - 12; // flèche : la direction du coup
+    ctx.strokeStyle = '#fde047'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+    const h = Math.atan2(ey - hy, ex - hx);
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(h - 0.5) * 9, ey - Math.sin(h - 0.5) * 9); ctx.lineTo(ex - Math.cos(h + 0.5) * 9, ey - Math.sin(h + 0.5) * 9); ctx.fill();
+    return;
+  }
+  const len = mode === 'dir' ? 140 : 20 + p * 60;
   ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
   ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * len, w.y + Math.sin(a) * len); ctx.stroke(); ctx.setLineDash([]);
   if (mode === 'power') { ctx.strokeStyle = `hsl(${120 - p * 120} 90% 55%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, 16, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
@@ -453,6 +490,12 @@ function draw(now) {
   if (w && myTurn() && drag) drawAim(w, now);
   if (trail.length) { ctx.strokeStyle = '#fde68a90'; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
   for (const p of st.projs) drawProj(p, now);
+  swings = swings.filter(s => (s.life -= dt) > 0);
+  for (const s of swings) { // le coup de batte balaie un quart de cercle devant le ver
+    const k = 1 - s.life / 0.3;
+    ctx.strokeStyle = `rgba(253,224,71,${s.life * 3})`; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(s.x, s.y, BAT_REACH + 6, s.a - 1.2, s.a - 1.2 + 2.4 * k); ctx.stroke(); ctx.lineCap = 'butt';
+  }
   shots = shots.filter(s => (s.life -= dt) > 0);
   for (const s of shots) { ctx.strokeStyle = `rgba(254,240,138,${s.life * 4})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); ctx.stroke(); }
   // eau qui ondule
@@ -467,6 +510,25 @@ function draw(now) {
   ctx.globalAlpha = 1;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (flash > 0) { flash -= dt; ctx.fillStyle = `rgba(255,200,120,${flash})`; ctx.fillRect(0, 0, VW, VH); }
+  drawClock(now);
+}
+
+// drawClock : le chrono du tour, en haut au milieu de l'écran. L'anneau se vide, passe au jaune puis au rouge qui
+// clignote ; pendant le repli il devient orange. Dessous : qui joue. Bip à chacune des 5 dernières secondes.
+function drawClock(now) {
+  if (st.phase !== 'play') return;
+  const total = st.fired ? RETREAT : TURN, left = Math.max(0, st.wait), sec = Math.ceil(left);
+  const color = st.fired ? '#fb923c' : left > 15 ? '#4ade80' : left > 5 ? '#facc15' : Math.floor(now / 250) % 2 ? '#ef4444' : '#fca5a5';
+  const x = VW / 2, y = 34, r = 24;
+  ctx.fillStyle = '#0f172acc'; ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = '#ffffff22'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, left / total)); ctx.stroke(); ctx.lineCap = 'butt';
+  ctx.fillStyle = color; ctx.font = '800 20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(sec, x, y + 1);
+  const w = worm(st.turn), s = squad(w?.team), label = st.fired ? 'REPLI' : (w?.name || '') + (s ? ' · ' + s.name : '');
+  ctx.font = '700 12px system-ui'; ctx.lineWidth = 3; ctx.strokeStyle = '#0f172a'; ctx.textBaseline = 'alphabetic';
+  ctx.strokeText(label, x, y + r + 20); ctx.fillStyle = st.fired ? '#fb923c' : s?.color || '#fff'; ctx.fillText(label, x, y + r + 20);
+  if (myTurn() && !st.fired && sec <= 5 && sec > 0 && sec !== lastSec) tone(sec === 1 ? 1320 : 880, 0.08, 'square', 0.06);
+  lastSec = sec;
 }
 
 // drawDeco : le décor du ciel, derrière l'île, qui défile un peu moins vite qu'elle

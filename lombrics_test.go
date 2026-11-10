@@ -126,7 +126,7 @@ func TestWormsExplosion(t *testing.T) {
 	flatLand(g, 300)
 	w := g.Worms[0]
 	w.X, w.Y, w.air = 400, 300-WormR-1, false
-	g.explode(400, 300, Bazooka)
+	g.explode(400, 300, Bazooka, 0)
 	if g.solid(400, 302) {
 		t.Fatal("l'explosion doit creuser")
 	}
@@ -168,7 +168,7 @@ func TestWormsTurnsAndWin(t *testing.T) {
 	for _, w := range g.Worms {
 		if w.Team == b.ID {
 			w.HP = 1
-			g.explode(w.X, w.Y, Shotgun)
+			g.explode(w.X, w.Y, Shotgun, 0)
 		}
 	}
 	if !g.checkWin() || g.Winner != "A" {
@@ -545,5 +545,39 @@ func TestWormsMaps(t *testing.T) {
 		if g.Map == prev {
 			t.Fatalf("deux fois de suite la carte %q", prev)
 		}
+	}
+}
+
+func TestWormsFlamerDigs(t *testing.T) {
+	g, s, me, _ := wormDuel(t, 600)
+	count := func() (n int) {
+		for _, c := range g.land {
+			if c {
+				n++
+			}
+		}
+		return
+	}
+	before := count()
+	g.fire(s, Flamer, math.Pi/4, 1, 0) // vers le sol, juste devant
+	run(g, 3)
+	if dug := before - count(); dug < 25 {
+		t.Fatalf("le lance-flammes doit creuser le sol : %d cases", dug)
+	}
+	if me.HP != 100 {
+		t.Fatalf("ses propres flammes ne brûlent pas le tireur : %d PV", me.HP)
+	}
+}
+
+func TestWormsBatZone(t *testing.T) {
+	g, s, _, foe := wormDuel(t, 300+BatReach+BatZone-2) // au bord de la zone
+	g.fire(s, Bat, 0, 1, 0)
+	if foe.HP == 100 {
+		t.Fatal("un ver au bord de la zone de la batte est touché")
+	}
+	g, s, _, foe = wormDuel(t, 300+BatReach+BatZone+3) // juste en dehors
+	g.fire(s, Bat, 0, 1, 0)
+	if foe.HP != 100 {
+		t.Fatal("un ver hors de la zone de la batte n'est pas touché")
 	}
 }
