@@ -16,6 +16,7 @@ L'adresse du site (`/`) ouvre le **menu de tous les jeux**. Les anciens liens d'
 - **Motos** (`/motos.html`) : de 2 à 8 motos en temps réel (bots possibles) qui laissent un mur, premier à 5 manches.
 - **Golf** (`/golf.html`) : mini-golf de 1 à 8 joueurs, 9 trous générés au hasard à chaque partie.
 - **Lombrics** (`/lombrics.html`) : de 2 à 4 équipes de 3 vers (bots possibles) sur une île qu'on creuse : bazooka, mitrailleuse, lance-flammes, batte, dynamite, frappe aérienne, hélico… La dernière équipe en vie gagne.
+- **Barrage** (`/barrage.html`) : de 2 à 4 joueurs (bots possibles). On avance son pion ou on pose une barre pour bloquer les autres. À 2, le premier dans le camp d'en face gagne ; à 3 ou 4, le premier sur le trophée au centre.
 
 Et un **mode télé** (`/tele.html` + `/manette.html`) : le jeu s'affiche sur la télé, les téléphones servent de manettes. Cinq jeux faits pour ça : **Sumo**, **Course**, **Quiz rapide**, **Imposteur** et **Dessin en chaîne** (détails plus bas).
 
@@ -96,6 +97,19 @@ De 2 à 6 joueurs, chacun pour soi, ou avec des **bots** (« Ajouter un bot »).
 - **Celui qui n'a pas le point rejoue** (le plus mal placé d'abord). Quand les autres n'ont plus de boules, celui qui a le point finit les siennes.
 - Le terrain est **entouré de planches** : boules et cochonnet rebondissent dessus, rien ne sort. 15 s par lancer, sinon la boule est perdue.
 - À la fin de la mène, celui qui a le point marque **une boule par boule plus proche que la meilleure des autres**, et commence la mène suivante. **Premier à 7 points.**
+
+## Barrage
+
+De 2 à 4 joueurs, ou avec des **bots** (« Ajouter un bot »). Plateau de 9×9 cases.
+
+- **À 2**, chacun part du milieu de son bord et le premier qui atteint la ligne d'en face gagne (elle est colorée à la couleur de celui qui doit l'atteindre).
+- **À 3 ou 4**, chacun part d'un coin et le premier qui touche le **trophée** au centre gagne.
+- **Chacun son tour**, une seule action : avancer son pion d'une case, ou poser une **barre** de 2 cases de long entre les cases. 10 barres chacun à 2, 7 à 3, 5 à 4.
+- On **saute** un pion qui est juste devant ; si une barre ou un autre pion empêche de sauter tout droit, on passe à côté de lui en diagonale.
+- Une barre ne peut ni chevaucher ni croiser une autre, et **ne peut jamais fermer complètement le passage** à quelqu'un : le jeu la refuse et on garde la main.
+- Pour poser une barre : bouton « Poser une barre » (ou touche B). À la souris, la barre suit le pointeur et un clic la pose ; au doigt, un premier appui la montre, un second au même endroit la pose.
+- 30 s par coup, sinon le pion avance tout seul vers son but. Un joueur qui arrive en cours de partie joue à la suivante. Revanche automatique, le premier joueur change à chaque partie.
+- Le bot avance par le plus court chemin. Quand un adversaire est plus près du but que lui, il pose la barre qui le retarde le plus (sans trop se gêner lui-même).
 
 ## Billard
 
@@ -205,7 +219,7 @@ Dans tous les modes, **une 2e bombe** entre en jeu tant qu'il reste au moins 6 j
 
 ## Interface
 
-Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron, Pétanque jaune, Billard bleu ciel, Artillerie rouge, Motos violet, Lombrics rose) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
+Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu** liste tous les jeux. Chaque jeu a le même accueil : lien « ‹ Les jeux », grand titre avec l'icône du jeu, pseudo (gardé d'un jeu à l'autre), gros bouton pour créer une partie dans la couleur du jeu (Patate orange, Ricochet cyan, Golf vert, Dessine rose, Foot vert citron, Pétanque jaune, Billard bleu ciel, Artillerie rouge, Motos violet, Lombrics rose, Barrage ambre) et une ligne « code + Rejoindre ». Une **barre d'onglets en bas** permet de changer de jeu. En partie, « ‹ Quitter » ramène à l'accueil. La liste des jeux, la barre et ce bouton viennent de `common.js`.
 
 **Sur ordinateur**, le menu et le salon passent en grille de cartes. Le salon s'affiche sur deux colonnes : à gauche l'invitation (gros code et QR code du lien, à scanner avec un téléphone) et la liste des présents avec leur initiale, à droite les jeux. Chaque jeu indique s'il faut plusieurs parties pour tout le groupe (« 3 parties, 2 places chacune ») ou s'il manque du monde. En partie, le terrain s'agrandit pour remplir l'écran (jusqu'à 1600 px de large).
 

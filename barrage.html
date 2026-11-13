@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="fr" class="h-full bg-slate-950">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if (localStorage.theme) document.documentElement.dataset.theme = localStorage.theme; // style choisi (common.js), avant l'affichage</script>
+<title>Barrage</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="h-full text-slate-100 antialiased">
+
+<main id="home" class="mx-auto min-h-full max-w-xl px-4 pt-4 pb-32">
+  <a href="/" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 transition-opacity hover:opacity-80">
+    <i data-icon="chevron-left" class="size-5"></i>Les jeux
+  </a>
+  <form class="mt-4">
+    <div class="flex items-center gap-3 px-1">
+      <span class="grid size-11 shrink-0 place-items-center rounded-[10px] text-white bg-amber-500"><i data-icon="barrage" class="size-7"></i></span>
+      <h1 class="text-[34px] leading-tight font-bold">Barrage</h1>
+    </div>
+    <p class="mt-2 px-1 text-[15px] text-slate-400">De 2 à 4 joueurs. Avance ton pion ou pose une barre pour bloquer les autres. À 2, file dans le camp d'en face ; à 3 ou 4, touche le trophée au centre.</p>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Ton pseudo</h2>
+    <label class="block">
+      <span class="sr-only">Pseudo</span>
+      <input id="name" maxlength="12" required autocomplete="nickname" placeholder="Ton pseudo" class="h-[50px] w-full rounded-xl bg-slate-900 px-4 text-[17px] ring-1 ring-white/5 placeholder:text-slate-500 focus-visible:ring-2 focus:outline-none focus-visible:ring-amber-400">
+    </label>
+
+    <button id="create" class="mt-6 flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-[17px] font-semibold text-slate-950 transition active:scale-[0.98]">
+      <i data-icon="plus-circle" class="size-5"></i> Créer une partie
+    </button>
+
+    <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Rejoindre une partie</h2>
+    <div class="flex items-center rounded-xl bg-slate-900 ring-1 ring-white/5">
+      <label class="block min-w-0 flex-1">
+        <span class="sr-only">Code de la partie</span>
+        <input id="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="Code à 4 chiffres"
+          class="h-[50px] w-full rounded-l-xl bg-transparent px-4 font-mono text-[17px] tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none">
+      </label>
+      <button id="join" class="h-[50px] shrink-0 rounded-r-xl px-4 text-[17px] font-semibold text-amber-400 transition hover:bg-white/5 active:bg-white/10">Rejoindre</button>
+    </div>
+    <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Celui qui a créé la partie te donne le code, ou t'envoie directement le lien.</p>
+
+    <p id="errBox" role="alert" class="mt-4 flex min-h-5 items-center justify-center gap-2 text-[15px] text-red-400">
+      <i data-icon="exclamation-triangle" class="size-4" id="errIcon"></i><span id="err"></span>
+    </p>
+  </form>
+</main>
+<nav id="games" aria-label="Jeux"></nav>
+
+<!-- Partie -->
+<main id="game" hidden class="mx-auto flex min-h-full max-w-[832px] flex-col justify-center gap-3 p-4">
+  <header class="flex flex-wrap items-center justify-between gap-2">
+    <button id="copy" title="Copier le lien d'invitation"
+      class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 font-mono text-lg font-bold text-amber-300 transition hover:bg-white/15">
+      <i data-icon="hashtag" class="size-4"></i><span id="pinTxt"></span>
+      <i data-icon="link" class="size-4 text-slate-400" id="copyLink"></i><i data-icon="check" class="size-4 text-emerald-400" id="copyOk" hidden></i>
+    </button>
+    <span id="status" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold">
+      <i data-icon="clock" class="size-4 text-slate-400"></i><span id="statusTxt"></span>
+    </span>
+    <button id="mute" title="Couper / remettre le son (M)" aria-label="Son"
+      class="grid size-10 place-items-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/15">
+      <i data-icon="speaker-wave" class="size-5" id="soundOn"></i><i data-icon="speaker-x-mark" class="size-5 text-slate-500" id="soundOff" hidden></i>
+    </button>
+  </header>
+
+  <div id="board" class="flex flex-wrap gap-2 text-sm"></div>
+
+  <div class="relative">
+    <canvas id="c" width="640" height="640" aria-label="Plateau de Barrage : à ton tour, touche une case pour avancer ou passe en mode barre pour en poser une"
+      class="block w-full touch-none rounded-[14px]"></canvas>
+    <div id="overlay" aria-live="polite" class="pointer-events-none absolute inset-0 grid place-items-center p-4"></div>
+  </div>
+
+  <footer class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+    <div class="flex items-center gap-2" role="group" aria-label="Que faire à ton tour">
+      <button id="modeMove" aria-pressed="true" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold transition active:scale-95">
+        <i data-icon="user" class="size-4"></i> Avancer
+      </button>
+      <button id="modeWall" aria-pressed="false" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold transition active:scale-95">
+        <i data-icon="barrage" class="size-4"></i> Poser une barre
+      </button>
+    </div>
+    <div class="flex items-center gap-2">
+      <button data-bot="1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="cpu-chip" class="size-4"></i> Ajouter un bot
+      </button>
+      <button data-bot="-1" class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-slate-200 transition hover:bg-white/15 active:scale-95">
+        <i data-icon="user-minus" class="size-4"></i> Retirer un bot
+      </button>
+    </div>
+    <span class="text-xs">Une case ou une barre par tour, 30 s. Une barre ne peut jamais fermer tout le passage.<span data-kbd> Touche B pour changer de mode.</span></span>
+  </footer>
+</main>
+
+<script src="/common.js"></script>
+<script>
+const cv = $('c'), ctx = cv.getContext('2d');
+// plateau : 9 cases de S px, séparées par des rainures de G px où se posent les barres
+const N = 9, P = 68, G = 10, S = P - G, M = 19, SIZE = 640, MID = 4;
+let st = null, mode = 'move', hover = null, pending = null, toast = null;
+const pos = {}; // position affichée de chaque pion, qui glisse vers la vraie
+
+function start(pin) {
+  connect('/ws/barrage', pin, '', m => {
+    if (!m) { st = null; return; }
+    st = m;
+    for (const ev of m.events || []) onEvent(ev);
+    hud();
+  });
+}
+$('create').onclick = e => { e.preventDefault(); start(''); };
+$('join').onclick = e => { e.preventDefault(); start($('pin').value.trim()); };
+document.querySelectorAll('[data-bot]').forEach(b => b.onclick = () => { send({ bot: +b.dataset.bot }); b.blur(); });
+
+const pl = id => st?.players.find(p => p.id === id);
+const myTurn = () => st && st.phase === 'play' && st.turn === me;
+const cellLeft = i => M + i * P;
+const cross = i => M + i * P + S + G / 2; // milieu de la rainure après la case i
+
+function setMode(m) {
+  if (m === 'wall' && !(pl(me)?.walls > 0)) m = 'move';
+  mode = m; pending = hover = null;
+  for (const [id, on] of [['modeMove', m === 'move'], ['modeWall', m === 'wall']]) {
+    $(id).setAttribute('aria-pressed', on);
+    $(id).className = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold transition active:scale-95 ' +
+      (on ? 'bg-amber-400 text-slate-950' : 'bg-white/10 text-slate-200 hover:bg-white/15');
+  }
+}
+setMode('move');
+$('modeMove').onclick = () => setMode('move');
+$('modeWall').onclick = () => setMode('wall');
+addEventListener('keydown', e => {
+  if ($('game').hidden || e.repeat || e.target.tagName === 'INPUT') return;
+  if (e.code === 'KeyM') setMuted(!muted);
+  if (e.code === 'KeyB') setMode(mode === 'wall' ? 'move' : 'wall');
+});
+
+// ---------- Du doigt (ou de la souris) au plateau ----------
+function toBoard(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * SIZE / r.width, y: (e.clientY - r.top) * SIZE / r.height }; }
+function cellAt({ x, y }) {
+  const i = Math.floor((x - M) / P), j = Math.floor((y - M) / P);
+  return i >= 0 && i < N && j >= 0 && j < N && x - cellLeft(i) < S && y - cellLeft(j) < S ? [i, j] : null;
+}
+// fenceAt : la barre centrée sur le croisement le plus proche, dans le sens de la rainure la plus proche
+function fenceAt({ x, y }) {
+  const c = v => Math.min(Math.max(Math.round((v - M - S - G / 2) / P), 0), N - 2);
+  const fx = c(x), fy = c(y), nx = Math.round((x - M - S - G / 2) / P), ny = Math.round((y - M - S - G / 2) / P);
+  return { x: fx, y: fy, v: Math.abs(x - cross(nx)) < Math.abs(y - cross(ny)) };
+}
+// fits : même règle que le serveur (sans le chemin, que lui seul vérifie)
+const fits = f => f.x >= 0 && f.x < N - 1 && f.y >= 0 && f.y < N - 1 && !(st.fences || []).some(e =>
+  (e.x === f.x && e.y === f.y) || (e.v === f.v && (!f.v ? e.y === f.y && Math.abs(e.x - f.x) === 1 : e.x === f.x && Math.abs(e.y - f.y) === 1)));
+const same = (a, b) => a && b && a.x === b.x && a.y === b.y && a.v === b.v;
+
+cv.onpointermove = e => { if (e.pointerType === 'mouse') hover = mode === 'wall' ? fenceAt(toBoard(e)) : cellAt(toBoard(e)); };
+cv.onpointerleave = () => { hover = null; };
+cv.onpointerup = e => {
+  if (!myTurn()) return;
+  const p = toBoard(e);
+  if (mode === 'move') {
+    const c = cellAt(p);
+    if (c && (st.moves || []).some(m => m[0] === c[0] && m[1] === c[1])) send({ move: c });
+    return;
+  }
+  const f = fenceAt(p);
+  if (!fits(f)) { pending = null; return; }
+  // souris : un clic pose la barre vue au survol ; doigt : un 1er appui la montre, un 2e au même endroit la pose
+  if (e.pointerType === 'mouse' || same(f, pending)) { send({ wall: f }); setMode('move'); }
+  else pending = f;
+};
+
+// ---------- Interface HTML ----------
+const set = (el, txt) => { if (el.textContent !== String(txt)) el.textContent = txt; };
+const el = (tag, cls, ...kids) => { const e = document.createElement(tag); e.className = cls; e.append(...kids); return e; };
+let overlayKey = '';
+function overlay(key, build) { if (key === overlayKey) return; overlayKey = key; $('overlay').replaceChildren(...(build ? [build()] : [])); }
+const bubble = (...c) => el('div', 'pointer-events-auto flex flex-col items-center gap-2 rounded-[14px] bg-slate-800/85 px-6 py-4 text-center shadow-2xl backdrop-blur-xl', ...c);
+
+function hud() {
+  if (!st) return;
+  set($('pinTxt'), st.pin);
+  const secs = Math.max(0, Math.ceil(st.wait)), turn = pl(st.turn);
+  set($('statusTxt'), {
+    wait: st.players.length < 2 ? 'En attente' : 'Ça commence…', end: 'Partie finie',
+    play: (myTurn() ? 'À toi' : 'Au tour de ' + (turn?.name || '?')) + ' · ' + secs + ' s',
+  }[st.phase]);
+  $('status').classList.toggle('text-amber-300', myTurn());
+  if (mode === 'wall' && !(pl(me)?.walls > 0)) setMode('move');
+  $('modeWall').disabled = !(pl(me)?.walls > 0);
+
+  const key = JSON.stringify([st.players, st.turn, st.phase]);
+  if ($('board').dataset.key !== key) {
+    $('board').dataset.key = key;
+    $('board').replaceChildren(...st.players.map(p => {
+      const dot = el('span', 'size-3 rounded-full', ''); dot.style.background = p.color;
+      return el('span', 'inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5' + (p.id === st.turn && st.phase === 'play' ? ' ring-2 ring-yellow-400/60' : ''),
+        dot, el('span', p.id === me ? 'font-bold' : '', p.name + (p.bot ? ' (bot)' : '')),
+        el('span', 'inline-flex items-center gap-1 font-mono text-amber-300', icon('trophy', 'size-3.5'), p.score),
+        el('span', 'text-slate-400', p.in ? p.walls + (p.walls > 1 ? ' barres' : ' barre') : 'attend la partie suivante'));
+    }));
+  }
+
+  if (st.phase === 'wait' && st.players.length < 2) overlay('wait', () => bubble(el('div', 'flex items-center gap-2 text-lg font-bold', icon('user-plus', 'size-6 text-amber-300'), 'En attente d\'un 2e joueur'),
+    el('div', 'text-sm text-slate-300', 'Donne le code ', el('b', 'font-mono text-amber-300', st.pin), ' à tes amis ou ajoute un bot'),
+    Object.assign(el('button', 'inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-amber-300 active:scale-95', icon('cpu-chip', 'size-5'), 'Ajouter un bot'),
+      { onclick: () => send({ bot: 1 }) })));
+  else if (st.phase === 'end') overlay('end', () => bubble(el('div', 'flex items-center gap-2 text-2xl font-black text-amber-300', icon('trophy', 'size-7'), st.winner + ' gagne !'),
+    el('div', 'text-sm text-slate-300', 'Revanche dans quelques secondes…')));
+  else overlay('', null);
+}
+
+// ---------- Son ----------
+function onEvent(e) {
+  switch (e.kind) {
+    case 'start': for (const k in pos) delete pos[k]; setMode('move'); break;
+    case 'move': tone(520, 0.08, 'triangle', 0.1, 660); break;
+    case 'wall': tone(150, 0.12, 'square', 0.08, 90); noise(0.06, 0.08); break;
+    case 'bad': if (e.a === me) { toast = { text: 'Cette barre fermerait le passage', until: performance.now() + 1800 }; tone(180, 0.2, 'sawtooth', 0.08, 120); } break;
+    case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, 0, i * 0.12)); break;
+  }
+}
+
+// ---------- Plateau ----------
+const trophy = new Path2D(ICONS.trophy[0][0]);
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function fence(f, color, alpha = 1) {
+  const x = f.v ? cross(f.x) - G / 2 - 1 : cellLeft(f.x), y = f.v ? cellLeft(f.y) : cross(f.y) - G / 2 - 1;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color; rrect(x, y, f.v ? G + 2 : 2 * P - G, f.v ? 2 * P - G : G + 2, 4); ctx.fill();
+  ctx.strokeStyle = '#0008'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+let lastFrame = 0;
+function draw(now) {
+  requestAnimationFrame(draw);
+  const dt = Math.min((now - lastFrame) / 1000, 0.05); lastFrame = now;
+  if (!st) return;
+  ctx.fillStyle = '#4a2f17'; rrect(0, 0, SIZE, SIZE, 14); ctx.fill();
+  const goalColor = row => st.players.find(p => p.in && p.goal === row)?.color;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    ctx.fillStyle = '#d9b27c'; rrect(cellLeft(i), cellLeft(j), S, S, 6); ctx.fill();
+    const gc = !st.center && goalColor(j); // à 2 : la ligne d'arrivée de chacun, à sa couleur
+    if (gc) { ctx.globalAlpha = 0.35; ctx.fillStyle = gc; ctx.fill(); ctx.globalAlpha = 1; }
+  }
+  if (st.center) { // le trophée à toucher
+    const x = cellLeft(MID), y = cellLeft(MID);
+    ctx.fillStyle = '#fde047'; rrect(x, y, S, S, 6); ctx.fill();
+    ctx.save(); ctx.translate(x + S * 0.12, y + S * 0.12); ctx.scale(S * 0.76 / 24, S * 0.76 / 24);
+    ctx.fillStyle = '#b45309'; ctx.fill(trophy, 'evenodd'); ctx.restore();
+  }
+  const mine = pl(me);
+  if (myTurn() && mode === 'move') for (const [i, j] of st.moves || []) { // où je peux aller
+    const on = hover && hover[0] === i && hover[1] === j;
+    ctx.globalAlpha = on ? 0.6 : 0.35 + Math.sin(now / 250) * 0.1;
+    ctx.fillStyle = mine.color; ctx.beginPath(); ctx.arc(cellLeft(i) + S / 2, cellLeft(j) + S / 2, on ? S * 0.36 : S * 0.16, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  for (const f of st.fences || []) fence(f, pl(f.by)?.color || '#94a3b8');
+  const ghost = myTurn() && mode === 'wall' && (pending || hover);
+  if (ghost && 'v' in ghost) fence(ghost, fits(ghost) ? mine.color : '#ef4444', pending ? 0.8 : 0.5);
+  for (const p of st.players) {
+    if (!p.in) continue;
+    const tx = cellLeft(p.x) + S / 2, ty = cellLeft(p.y) + S / 2, q = pos[p.id] ||= { x: tx, y: ty }, k = Math.min(dt * 14, 1);
+    q.x += (tx - q.x) * k; q.y += (ty - q.y) * k;
+    if (p.id === st.turn && st.phase === 'play') { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(q.x, q.y, S * 0.42 + Math.sin(now / 200) * 2, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.arc(q.x + 2, q.y + 3, S * 0.34, 0, 7); ctx.fill();
+    const gr = ctx.createRadialGradient(q.x - 6, q.y - 6, 2, q.x, q.y, S * 0.34);
+    gr.addColorStop(0, '#ffffffaa'); gr.addColorStop(0.35, p.color); gr.addColorStop(1, p.color);
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(q.x, q.y, S * 0.34, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#0009'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.bot ? p.name.slice(-1) : (p.name[0] || '?').toUpperCase(), q.x, q.y + 1); // bots : leur numéro
+  }
+  const msg = toast && now < toast.until ? toast.text : myTurn() && mode === 'wall' && pending ? 'Touche encore la barre pour la poser' : '';
+  if (msg) {
+    ctx.font = 'bold 18px system-ui'; const w = ctx.measureText(msg).width + 32;
+    ctx.fillStyle = '#0f172ae0'; rrect(SIZE / 2 - w / 2, 10, w, 36, 18); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(msg, SIZE / 2, 28);
+  }
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
