@@ -199,27 +199,28 @@ func TestWormsBotAims(t *testing.T) {
 	g.startTurn()
 	g.Turn, g.Wind = me.ID, 0.5
 	start := time.Now()
-	for range int(LBotWait/ArtTick.Seconds()) + 2 {
+	for i := 0; i < int(8/ArtTick.Seconds()) && g.used == 0; i++ { // il peut d'abord se placer
 		g.step(ArtTick.Seconds())
 	}
-	if time.Since(start) > time.Second {
+	if time.Since(start) > 2*time.Second {
 		t.Fatalf("le bot réfléchit trop longtemps : %v", time.Since(start))
 	}
-	if len(g.Projs) != 1 {
+	if g.used == 0 {
 		t.Fatalf("le bot aurait dû tirer, phase %s", g.Phase)
 	}
 	impact := math.Inf(1)
-	for i := 0; i < 3000 && len(g.Projs) > 0; i++ {
+	for i := 0; i < 3000 && (len(g.Projs) > 0 || g.burst.n > 0); i++ {
 		g.Events = nil
 		g.step(ArtTick.Seconds())
 		for _, e := range g.Events {
 			if e.Kind == "boom" {
-				impact = math.Hypot(e.X-550, e.Y-(300-WormR-1))
+				impact = min(impact, math.Hypot(e.X-550, e.Y-(300-WormR-1)))
 			}
 		}
 	}
-	if impact > 80 { // il vise avec un peu de hasard : on vérifie qu'il tombe près, pas qu'il touche
-		t.Fatalf("sur terrain plat, le bot doit tomber près de sa cible : %.0f px", impact)
+	// il vise avec un peu de hasard : on vérifie qu'il tombe près ou qu'il touche, pas qu'il tue
+	if impact > 80 && target.HP == 100 {
+		t.Fatalf("sur terrain plat, le bot doit toucher sa cible ou tomber près : %.0f px, %s", impact, []string{"bazooka", "grenade", "fusil", "mitrailleuse", "lance-flammes"}[min(g.Weapon, 4)])
 	}
 	g.leave(h.ID)
 	if len(g.Squads) != 0 {
@@ -579,5 +580,48 @@ func TestWormsBatZone(t *testing.T) {
 	g.fire(s, Bat, 0, 1, 0)
 	if foe.HP != 100 {
 		t.Fatal("un ver hors de la zone de la batte n'est pas touché")
+	}
+}
+
+// Sans rien à viser (l'ennemi est enfermé dans la roche), le bot marche vers lui au lieu de tirer au hasard.
+func TestWormsBotWalks(t *testing.T) {
+	g, s, me, foe := wormDuel(t, 1100)
+	s.Bot = true
+	for _, w := range g.Worms {
+		if w.Team == foe.Team && w != foe {
+			w.Alive = false // seul ennemi : celui qui est enfermé
+		}
+	}
+	for i := range g.land { // un bloc de roche autour de l'ennemi, avec juste sa place dedans
+		x, y := float64(i%LGW)*LCell, float64(i/LGW)*LCell
+		if x >= 1000 && x < 1200 && y >= 150 {
+			g.land[i] = math.Hypot(x-1100, y-foe.Y) > 12
+		}
+	}
+	run(g, LBotWait+1)
+	if g.used != 0 || me.X < 320 {
+		t.Fatalf("le bot aurait dû marcher vers l'ennemi : x %.0f, tirs %d", me.X, g.used)
+	}
+	turn := g.Turn
+	run(g, 6)
+	if g.used == 0 && g.Phase == "play" && g.Turn == turn {
+		t.Fatal("après deux marches, le bot tire quand même")
+	}
+}
+
+// En vue d'un ennemi, le bot ne sort pas toujours la même arme.
+func TestWormsBotWeapons(t *testing.T) {
+	g, s, me, foe := wormDuel(t, 400)
+	s.Bot = true
+	used := map[int]bool{}
+	for range 30 {
+		flatLand(g, 300)
+		me.X, me.Y, foe.X, foe.Y, foe.HP, foe.Alive = 300, 300-WormR-1, 400, 300-WormR-1, 100, true
+		g.used, g.Fired, g.burst, g.Projs, s.move = 0, false, burst{}, nil, 0
+		g.think(s, me)
+		used[g.Weapon] = true
+	}
+	if len(used) < 3 {
+		t.Fatalf("le bot devrait varier ses armes : %v", used)
 	}
 }

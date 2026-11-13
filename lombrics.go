@@ -123,6 +123,9 @@ type Squad struct {
 	move  int  // flèche tenue : -1, 0 ou 1
 	up    bool // touche du haut tenue : l'hélicoptère monte, la corde raccourcit
 	down  bool // touche du bas tenue : la corde s'allonge
+	// bot : secondes de marche qui restent, marches déjà faites ce tour, où il était (pour voir s'il bute), angle visé
+	walk, lastX, stuck, aim float64
+	walks                   int
 }
 
 type Rocket struct {
@@ -325,7 +328,7 @@ func (g *WormGame) startTurn() {
 	w := mine[s.next%len(mine)]
 	s.next++
 	for _, o := range g.Squads {
-		o.move, o.up, o.down = 0, false, false
+		o.move, o.up, o.down, o.walk, o.walks = 0, false, false, 0, 0
 	}
 	g.Turn, g.Weapon, g.Phase, g.Wait = w.ID, Bazooka, "play", LTurn
 	g.Fired, g.used, g.burst = false, 0, burst{}
@@ -1004,8 +1007,7 @@ func (g *WormGame) step(dt float64) {
 			}
 			return
 		}
-		if s := g.squad(w.Team); s != nil && s.Bot && g.used == 0 && g.Wait <= LTurn-LBotWait {
-			g.think(s, w)
+		if s := g.squad(w.Team); s != nil && s.Bot && g.Wait <= LTurn-LBotWait && g.botStep(s, w, dt) {
 			return
 		}
 		if g.Wait -= dt; g.Wait <= 0 {
@@ -1018,17 +1020,139 @@ func (g *WormGame) step(dt float64) {
 	}
 }
 
-// think : collé à un adversaire, le bot sort la batte. Sinon il essaie des tirs au bazooka et à la grenade dans
-// toutes les directions (vent et terrain compris) et garde celui qui explose le plus près d'un ver adverse,
-// sans trop s'approcher des siens.
+// botStep : le bot marche (vers sa cible, ou à l'abri de sa dynamite), puis réfléchit et tire. Renvoie true quand il
+// vient d'agir.
+func (g *WormGame) botStep(s *Squad, w *Worm, dt float64) bool {
+	if s.move != 0 {
+		if g.edge(w, s.move) { // un trou qui donne sur l'eau : il s'arrête au bord
+			s.move = 0
+		} else if !w.air {
+			if math.Abs(w.X-s.lastX) < 0.5 { // il bute contre un mur : il saute
+				if s.stuck += dt; s.stuck > 0.3 {
+					g.jump(s)
+					s.stuck = 0
+				}
+			} else {
+				s.stuck, s.lastX = 0, w.X
+			}
+		}
+		if s.walk -= dt; s.walk <= 0 {
+			s.move = 0
+		}
+		return false
+	}
+	if g.used > 0 && !g.Fired && g.burst.n == 0 && g.Weapon == Shotgun { // le fusil tire deux fois
+		g.fire(s, Shotgun, s.aim, 1, 0)
+		return true
+	}
+	if g.used > 0 || w.air {
+		return false
+	}
+	g.think(s, w)
+	return true
+}
+
+// edge : en marchant dans la direction dir, le ver tomberait-il à l'eau ?
+func (g *WormGame) edge(w *Worm, dir int) bool {
+	x := w.X + float64(dir)*10
+	if x < 0 || x >= LW {
+		return true
+	}
+	for y := w.Y - WormClimb; y < g.Water; y += LCell {
+		if g.solid(x, y) {
+			return false
+		}
+	}
+	return true
+}
+
+// think : collé à un adversaire, le bot sort la batte. Sinon il fait la liste de ce qui peut toucher d'ici (un tir
+// en cloche bien placé, un ennemi en vue pour le fusil, la mitrailleuse ou le lance-flammes, un ennemi à ciel ouvert
+// pour la frappe aérienne, un ennemi tout près pour la dynamite) et en tire un au hasard. Rien de bon : il marche
+// vers l'ennemi le plus proche (deux fois par tour au plus) puis recommence, ou tire au mieux. Une fois sur deux, il
+// commence par se placer (vers une caisse proche, sinon vers l'ennemi), comme un joueur.
 func (g *WormGame) think(s *Squad, w *Worm) {
+	var near *Worm // l'ennemi le plus proche
 	for _, o := range g.Worms {
-		if o.Alive && o.Team != s.ID && math.Abs(o.X-w.X) < 18 && math.Abs(o.Y-w.Y) < 12 {
+		if !o.Alive || o.Team == s.ID {
+			continue
+		}
+		if math.Abs(o.X-w.X) < 18 && math.Abs(o.Y-w.Y) < 12 {
 			g.fire(s, Bat, -math.Pi/2+math.Copysign(1.1, o.X-w.X), 1, 0) // vers lui, un peu vers le haut
 			return
 		}
+		if near == nil || math.Hypot(o.X-w.X, o.Y-w.Y) < math.Hypot(near.X-w.X, near.Y-w.Y) {
+			near = o
+		}
 	}
-	bestK, bestA, bestP, best := Bazooka, -math.Pi/2+float64(w.Dir)*0.7, 0.6, math.Inf(1) // faute de mieux : en cloche devant lui
+	if near == nil {
+		return
+	}
+	if s.walks == 0 && rand.IntN(2) == 0 { // une fois sur deux, il se place d'abord : vers une caisse proche, sinon vers l'ennemi
+		tx := near.X
+		for _, o := range g.Objs {
+			if o.crate() && !o.Fall && math.Abs(o.X-w.X) < 200 && math.Abs(o.Y-w.Y) < 40 {
+				tx = o.X
+				break
+			}
+		}
+		if dir := int(math.Copysign(1, tx-w.X)); math.Abs(tx-w.X) > 30 && !g.edge(w, dir) {
+			s.move, s.walk, s.lastX, s.stuck = dir, 0.8+rand.Float64()*1.2, w.X, 0
+			s.walks++
+			return
+		}
+	}
+	type shot struct {
+		kind     int
+		a, p, tx float64
+	}
+	kind, a, p, best := g.lob(s, w)
+	var shots []shot
+	if best < 25 {
+		shots = append(shots, shot{kind, a, p, 0})
+	}
+	if o := g.inSight(s, w); o != nil {
+		a, d := math.Atan2(o.Y-w.Y, o.X-w.X), math.Hypot(o.X-w.X, o.Y-w.Y)
+		shots = append(shots, shot{Shotgun, a, 1, 0}, shot{Uzi, a, 1, 0})
+		if d < 140 {
+			shots = append(shots, shot{Flamer, a, 1, 0})
+		}
+	}
+	if s.Ammo[AirStrike] != 0 {
+		if o := g.openSky(s); o != nil {
+			shots = append(shots, shot{AirStrike, 0, 1, o.X + float64(w.Dir)*70}) // les missiles arrivent en biais
+		}
+	}
+	if s.Ammo[Dynamite] != 0 && math.Hypot(near.X-w.X, near.Y-w.Y) < 40 && !g.allyNear(s, w, w.X, w.Y, 90) {
+		shots = append(shots, shot{Dynamite, 0, 1, 0})
+	}
+	if len(shots) == 0 && s.walks < 2 && !g.edge(w, int(math.Copysign(1, near.X-w.X))) {
+		s.move, s.walk, s.lastX, s.stuck = int(math.Copysign(1, near.X-w.X)), 1.5+rand.Float64(), w.X, 0
+		s.walks++
+		return
+	}
+	if len(shots) == 0 {
+		shots = append(shots, shot{kind, a, p, 0})
+	}
+	c := shots[rand.IntN(len(shots))]
+	if c.kind == Dynamite { // il la pose devant lui, côté ennemi, puis part dans l'autre sens
+		w.Dir = int(math.Copysign(1, near.X-w.X))
+	}
+	s.aim = c.a + (rand.Float64()*2-1)*0.01
+	if c.kind == Bazooka || c.kind == Grenade {
+		s.aim = c.a + (rand.Float64()*2-1)*0.03
+		c.p *= 1 + (rand.Float64()*2-1)*0.03
+	}
+	g.fire(s, c.kind, s.aim, c.p, c.tx)
+	if c.kind == Dynamite && !g.edge(w, -w.Dir) {
+		s.move, s.walk, s.lastX = -w.Dir, LRetreat, w.X
+	}
+}
+
+// lob : le meilleur tir au bazooka ou à la grenade, en essayant toutes les directions (vent et terrain compris) :
+// celui qui explose le plus près d'un ver adverse, sans trop s'approcher des siens. best : cette distance.
+func (g *WormGame) lob(s *Squad, w *Worm) (bestK int, bestA, bestP, best float64) {
+	bestK, bestA, bestP, best = Bazooka, -math.Pi/2+float64(w.Dir)*0.7, 0.6, math.Inf(1) // faute de mieux : en cloche devant lui
 	for _, kind := range []int{Bazooka, Grenade} {
 		for deg := 0.0; deg < 360; deg += 5 {
 			a := deg * math.Pi / 180
@@ -1064,7 +1188,49 @@ func (g *WormGame) think(s *Squad, w *Worm) {
 			}
 		}
 	}
-	g.fire(s, bestK, bestA+(rand.Float64()*2-1)*0.03, bestP*(1+(rand.Float64()*2-1)*0.03), 0)
+	return
+}
+
+// inSight : l'ennemi le plus proche qu'on voit en ligne droite (portée du fusil), sans ami sur la ligne.
+func (g *WormGame) inSight(s *Squad, w *Worm) *Worm {
+	var best *Worm
+	for _, o := range g.Worms {
+		d := math.Hypot(o.X-w.X, o.Y-w.Y)
+		if !o.Alive || o.Team == s.ID || d > 450 || (best != nil && d >= math.Hypot(best.X-w.X, best.Y-w.Y)) {
+			continue
+		}
+		clear := true
+		for t := WormR + 4; t < d-WormR && clear; t += 2 {
+			x, y := w.X+(o.X-w.X)*t/d, w.Y+(o.Y-w.Y)*t/d
+			clear = !g.solid(x, y) && !g.allyNear(s, w, x, y, WormR+6)
+		}
+		if clear {
+			best = o
+		}
+	}
+	return best
+}
+
+// openSky : un ennemi sans rien au-dessus de lui (la frappe aérienne l'atteint), loin des amis.
+func (g *WormGame) openSky(s *Squad) *Worm {
+	for _, o := range g.Worms {
+		if !o.Alive || o.Team == s.ID || g.allyNear(s, nil, o.X, o.Y, 110) {
+			continue
+		}
+		open := true
+		for y := o.Y - WormR - 2; y > 0 && open; y -= LCell {
+			open = !g.solid(o.X, y)
+		}
+		if open {
+			return o
+		}
+	}
+	return nil
+}
+
+// allyNear : un ver de l'équipe s (sauf me) à moins de r de (x, y) ?
+func (g *WormGame) allyNear(s *Squad, me *Worm, x, y, r float64) bool {
+	return slices.ContainsFunc(g.Worms, func(o *Worm) bool { return o.Alive && o != me && o.Team == s.ID && math.Hypot(o.X-x, o.Y-y) < r })
 }
 
 // --- salons Lombrics ---

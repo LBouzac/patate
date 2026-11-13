@@ -159,7 +159,7 @@ De 2 à 4 équipes de **3 vers** (chacun son petit nom : Gaston, Ginette, Béber
 - L'île cache **8 mines** (un ver qui passe à côté la déclenche : 1,5 s pour s'éloigner) et **5 barils de pétrole** qui explosent quand on les touche (tir, explosion, flammes) en répandant des flammes. Les explosions font sauter les mines et les barils voisins : réactions en chaîne.
 - Des **caisses** tombent parfois en parachute : marche dessus pour les prendre. **Soin** (croix rouge, +25 PV) ou **armes** (caisse en bois : une munition de plus de dynamite, mine, frappe aérienne ou hélico).
 - **Mort subite** : après 8 tours chacun, l'eau monte à chaque tour.
-- La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot tire au bazooka ou à la grenade : il essaie toutes les directions (vent et terrain compris) et évite de toucher ses propres vers. Collé à un adversaire, il sort la batte.
+- La dernière équipe avec un ver vivant gagne, puis une nouvelle île est générée. Le bot se déplace (vers une caisse proche ou vers l'ennemi, en sautant les murs et sans se jeter à l'eau) et change d'arme selon ce qu'il voit : bazooka ou grenade (il essaie toutes les directions, vent et terrain compris), fusil, mitrailleuse ou lance-flammes quand un ennemi est en vue, frappe aérienne sur un ennemi à découvert, dynamite tout près (puis il s'éloigne). Il évite de toucher ses propres vers. Collé à un adversaire, il sort la batte. Sans rien de bon à viser, il marche vers l'ennemi avant de tirer.
 
 ## Motos
 
