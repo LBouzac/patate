@@ -230,11 +230,13 @@ Le style reprend celui de PVE Hub (listes de réglages façon iPhone). Le **menu
 - les aides clavier sont remplacées par les gestes : joystick sous le pouce et boutons d'emotes et de classement dans Patate, raquette qui suit le doigt dans Ricochet, boutons ↺ ↻ dans Motos. Les autres jeux se jouaient déjà au doigt (tirer en arrière puis relâcher).
 
 **Trois styles au choix**, avec le bouton **Style** en haut à droite du menu et de chaque accueil. Le choix est gardé d'une page à l'autre, mode télé compris :
-- **Classique** : le style ci-dessus, sombre et sobre.
-- **Y2K** : fond bleu électrique quadrillé, titres chromés en italique, panneaux à cadre métallique, boutons « gel » brillants et icônes en orbes.
-- **Liquid Glass** : verre flou et translucide sur un fond coloré, boutons en capsule, barre des jeux qui flotte en bas. Avec le réglage système « Réduire la transparence », le verre devient presque opaque.
+- **Console** (par défaut) : sombre, chaque jeu a sa « jaquette » sur grand écran (un bandeau à sa couleur avec sa grande icône).
+- **Carton** : clair, contours noirs épais et ombres franches, comme des pièces de jeu de société ; titres en Bricolage Grotesque.
+- **Borne d'arcade** : violet nuit avec des lignes d'écran, cadres néon, boutons de borne qui s'enfoncent ; titres en pixels (Silkscreen).
 
-L'interface utilise **Tailwind CSS v4**, les icônes **Heroicons** (de l'équipe Tailwind, licence MIT) et des icônes au trait **Lucide** (licence ISC, libre d'utilisation, mention de licence en tête de `common.js`), toutes intégrées dans `common.js`. Les icônes d'armes de Lombrics que Lucide n'a pas (fusil, mitrailleuse, batte, dynamite, mine, hélico) sont dessinées dans le même style. Aucun emoji : tout est en icônes. Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
+Sur grand écran, le menu tient sur une seule page : les jeux en ligne puis ceux du mode télé.
+
+L'interface utilise **Tailwind CSS v4**, les icônes **Heroicons** (de l'équipe Tailwind, licence MIT) et des icônes au trait **Lucide** (licence ISC, libre d'utilisation, mention de licence en tête de `common.js`), toutes intégrées dans `common.js`. Les icônes d'armes de Lombrics que Lucide n'a pas (fusil, mitrailleuse, batte, dynamite, mine, hélico) sont dessinées dans le même style. Aucun emoji : tout est en icônes. Les polices des styles Carton et Borne d'arcade (Bricolage Grotesque, Silkscreen, licence OFL) sont dans `fonts/` et embarquées elles aussi. Le CSS est généré une seule fois dans `style.css` puis embarqué dans le binaire : rien n'est chargé depuis internet pendant le jeu.
 
 Si tu modifies des classes dans une page, régénère le CSS avec le [binaire autonome Tailwind](https://github.com/tailwindlabs/tailwindcss/releases) (sans Node) :
 
@@ -242,7 +244,7 @@ Si tu modifies des classes dans une page, régénère le CSS avec le [binaire au
 tailwindcss -i app.css -o style.css --minify
 ```
 
-Quelques mises en page sont écrites en CSS classique à la fin d'`app.css` (grille de cartes sur grand écran, salon sur deux colonnes, terrain couché, joystick, styles Y2K et Liquid Glass) : Tailwind les recopie telles quelles dans `style.css`.
+Quelques mises en page sont écrites en CSS classique à la fin d'`app.css` (grille de cartes sur grand écran, salon sur deux colonnes, terrain couché, joystick, cartes en jaquettes, styles Carton et Borne d'arcade) : Tailwind les recopie telles quelles dans `style.css`.
 
 ## Lancer en local
 

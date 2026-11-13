@@ -24,14 +24,17 @@
 
 /* .cards : liste groupée sur téléphone, grille de cartes sur grand écran (menu, salon) */
 @media (min-width: 64rem) {
-  .cards { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: .75rem; overflow: visible; background: none; box-shadow: none; border-radius: 0; }
-  .cards > * { flex-direction: column; align-items: flex-start; gap: .75rem; padding: 1rem; border-radius: var(--radius-xl); background: var(--color-slate-900); box-shadow: 0 0 0 1px #ffffff12; transition: background-color .15s, box-shadow .15s, transform .15s; }
+  .cards { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 1rem; overflow: visible; background: none; box-shadow: none; border-radius: 0; }
+  /* jaquette : un bandeau à la couleur du jeu (--c, posée par menuRow) avec sa grande icône pâle, puis le texte */
+  .cards > * { position: relative; overflow: hidden; flex-direction: column; align-items: flex-start; gap: .75rem; padding: 2rem 1rem 1rem; border-radius: 1rem; background: var(--color-slate-900); box-shadow: 0 0 0 1px #ffffff12; transition: background-color .15s, box-shadow .15s, transform .15s; }
+  .cards > *::before { content: ""; position: absolute; inset: 0 0 auto; height: 5.5rem; background: color-mix(in oklab, var(--c, var(--color-slate-500)) 16%, transparent); }
   .cards > :not(:disabled):hover { background: var(--color-slate-800); box-shadow: 0 0 0 1px #ffffff26; transform: translateY(-2px); }
-  .cards > * > :first-child { width: 2.75rem; height: 2.75rem; border-radius: 10px; }
+  .cards > * > :first-child { position: relative; width: 2.75rem; height: 2.75rem; border-radius: 12px; box-shadow: 0 8px 20px -6px var(--c); }
   .cards > * > :first-child > svg { width: 1.75rem; height: 1.75rem; }
-  .cards > * > :last-child { width: 100%; flex: 1; align-items: flex-start; padding: 0; border: 0; }
+  .cards .deco { display: block; position: absolute; right: -.75rem; top: -.75rem; width: 7.5rem; height: 7.5rem; color: var(--c); opacity: .22; }
+  .cards > * > :last-child { position: relative; width: 100%; flex: 1; margin-top: .5rem; align-items: flex-start; padding: 0; border: 0; }
   .cards > * > :last-child > svg:last-child { display: none; }
-  .wide { max-width: 64rem; }
+  .wide { max-width: 72rem; }
   .salon { display: grid; grid-template-columns: 20rem minmax(0, 1fr); gap: 0 2rem; align-items: start; max-width: 72rem; }
   .salon > header { grid-column: 1 / -1; }
 }
@@ -56,9 +59,10 @@
 .stick > span { position: absolute; left: 50%; top: 50%; width: 3rem; height: 3rem; margin: -1.5rem 0 0 -1.5rem; border-radius: 9999px; background: #ffffff59; }
 
 /* ---------- Choix du style (bouton « Style » en haut à droite des accueils) ----------
-   html[data-theme=y2k] : Y2K (chrome, boutons gel, orbes, grille néon)
-   html[data-theme=glass] : Liquid Glass (verre flou et translucide sur un fond coloré)
-   Sans data-theme : le style classique. Les thèmes habillent les classes communes à toutes les pages. */
+   Sans data-theme : Console (sombre, cartes en jaquettes).
+   html[data-theme=carton] : Carton (clair, contours noirs épais, ombres franches, titres Bricolage Grotesque)
+   html[data-theme=arcade] : Borne d'arcade (violet nuit, lignes d'écran, néons, titres en pixels Silkscreen)
+   Les thèmes repeignent la gamme slate de Tailwind (ses variables --color-slate-*) puis habillent les classes communes. */
 .theme-pick { position: fixed; top: max(.75rem, env(safe-area-inset-top)); right: .75rem; z-index: 30; }
 .theme-pick > button { display: inline-flex; align-items: center; gap: .375rem; border-radius: 9999px; padding: .375rem .75rem; font-size: .875rem; font-weight: 600; color: var(--color-slate-200); background: #ffffff1a; transition: background-color .15s; }
 .theme-pick > button:hover { background: #ffffff26; }
@@ -67,65 +71,84 @@
 .theme-pick > div > button:hover { background: #ffffff14; }
 .theme-pick .swatch { width: 1.5rem; height: 1.5rem; flex-shrink: 0; border-radius: 9999px; box-shadow: inset 0 0 0 1px #ffffff40; }
 
-/* ===== Y2K ===== */
-html[data-theme=y2k] { background: #040a24 radial-gradient(120% 60% at 50% 0%, #1b3fa8 0%, #071338 55%, #040a24 100%) fixed; }
-[data-theme=y2k] body { background: linear-gradient(#2f7df614 1px, transparent 1px) 0 0 / 44px 44px fixed, linear-gradient(90deg, #2f7df614 1px, transparent 1px) 0 0 / 44px 44px fixed; }
-[data-theme=y2k] :is(h1, h2, h3, button, .font-mono) { font-family: "Eurostile", "Microgramma", "Michroma", "Orbitron", "Bank Gothic", "Arial Black", system-ui, sans-serif; }
-[data-theme=y2k] :is(h1, h2, h3) { font-style: italic; letter-spacing: .06em; }
-[data-theme=y2k] h1 { background: linear-gradient(180deg, #fdfdfd 0%, #c9cdd4 45%, #8f96a3 50%, #e8ebf0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 #0b1433) drop-shadow(0 0 12px #2f7df680); }
-[data-theme=y2k] h2 { color: #9ec5ff; }
-/* panneaux : métal bleu nuit, cadre chromé */
-[data-theme=y2k] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .theme-pick > div) {
-  background: linear-gradient(180deg, #1c2f6b 0%, #0d1a45 50%, #0a1336 100%);
-  box-shadow: inset 0 1px 0 #ffffffa0, inset 0 -1px 0 #00000080, 0 0 0 1px #8f96a3, 0 0 0 2px #050b26, 0 0 18px #2f7df640; }
-/* pastilles et petits boutons : gel bleu */
-[data-theme=y2k] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button) {
-  background: radial-gradient(120% 100% at 50% 0%, #ffffff8c 0%, #ffffff00 45%), linear-gradient(180deg, #3b86ff, #1d4fb8);
-  box-shadow: inset 0 -2px 4px #0a1f6080, 0 0 0 1px #0b1f5c, 0 2px 8px #2f7df640; }
-[data-theme=y2k] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button):hover { filter: brightness(1.15) saturate(1.1); }
-/* gros boutons de couleur : gel, avec leur couleur */
-[data-theme=y2k] :is(button, a, label):is(.bg-orange-400, .bg-cyan-400, .bg-emerald-400, .bg-pink-400, .bg-lime-400, .bg-yellow-400, .bg-sky-400, .bg-red-400, .bg-violet-400, .bg-amber-400, .bg-rose-400, .bg-indigo-400, .bg-teal-400) {
-  background-image: radial-gradient(120% 100% at 50% 0%, #ffffffe6 0%, #ffffff00 45%); border-radius: 9999px;
-  box-shadow: inset 0 -3px 6px #0000004d, 0 0 0 1px #00000040, 0 4px 18px #2f7df659; }
-/* icônes des jeux : orbes brillantes */
-[data-theme=y2k] :is(.size-\[30px\], .rounded-\[10px\]) { border-radius: 9999px; background-image: radial-gradient(90% 70% at 50% 15%, #ffffffd0 0%, #ffffff00 55%), radial-gradient(circle at 50% 120%, #00000055, transparent 60%); box-shadow: 0 0 0 1px #ffffff60, 0 0 12px #2f7df660; }
-[data-theme=y2k] .bg-slate-950\/85 { background: linear-gradient(180deg, #c9cdd4 0, #8f96a3 2px, #0d1a45 3px, #050b26 100%); border-color: transparent; }
-[data-theme=y2k] canvas#c { box-shadow: 0 0 0 2px #c9cdd4, 0 0 0 4px #050b26, 0 0 28px #2f7df650; }
-[data-theme=y2k] .text-slate-400 { color: #a7bde8; }
-[data-theme=y2k] .border-white\/10 { border-color: #7fa6ff33; }
+/* polices des thèmes, embarquées (rien n'est chargé depuis internet) ; licence OFL dans fonts/ */
+@font-face { font-family: "Bricolage Grotesque"; src: url("/fonts/BricolageGrotesque-Bold.ttf") format("truetype"); font-weight: 700 800; font-display: swap; }
+@font-face { font-family: Silkscreen; src: url("/fonts/Silkscreen-Regular.ttf") format("truetype"); font-display: swap; }
 
-/* ===== Liquid Glass ===== */
-html[data-theme=glass] { background: #0a0f1f fixed;
-  background-image: radial-gradient(40% 35% at 12% 18%, #ff5fb4a6, transparent), radial-gradient(45% 40% at 88% 12%, #4f7bffb0, transparent),
-    radial-gradient(45% 40% at 75% 88%, #1fd1b5a0, transparent), radial-gradient(40% 35% at 18% 92%, #ffae42a0, transparent); background-attachment: fixed; }
-[data-theme=glass] body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif; }
-[data-theme=glass] h1 { letter-spacing: -.02em; }
-[data-theme=glass] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .bg-white\/10, .bg-white\/15, .theme-pick > button, .theme-pick > div) {
-  background: linear-gradient(#ffffff14, #ffffff14), #0a0f1f59; -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
-  box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 8px 24px #0000002e; }
-/* textes secondaires plus clairs : ils doivent rester lisibles quel que soit le fond sous le verre */
-[data-theme=glass] .text-slate-400 { color: #d3d9e6; }
-[data-theme=glass] .text-slate-500 { color: #aeb6c8; }
-[data-theme=glass] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button):hover { background: #ffffff26; }
-[data-theme=glass] .theme-pick > div { background: #1a2035b3; -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); }
-[data-theme=glass] :is(button, a, label):is(.bg-orange-400, .bg-cyan-400, .bg-emerald-400, .bg-pink-400, .bg-lime-400, .bg-yellow-400, .bg-sky-400, .bg-red-400, .bg-violet-400, .bg-amber-400, .bg-rose-400, .bg-indigo-400, .bg-teal-400) {
-  border-radius: 9999px; box-shadow: inset 0 1px 1px #ffffffa6, inset 0 -1px 2px #00000026, 0 6px 20px #0000003d; }
-[data-theme=glass] :is(.size-\[30px\], .rounded-\[10px\]) { box-shadow: inset 0 1px 1px #ffffff80, inset 0 -1px 1px #00000026; }
-/* barre des jeux : une capsule de verre qui flotte en bas */
-[data-theme=glass] .bg-slate-950\/85 { left: .75rem; right: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); padding-bottom: 0; border: 0; border-radius: 9999px;
-  background: #ffffff14; -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 10px 30px #0000004d; }
-[data-theme=glass] .bg-slate-950\/85 > div { border-radius: 9999px; }
-[data-theme=glass] canvas#c { box-shadow: 0 0 0 1px #ffffff40, 0 12px 40px #00000059; }
-[data-theme=glass] .border-white\/10 { border-color: #ffffff1f; }
-/* Réduire la transparence : du verre presque opaque, sans flou */
-@media (prefers-reduced-transparency: reduce) {
-  [data-theme=glass] :is(.bg-slate-900, .bg-slate-800, .bg-slate-900\/95, .bg-slate-900\/85, .bg-slate-800\/85, .bg-slate-800\/90, .bg-white\/10, .bg-white\/15, .bg-slate-950\/85, .theme-pick > button, .theme-pick > div) { background: #1c2236f2; -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* ===== Carton ===== */
+html[data-theme=carton] { color-scheme: light;
+  --color-slate-950: #f5f5f4; --color-slate-900: #ffffff; --color-slate-800: #f1f5f9; --color-slate-700: #e2e8f0; --color-slate-600: #314158;
+  --color-slate-500: #62748e; --color-slate-400: #45556c; --color-slate-300: #314158; --color-slate-200: #1d293d; --color-slate-100: #020618; --color-slate-50: #020618; }
+[data-theme=carton] :is(h1, h2.text-2xl, h2.text-3xl, .font-bold.text-xl) { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 800; letter-spacing: -.02em; }
+[data-theme=carton] .text-slate-950 { color: #020618; } /* texte foncé des boutons de couleur : il le reste */
+/* panneaux blancs, contour noir, ombre décalée */
+[data-theme=carton] :is(.ring-white\/5, .ring-white\/10) { --tw-ring-color: #020618; --tw-ring-shadow: 0 0 0 2px #020618; }
+[data-theme=carton] .ring-white\/5 { --tw-shadow: 4px 4px 0 2px #020618; }
+[data-theme=carton] :is(.bg-white\/5, .bg-white\/10, .bg-white\/15, .theme-pick > button) { background: #ffffff; box-shadow: 0 0 0 1.5px #020618; }
+[data-theme=carton] :is(.hover\:bg-white\/5, .hover\:bg-white\/15, .theme-pick > button):hover { background: #e7e5e4; }
+[data-theme=carton] :is(.active\:bg-white\/10, .active\:bg-white\/20):active { background: #d6d3d1; }
+[data-theme=carton] .border-white\/10 { border-color: #0206182e; }
+/* gros boutons de couleur : contour noir et ombre franche, qui s'enfoncent au clic */
+[data-theme=carton] :is(button, a, label):is(.bg-amber-400, .bg-amber-500, .bg-emerald-400, .bg-emerald-500, .bg-red-400, .bg-red-500, .bg-yellow-400, .bg-yellow-500, .bg-sky-400, .bg-sky-500, .bg-pink-400, .bg-pink-500, .bg-orange-400, .bg-orange-500, .bg-rose-400, .bg-rose-500, .bg-cyan-400, .bg-cyan-500, .bg-lime-400, .bg-lime-500, .bg-teal-400, .bg-teal-500, .bg-violet-400, .bg-violet-500, .bg-indigo-400, .bg-indigo-500, .bg-blue-400, .bg-blue-500, .bg-green-400, .bg-green-500, .bg-purple-400, .bg-purple-500) { box-shadow: 0 0 0 2px #020618, 3px 3px 0 2px #020618; transition: transform .1s, box-shadow .1s; }
+[data-theme=carton] :is(button, a, label):is(.bg-amber-400, .bg-amber-500, .bg-emerald-400, .bg-emerald-500, .bg-red-400, .bg-red-500, .bg-yellow-400, .bg-yellow-500, .bg-sky-400, .bg-sky-500, .bg-pink-400, .bg-pink-500, .bg-orange-400, .bg-orange-500, .bg-rose-400, .bg-rose-500, .bg-cyan-400, .bg-cyan-500, .bg-lime-400, .bg-lime-500, .bg-teal-400, .bg-teal-500, .bg-violet-400, .bg-violet-500, .bg-indigo-400, .bg-indigo-500, .bg-blue-400, .bg-blue-500, .bg-green-400, .bg-green-500, .bg-purple-400, .bg-purple-500):active { transform: translate(3px, 3px); box-shadow: 0 0 0 2px #020618; }
+[data-theme=carton] :is(.size-\[30px\], .rounded-\[10px\], .avatar) { box-shadow: 0 0 0 2px #020618; }
+[data-theme=carton] .text-white:is(.bg-slate-600, .bg-slate-700, .bg-slate-800) { background: #314158; } /* tuiles d'icône grises : restent foncées */
+[data-theme=carton] .bg-slate-950\/85 { border-top: 2px solid #020618; }
+[data-theme=carton] canvas#c { box-shadow: 0 0 0 2px #020618, 6px 6px 0 2px #020618; }
+[data-theme=carton] .theme-pick > div { background: #ffffff; box-shadow: 0 0 0 2px #020618, 4px 4px 0 2px #020618; }
+[data-theme=carton] .theme-pick > div > button:hover { background: #f5f5f4; }
+[data-theme=carton] #stage { background: #f5f5f4; } /* écran télé */
+/* textes de couleur : les teintes claires (pensées pour le fond sombre) passent en foncé pour rester lisibles */
+[data-theme=carton] :is(.text-amber-200, .text-amber-300, .text-amber-400) { color: var(--color-amber-700); }
+[data-theme=carton] :is(.text-emerald-200, .text-emerald-300, .text-emerald-400) { color: var(--color-emerald-700); }
+[data-theme=carton] :is(.text-red-200, .text-red-300, .text-red-400) { color: var(--color-red-700); }
+[data-theme=carton] :is(.text-yellow-200, .text-yellow-300, .text-yellow-400) { color: var(--color-yellow-700); }
+[data-theme=carton] :is(.text-sky-200, .text-sky-300, .text-sky-400) { color: var(--color-sky-700); }
+[data-theme=carton] :is(.text-pink-200, .text-pink-300, .text-pink-400) { color: var(--color-pink-700); }
+[data-theme=carton] :is(.text-orange-200, .text-orange-300, .text-orange-400) { color: var(--color-orange-700); }
+[data-theme=carton] :is(.text-rose-200, .text-rose-300, .text-rose-400) { color: var(--color-rose-700); }
+[data-theme=carton] :is(.text-cyan-200, .text-cyan-300, .text-cyan-400) { color: var(--color-cyan-700); }
+[data-theme=carton] :is(.text-lime-200, .text-lime-300, .text-lime-400) { color: var(--color-lime-700); }
+[data-theme=carton] :is(.text-teal-200, .text-teal-300, .text-teal-400) { color: var(--color-teal-700); }
+[data-theme=carton] :is(.text-violet-200, .text-violet-300, .text-violet-400) { color: var(--color-violet-700); }
+[data-theme=carton] :is(.text-indigo-200, .text-indigo-300, .text-indigo-400) { color: var(--color-indigo-700); }
+[data-theme=carton] :is(.text-blue-200, .text-blue-300, .text-blue-400) { color: var(--color-blue-700); }
+[data-theme=carton] :is(.text-green-200, .text-green-300, .text-green-400) { color: var(--color-green-700); }
+[data-theme=carton] :is(.text-purple-200, .text-purple-300, .text-purple-400) { color: var(--color-purple-700); }
+@media (min-width: 64rem) {
+  [data-theme=carton] .cards > * { box-shadow: 0 0 0 2px #020618, 4px 4px 0 2px #020618; }
+  [data-theme=carton] .cards > :not(:disabled):hover { background: #ffffff; box-shadow: 0 0 0 2px #020618, 6px 6px 0 2px #020618; }
+  [data-theme=carton] .cards > *::before { background: var(--c); border-bottom: 2px solid #020618; }
+  [data-theme=carton] .cards .deco { color: #ffffff; opacity: .3; }
+  [data-theme=carton] .cards > * > :first-child { background: #ffffff; color: var(--c); box-shadow: 0 0 0 2px #020618; }
 }
 
-/* sur grand écran, la grille de cartes reste transparente : ce sont les cartes qui prennent le style */
+/* ===== Borne d'arcade ===== */
+html[data-theme=arcade] {
+  --color-slate-950: #0b0420; --color-slate-900: #120a2e; --color-slate-800: #1e1250; --color-slate-700: #2c1d6b; --color-slate-600: #3b2a85;
+  --color-slate-500: #7c86ff; --color-slate-400: #a3b3ff; --color-slate-300: #c6d2ff; --color-slate-200: #e0e7ff; --color-slate-100: #f8fafc;
+  background: repeating-linear-gradient(0deg, #ffffff06 0 1px, transparent 1px 3px) fixed, radial-gradient(120% 70% at 50% 0%, #2a0f5c 0%, #0b0420 60%) fixed #0b0420; }
+[data-theme=arcade] :is(h1, h2.text-2xl, h2.text-3xl, .font-bold.text-xl) { font-family: Silkscreen, ui-monospace, monospace; font-weight: 400; text-transform: uppercase; letter-spacing: .02em;
+  text-shadow: 3px 3px 0 #f6339a, 0 0 18px #f6339a88; }
+[data-theme=arcade] h2.uppercase, [data-theme=arcade] h3.uppercase { color: #00d3f2; text-shadow: 0 0 8px #00d3f288; }
+/* panneaux : cadre néon cyan, coins presque carrés */
+[data-theme=arcade] :is(.ring-white\/5, .ring-white\/10) { --tw-ring-color: #00d3f2; --tw-ring-shadow: 0 0 0 2px #00d3f2; --tw-shadow: 0 0 14px #00d3f255; }
+[data-theme=arcade] :is(.rounded-xl, .rounded-2xl, .rounded-lg) { border-radius: 6px; }
+[data-theme=arcade] :is(.bg-white\/10, .bg-white\/15, .theme-pick > button) { background: #0b0420; box-shadow: 0 0 0 1.5px #f6339a, 0 0 10px #f6339a55; }
+[data-theme=arcade] :is(.hover\:bg-white\/15, .theme-pick > button):hover { background: #2a0f5c; }
+/* gros boutons de couleur : boutons de borne, rebord dessous, qui s'enfoncent */
+[data-theme=arcade] :is(button, a, label):is(.bg-amber-400, .bg-amber-500, .bg-emerald-400, .bg-emerald-500, .bg-red-400, .bg-red-500, .bg-yellow-400, .bg-yellow-500, .bg-sky-400, .bg-sky-500, .bg-pink-400, .bg-pink-500, .bg-orange-400, .bg-orange-500, .bg-rose-400, .bg-rose-500, .bg-cyan-400, .bg-cyan-500, .bg-lime-400, .bg-lime-500, .bg-teal-400, .bg-teal-500, .bg-violet-400, .bg-violet-500, .bg-indigo-400, .bg-indigo-500, .bg-blue-400, .bg-blue-500, .bg-green-400, .bg-green-500, .bg-purple-400, .bg-purple-500) { box-shadow: 0 0 0 2px #ffffff, 0 5px 0 2px #00000099, 0 0 22px #ffffff40; transition: transform .1s, box-shadow .1s; }
+[data-theme=arcade] :is(button, a, label):is(.bg-amber-400, .bg-amber-500, .bg-emerald-400, .bg-emerald-500, .bg-red-400, .bg-red-500, .bg-yellow-400, .bg-yellow-500, .bg-sky-400, .bg-sky-500, .bg-pink-400, .bg-pink-500, .bg-orange-400, .bg-orange-500, .bg-rose-400, .bg-rose-500, .bg-cyan-400, .bg-cyan-500, .bg-lime-400, .bg-lime-500, .bg-teal-400, .bg-teal-500, .bg-violet-400, .bg-violet-500, .bg-indigo-400, .bg-indigo-500, .bg-blue-400, .bg-blue-500, .bg-green-400, .bg-green-500, .bg-purple-400, .bg-purple-500):active { transform: translateY(4px); box-shadow: 0 0 0 2px #ffffff, 0 1px 0 2px #00000099; }
+[data-theme=arcade] :is(.size-\[30px\], .rounded-\[10px\], .rounded-\[7px\]) { border-radius: 4px; box-shadow: 0 0 0 2px #ffffff; }
+[data-theme=arcade] .bg-slate-950\/85 { border-top: 2px solid #00d3f2; box-shadow: 0 -4px 18px #00d3f240; }
+[data-theme=arcade] canvas#c { border-radius: 6px; box-shadow: 0 0 0 6px #1e1b4b, 0 0 0 9px #00d3f2, 0 0 40px #00d3f266; }
+[data-theme=arcade] kbd { background: #f6339a; color: #ffffff; box-shadow: 0 2px 0 #8a0d4f; }
+[data-theme=arcade] .theme-pick > div { background: #120a2ef2; box-shadow: 0 0 0 2px #00d3f2, 0 0 24px #00d3f255; }
+[data-theme=arcade] #stage { background: repeating-linear-gradient(0deg, #ffffff06 0 2px, transparent 2px 5px), radial-gradient(1200px 700px at 50% 0%, #2a0f5c 0%, #0b0420 65%); }
 @media (min-width: 64rem) {
-  html[data-theme] .cards { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  [data-theme=y2k] .cards > * { background: linear-gradient(180deg, #1c2f6b 0%, #0d1a45 50%, #0a1336 100%); box-shadow: inset 0 1px 0 #ffffffa0, 0 0 0 1px #8f96a3, 0 0 0 2px #050b26, 0 0 18px #2f7df640; }
-  [data-theme=glass] .cards > * { background: linear-gradient(#ffffff14, #ffffff14), #0a0f1f59; -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); box-shadow: inset 0 1px 1px #ffffff59, inset 0 -1px 1px #ffffff1f, 0 8px 24px #0000002e; }
-  [data-theme] .cards > :not(:disabled):hover { filter: brightness(1.15); }
+  [data-theme=arcade] .cards > * { border-radius: 6px; box-shadow: 0 0 0 2px #00d3f2, 0 0 14px #00d3f255; }
+  [data-theme=arcade] .cards > :not(:disabled):hover { box-shadow: 0 0 0 2px var(--c), 0 0 24px var(--c); }
+  [data-theme=arcade] .cards > *::before { background: repeating-linear-gradient(0deg, #00000038 0 2px, transparent 2px 4px), color-mix(in oklab, var(--c) 55%, transparent); border-bottom: 2px solid #00d3f2; }
+  [data-theme=arcade] .cards .deco { color: #ffffff; opacity: .28; }
+  [data-theme=arcade] .cards > * > :first-child { border-radius: 4px; box-shadow: 0 0 0 2px #ffffff, 0 0 16px var(--c); }
 }

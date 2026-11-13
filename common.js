@@ -96,6 +96,8 @@ function menuRow(href, g) {
   a.className = 'group flex items-center gap-3 pl-4 transition-colors hover:bg-white/5 active:bg-white/10';
   tile.className = 'grid size-[30px] shrink-0 place-items-center rounded-[7px] text-white ' + g.tile;
   tile.append(icon(g.icon, 'size-[19px]'));
+  a.style.setProperty('--c', 'var(--color-' + g.tile.slice(3) + ')'); // couleur du jeu : bandeau de la jaquette (app.css)
+  const deco = icon(g.icon, 'deco hidden'); // grande icône pâle dans le bandeau, sur grand écran seulement
   body.className = 'flex min-w-0 flex-1 items-center gap-3 border-b border-white/10 py-3 pr-4 group-last:border-0';
   name.className = 'block text-[17px] leading-snug'; name.textContent = g.name;
   tag.className = 'mt-0.5 block text-[13px] text-slate-400'; tag.textContent = g.tag;
@@ -109,7 +111,7 @@ function menuRow(href, g) {
     body.append(who);
   }
   body.append(icon('chevron-right', 'size-4 text-slate-600'));
-  a.append(tile, body);
+  a.append(tile, deco, body);
   return a;
 }
 if ($('salonList')) $('salonList').append(menuRow('/salon.html',
@@ -161,17 +163,19 @@ if ($('copy')) {
 }
 const show = (el, v) => v ? el.removeAttribute('hidden') : el.setAttribute('hidden', '');
 
-// ---------- Style au choix : Classique, Y2K ou Liquid Glass (app.css), gardé d'une page à l'autre ----------
+// ---------- Style au choix : Console, Carton ou Borne d'arcade (app.css), gardé d'une page à l'autre ----------
 // La page l'applique dès son en-tête (localStorage.theme) ; ici, le bouton « Style » en haut à droite des accueils.
 const THEMES = [
-  ['', 'Classique', 'linear-gradient(135deg,#1e293b,#020617)'],
-  ['y2k', 'Y2K', 'radial-gradient(120% 100% at 50% 0%,#fff 0%,#fff0 45%),linear-gradient(#3b86ff,#1d4fb8)'],
-  ['glass', 'Liquid Glass', 'linear-gradient(135deg,#ff5fb4,#4f7bff 50%,#1fd1b5)'],
+  ['', 'Console', 'linear-gradient(135deg,#314158,#020618)'],
+  ['carton', 'Carton', 'linear-gradient(135deg,#ffb900 50%,#f5f5f4 50%)'],
+  ['arcade', "Borne d'arcade", 'linear-gradient(135deg,#f6339a,#2a0f5c 55%,#00d3f2)'],
 ];
 function setTheme(t) {
   if (t) { document.documentElement.dataset.theme = t; localStorage.theme = t; }
   else { delete document.documentElement.dataset.theme; localStorage.removeItem('theme'); }
 }
+// un style retiré (Y2K, Liquid Glass) revient au style par défaut
+if (!THEMES.some(t => t[0] === (localStorage.theme || ''))) setTheme('');
 const themePick = ($('home') || $('choix')) && (() => {
   const wrap = document.createElement('div'), btn = document.createElement('button'), menu = document.createElement('div');
   wrap.className = 'theme-pick';

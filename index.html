@@ -13,8 +13,8 @@
 </head>
 <body class="h-full text-slate-100 antialiased">
 <main class="wide mx-auto min-h-full max-w-xl px-4 pt-12 pb-10 sm:pt-20">
-  <h1 class="px-1 text-[34px] leading-tight font-bold">Les jeux</h1>
-  <p class="mt-1 px-1 text-[15px] text-slate-400">Des jeux à plusieurs, dans le navigateur. Rien à installer.</p>
+  <h1 class="px-1 text-[34px] leading-tight font-bold lg:text-[64px] lg:tracking-tight">Les jeux</h1>
+  <p class="mt-1 px-1 text-[15px] text-slate-400 lg:mt-3 lg:text-lg">Des jeux à plusieurs, dans le navigateur. Rien à installer.</p>
 
   <div id="choix">
     <h2 class="mt-7 mb-2 px-4 text-[13px] text-slate-400 uppercase">Comment on joue ?</h2>
@@ -22,7 +22,7 @@
   </div>
 
   <div id="enligne" hidden>
-    <a href="#" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 transition-opacity hover:opacity-80">
+    <a href="#" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 lg:hidden transition-opacity hover:opacity-80">
       <i data-icon="chevron-left" class="size-5"></i>Retour
     </a>
     <h2 class="mt-4 mb-2 px-4 text-[13px] text-slate-400 uppercase">Jouer en groupe</h2>
@@ -34,8 +34,8 @@
     <p class="mt-2 px-4 text-[13px] leading-snug text-slate-400">Crée une partie, puis envoie le code à 4 chiffres ou le lien à tes amis. Ton pseudo est gardé d'un jeu à l'autre.</p>
   </div>
 
-  <div id="tv" hidden>
-    <a href="#" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 transition-opacity hover:opacity-80">
+  <div id="tv" hidden class="lg:mt-12">
+    <a href="#" class="-ml-1 inline-flex items-center gap-0.5 py-2 text-[17px] text-amber-400 lg:hidden transition-opacity hover:opacity-80">
       <i data-icon="chevron-left" class="size-5"></i>Retour
     </a>
     <h2 class="mt-4 mb-2 flex items-center gap-1.5 px-4 text-[13px] text-slate-400 uppercase"><i data-icon="tv" class="size-4"></i>Mode télé</h2>
@@ -50,9 +50,12 @@
 $('modeList').append(
   menuRow('#enligne', { name: 'En ligne', icon: 'users', tile: 'bg-amber-500', tag: 'Chacun sur son téléphone ou son ordi, où qu\'il soit.' }),
   menuRow('#tv', { name: 'Mode télé', icon: 'tv', tile: 'bg-slate-600', tag: 'Le jeu sur la télé, les téléphones servent de manettes.' }));
-// une vue par mode, choisie par l'ancre : le bouton retour du navigateur revient au choix
-const view = () => { const v = location.hash.slice(1); for (const id of ['choix', 'enligne', 'tv']) $(id).hidden = id !== (['enligne', 'tv'].includes(v) ? v : 'choix'); };
-onhashchange = view; view();
+// une vue par mode, choisie par l'ancre : le bouton retour du navigateur revient au choix.
+// Sur grand écran, tout tient sur une page : les jeux en ligne puis ceux de la télé, sans le choix du mode.
+const wide = matchMedia('(min-width: 64rem)');
+const view = () => { const v = location.hash.slice(1);
+  for (const id of ['choix', 'enligne', 'tv']) $(id).hidden = wide.matches ? id === 'choix' : id !== (['enligne', 'tv'].includes(v) ? v : 'choix'); };
+onhashchange = wide.onchange = view; view();
 </script>
 </body>
 </html>
