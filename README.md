@@ -253,6 +253,36 @@ go run .            # puis http://localhost:8080
 go test ./...
 ```
 
+## Applis mobiles (Android et iOS)
+
+Le dossier `mobile/` contient deux petites applis qui ouvrent les jeux de ton serveur en plein écran. À l'ouverture, on tape l'adresse du serveur (`192.168.1.20:8080`, `https://patate.exemple.fr`), on colle un lien d'invitation, ou on **scanne le QR code** de la télé ou d'un salon. L'app retient le dernier serveur. Pour revenir à l'accueil : bouton retour (Android) ou glisser depuis le bord gauche (iOS). Dans l'app, l'écran reste allumé et la photo de Dessine marche, même en http. Les deux applis partagent la page d'accueil `mobile/www/start.html`.
+
+**Android** (`mobile/android`, Kotlin, aucune bibliothèque à part le scanner QR de Google Play services) :
+
+```sh
+cd mobile/android
+JAVA_HOME=~/.local/share/jdk/jdk-21.0.13+9 ANDROID_HOME=~/Android/Sdk ./gradlew assembleRelease
+# → app/build/outputs/apk/release/app-release.apk
+```
+
+La signature vient de `mobile/android/keystore.properties` et `patate-release.jks`, hors git. **Garde-les en lieu sûr** : sans eux, impossible de publier une mise à jour de l'APK (ni sur le Play Store). Pour publier une nouvelle version, augmente `versionCode` dans `app/build.gradle.kts`.
+
+**iOS** (`mobile/ios`, Swift, construit sur Linux avec [xtool](https://github.com/xtool-org/xtool)) :
+
+```sh
+cd mobile/ios
+xtool dev            # compile et installe sur l'iPhone branché en USB
+```
+
+**TestFlight puis App Store.** xtool ne produit pas une build acceptée par l'App Store : il faut l'icône en catalogue et une compilation par Xcode. On passe donc par le workflow `.github/workflows/ios.yml`, lancé à la main depuis l'onglet Actions, sur un Mac de GitHub. Une fois pour toutes :
+
+1. Adhérer à l'**Apple Developer Program** (99 $/an). Le compte gratuit ne permet ni TestFlight ni l'App Store.
+2. Sur [App Store Connect](https://appstoreconnect.apple.com) : *Apps* → *+* → nouvelle app, identifiant `io.github.lbouzac.patate`.
+3. *Utilisateurs et accès* → *Intégrations* → *Clés d'API App Store Connect* : créer une clé avec le rôle **Admin** (il permet à Xcode de créer lui-même le certificat de distribution), puis télécharger le `.p8`.
+4. Dans les secrets du dépôt GitHub (*Settings* → *Secrets and variables* → *Actions*) : `APPLE_TEAM_ID` (sur developer.apple.com → *Membership*), `ASC_KEY_ID`, `ASC_ISSUER_ID` et `ASC_KEY` (tout le contenu du `.p8`).
+
+Ensuite, *Actions* → *iOS TestFlight* → *Run workflow*. La build arrive dans TestFlight en une quinzaine de minutes, numérotée automatiquement. Pour l'App Store, compléter la fiche dans App Store Connect : captures d'écran, description, URL de confidentialité (l'app ne collecte rien), puis *Soumettre pour vérification*. Le relecteur d'Apple n'a pas ton wifi. Il faut donc indiquer dans les *notes de vérification* l'adresse d'un serveur Patate joignable depuis internet, sinon l'app sera refusée.
+
 ## Déployer depuis ton PC (sans l'installeur)
 
 Le serveur utilise environ 15 Mo de RAM avec une partie pleine.

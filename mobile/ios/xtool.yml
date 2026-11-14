@@ -1,0 +1,6 @@
+version: 1
+bundleID: io.github.lbouzac.patate
+infoPath: Info.plist
+iconPath: Icon.png
+resources:
+  - ../www/start.html

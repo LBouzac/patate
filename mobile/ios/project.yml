@@ -1,0 +1,22 @@
+# Projet Xcode pour TestFlight / App Store, généré sur Mac par XcodeGen (voir .github/workflows/ios.yml).
+# Le code est le même que pour xtool ; Xcode ajoute ce qu'exige l'App Store (icône en catalogue, version du SDK).
+name: Patate
+options:
+  deploymentTarget: { iOS: "17.0" }
+targets:
+  Patate:
+    type: application
+    platform: iOS
+    sources:
+      - Sources/Patate
+      - Assets.xcassets
+      - path: ../www/start.html
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.lbouzac.patate
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic

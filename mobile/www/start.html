@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Patate</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; min-height: 100vh; background: #020617; color: #f1f5f9; display: flex; justify-content: center;
+         padding: max(48px, env(safe-area-inset-top)) 16px 32px; box-sizing: border-box; }
+  main { width: 100%; max-width: 420px; }
+  h1 { font-size: 34px; margin: 0; }
+  p { color: #94a3b8; font-size: 15px; margin: 4px 0 28px; }
+  label { display: block; font-size: 13px; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 4px; }
+  input, button { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; border-radius: 12px; padding: 14px 16px; border: 0; }
+  input { background: #0f172a; color: inherit; outline: 1px solid #ffffff14; }
+  input:focus { outline: 2px solid #fbbf24; }
+  button { margin-top: 12px; font-weight: 600; cursor: pointer; }
+  .main { background: #fbbf24; color: #1c1917; }
+  .alt { background: #1e293b; color: #f1f5f9; }
+  #err { color: #fca5a5; font-size: 15px; min-height: 22px; margin: 12px 4px 0; }
+  #err a { color: #fbbf24; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Patate</h1>
+  <p>Les jeux à plusieurs, sur ton serveur.</p>
+  <form id="f">
+    <label for="addr">Adresse du serveur ou lien d'invitation</label>
+    <input id="addr" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="192.168.1.20:8080">
+    <button class="main" type="submit">Jouer</button>
+  </form>
+  <button class="alt" id="scan" type="button">Scanner un QR code</button>
+  <div id="err" role="alert"></div>
+</main>
+<script>
+  const addr = document.getElementById('addr'), err = document.getElementById('err');
+  try { addr.value = localStorage.server || ''; } catch {}
+
+  // « 192.168.1.20:8080 », « https://patate.exemple.fr » ou un lien d'invitation complet (…/manette.html?pin=1234)
+  function parse(text) {
+    text = text.trim();
+    if (!text) return null;
+    if (!/^https?:\/\//i.test(text)) text = 'http://' + text;
+    try { return new URL(text); } catch { return null; }
+  }
+
+  async function go(text) {
+    const url = parse(text);
+    if (!url) { err.textContent = 'Adresse invalide.'; return; }
+    err.textContent = 'Connexion…';
+    try {
+      // le serveur répond-il ? (sinon la WebView afficherait une page d'erreur brute)
+      await fetch(url.origin + '/style.css', { mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    } catch {
+      err.textContent = '';
+      err.append('Serveur injoignable : ' + url.host + '. Même wifi ? ');
+      const a = document.createElement('a');
+      a.href = url.href; a.textContent = 'Essayer quand même';
+      err.append(a);
+      return;
+    }
+    try { localStorage.server = url.origin; } catch {}
+    location.href = url.href;
+  }
+
+  document.getElementById('f').onsubmit = e => { e.preventDefault(); go(addr.value); };
+
+  // le scan est fait par l'app (Android : window.PatateApp, iOS : messageHandlers.scan), qui rappelle onScan
+  window.onScan = (text, error) => {
+    if (error) { err.textContent = 'Scan impossible : ' + error; return; }
+    if (text) { addr.value = text; go(text); }
+  };
+  document.getElementById('scan').onclick = () => {
+    if (window.PatateApp) PatateApp.scan();
+    else if (window.webkit?.messageHandlers?.scan) webkit.messageHandlers.scan.postMessage('');
+    else err.textContent = 'Le scan marche seulement dans l\'app.';
+  };
+</script>
+</body>
+</html>

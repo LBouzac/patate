@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#020617"/>
+  <!-- la patate-bombe -->
+  <ellipse cx="500" cy="580" rx="300" ry="260" fill="#d97706" transform="rotate(-12 500 580)"/>
+  <ellipse cx="470" cy="540" rx="240" ry="200" fill="#fbbf24" transform="rotate(-12 470 540)"/>
+  <circle cx="400" cy="520" r="22" fill="#b45309"/>
+  <circle cx="560" cy="620" r="18" fill="#b45309"/>
+  <circle cx="470" cy="660" r="14" fill="#b45309"/>
+  <!-- la mèche -->
+  <path d="M640 360 C 690 300, 700 250, 760 220" fill="none" stroke="#e2e8f0" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="770" cy="210" r="46" fill="#f97316"/>
+  <circle cx="770" cy="210" r="22" fill="#fef3c7"/>
+</svg>

@@ -1,3 +1,16 @@
 # binaires compilés
 /patate
 *.bin
+# apps mobiles
+/mobile/android/.gradle
+/mobile/android/build
+/mobile/android/app/build
+/mobile/android/local.properties
+/mobile/android/keystore.properties
+*.jks
+/mobile/ios/.build
+/mobile/ios/xtool
+/mobile/ios/.bsp
+/mobile/ios/Assets.xcassets
+/mobile/ios/Patate.xcodeproj
+*.apk
