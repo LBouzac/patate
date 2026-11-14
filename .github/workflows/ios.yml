@@ -19,7 +19,6 @@ jobs:
           mkdir -p Assets.xcassets/AppIcon.appiconset
           cp Icon.png Assets.xcassets/AppIcon.appiconset/
           echo '{"images":[{"filename":"Icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}' > Assets.xcassets/AppIcon.appiconset/Contents.json
-          plutil -replace CFBundleVersion -string "${{ github.run_number }}" Info.plist
           xcodegen
 
       - name: Archive et envoi sur TestFlight
@@ -33,7 +32,8 @@ jobs:
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/key.p8" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
           # archive non signée : la signature (certificat géré par Apple) se fait à l'export
           xcodebuild archive -project Patate.xcodeproj -scheme Patate -destination generic/platform=iOS \
-            -archivePath "$RUNNER_TEMP/Patate.xcarchive" DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGNING_ALLOWED=NO
+            -archivePath "$RUNNER_TEMP/Patate.xcarchive" DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}.${{ github.run_attempt }}" # unique à chaque envoi, relances comprises
           cat > "$RUNNER_TEMP/export.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
